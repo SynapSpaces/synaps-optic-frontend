@@ -1,0 +1,58 @@
+<div id="jobs-card"
+     hx-get="/partials/jobs"
+     hx-trigger="every 2s"
+     hx-swap="outerHTML">
+{% if not jobs %}
+    <div class="rounded-xl border border-dashed border-slate-800 bg-slate-900/20 p-8 text-center">
+        <p class="text-sm text-slate-500">No jobs yet — upload a video above to start.</p>
+    </div>
+{% else %}
+    <div class="rounded-xl border border-slate-800/80 bg-slate-900/40 backdrop-blur p-6">
+        <div class="mb-4 flex items-baseline justify-between">
+            <h3 class="text-sm font-semibold text-slate-300">Recent jobs</h3>
+            <span class="mono text-[10px] uppercase tracking-wider text-slate-500">{{ jobs|length }} total</span>
+        </div>
+        <ul class="space-y-3">
+            {% for j in jobs %}
+            <li class="flex items-center gap-4 rounded-lg border border-slate-800/60 bg-slate-950/40 p-3.5">
+                <div class="shrink-0">
+                    <div class="h-2.5 w-2.5 rounded-full
+                        {% if j.status == 'done' %}bg-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.6)]
+                        {% elif j.status == 'running' %}bg-amber-400 pulse-dot
+                        {% elif j.status == 'failed' %}bg-rose-500
+                        {% else %}bg-slate-500{% endif %}"></div>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-3 flex-wrap">
+                        <span class="mono text-xs text-slate-300">{{ j.id[:8] }}</span>
+                        <span class="mono text-[10px] uppercase tracking-wider
+                            {% if j.status == 'done' %}text-emerald-400
+                            {% elif j.status == 'failed' %}text-rose-400
+                            {% elif j.status == 'running' %}text-amber-300
+                            {% else %}text-slate-500{% endif %}">{{ j.status }}</span>
+                        <span class="inline-flex items-center gap-1.5">
+                            <span class="inline-block h-4 w-4 rounded-sm border border-slate-700 ring-1 ring-slate-950" style="background:{{ j.target_color }}"></span>
+                            <span class="mono text-[10px] text-slate-500">{{ j.target_color }}</span>
+                        </span>
+                    </div>
+                    {% if j.status in ('running', 'done') %}
+                    <div class="mt-2 h-1 w-full overflow-hidden rounded-full bg-slate-800">
+                        <div class="h-full {% if j.status == 'done' %}bg-emerald-400{% else %}bg-amber-400/80{% endif %} transition-all duration-300" style="width: {{ j.progress }}%"></div>
+                    </div>
+                    <p class="mt-1 mono text-[10px] text-slate-500">{{ j.frames_done }} / {{ j.frames_total or '?' }} frames · {{ j.progress }}%</p>
+                    {% elif j.status == 'failed' %}
+                    <p class="mt-1 text-xs text-rose-400 break-words">{{ j.error or 'failed' }}</p>
+                    {% endif %}
+                </div>
+                {% if j.status == 'done' %}
+                <a href="/api/download/{{ j.id }}"
+                   class="shrink-0 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-300 hover:bg-emerald-500/20 transition">
+                    Download
+                </a>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+{% endif %}
+</div>

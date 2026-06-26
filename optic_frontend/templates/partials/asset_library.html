@@ -1,0 +1,75 @@
+<div class="rounded-xl border border-slate-800/80 bg-slate-900/40 backdrop-blur p-4 h-full">
+    <h2 class="mb-3 mono text-[10px] uppercase tracking-[0.18em] text-slate-500">Asset library</h2>
+
+    <form hx-post="/api/projects/{{ project.id }}/assets"
+          hx-encoding="multipart/form-data"
+          hx-target="#asset-library"
+          hx-swap="outerHTML"
+          hx-indicator="#asset-upload-spinner"
+          class="mb-4">
+        <label class="block">
+            <span class="sr-only">Upload video</span>
+            <input type="file" name="video" accept="video/*" required
+                class="block w-full text-xs text-slate-300
+                       file:mr-2 file:rounded-md file:border-0 file:bg-fuchsia-500/10 file:text-fuchsia-300
+                       file:px-3 file:py-2 file:text-[10px] file:font-medium file:uppercase file:tracking-wider
+                       file:cursor-pointer cursor-pointer hover:file:bg-fuchsia-500/20 transition"
+                onchange="this.form.requestSubmit()">
+        </label>
+        <p id="asset-upload-spinner" class="mt-2 mono text-[10px] text-amber-300 htmx-indicator">Uploading + probing…</p>
+    </form>
+
+    <form hx-post="/api/projects/{{ project.id }}/tts"
+          hx-target="#asset-library"
+          hx-swap="outerHTML"
+          hx-indicator="#tts-spinner"
+          class="mb-4 rounded-md border border-slate-800/70 bg-slate-950/40 p-2.5">
+        <p class="mono text-[9px] uppercase tracking-wider text-slate-500 mb-1">Voiceover · Text-to-Speech (AI)</p>
+        <textarea name="text" rows="2" required placeholder="Type narration to speak…"
+            class="block w-full rounded border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-slate-200"></textarea>
+        <div class="mt-1.5 flex items-center gap-2">
+            <label class="mono text-[9px] uppercase tracking-wider text-slate-500">Speed</label>
+            <input type="range" name="rate" min="-6" max="6" value="0" step="1" class="flex-1 accent-fuchsia-400">
+            <button class="rounded bg-fuchsia-500/90 hover:bg-fuchsia-400 px-2.5 py-1 text-[10px] font-semibold text-fuchsia-950 transition">Generate</button>
+        </div>
+        <p id="tts-spinner" class="mt-1 mono text-[10px] text-amber-300 htmx-indicator">Synthesizing voice…</p>
+    </form>
+
+    {% if not assets %}
+    <p class="text-xs text-slate-500">No assets yet. Upload a video above.</p>
+    {% else %}
+    <ul class="space-y-2 max-h-[480px] overflow-y-auto pr-1">
+        {% for a in assets %}
+        <li class="rounded-md border border-slate-800/60 bg-slate-950/40 p-2 hover:border-slate-700 transition">
+            <div class="flex gap-2">
+                {% if a.thumbnail_path %}
+                <img src="/api/assets/{{ a.id }}/thumbnail" alt="" class="h-12 w-20 rounded-sm object-cover border border-slate-800">
+                {% else %}
+                <div class="h-12 w-20 rounded-sm border border-slate-800 bg-slate-950 flex items-center justify-center">
+                    <span class="mono text-[8px] text-slate-600">no thumb</span>
+                </div>
+                {% endif %}
+                <div class="flex-1 min-w-0">
+                    <p class="text-xs text-slate-200 truncate" title="{{ a.filename }}">{{ a.filename }}</p>
+                    <p class="mono text-[10px] text-slate-500">{{ fmt_dur(a.duration) }} · {{ a.width }}×{{ a.height }}</p>
+                </div>
+            </div>
+            <form hx-post="/api/projects/{{ project.id }}/clips"
+                  hx-target="#timeline-container"
+                  hx-swap="outerHTML"
+                  class="mt-2 flex items-center gap-1.5">
+                <input type="hidden" name="asset_id" value="{{ a.id }}">
+                <select name="track_index" class="rounded border border-slate-700 bg-slate-950 px-1.5 py-1 text-[10px] text-slate-300">
+                    {% for t in range(3) %}
+                    <option value="{{ t }}">T{{ t }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="flex-1 rounded border border-emerald-700/50 bg-emerald-500/10 px-2 py-1 text-[10px] text-emerald-300 hover:bg-emerald-500/20 transition">
+                    Add to timeline
+                </button>
+            </form>
+        </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+</div>

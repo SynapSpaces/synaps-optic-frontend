@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block nav_container %}max-w-[1600px]{% endblock %}
+{% block container_class %}max-w-[1600px] mx-auto px-6 py-6{% endblock %}
+{% block content %}
+
+<header class="mb-6 flex items-center justify-between gap-6 flex-wrap">
+    <div>
+        <p class="mono text-[10px] uppercase tracking-[0.25em] text-fuchsia-400/80">project</p>
+        <h1 class="mt-1 text-2xl font-semibold text-white">{{ project.name }}</h1>
+        <p class="mt-1 mono text-[11px] text-slate-500">
+            {{ project.width }}×{{ project.height }} @ {{ project.fps }}fps ·
+            {{ clips|length }} clip{{ "s" if clips|length != 1 else "" }} ·
+            {{ assets|length }} asset{{ "s" if assets|length != 1 else "" }} ·
+            timeline {{ fmt_dur(timeline_duration) }}
+        </p>
+    </div>
+    <div class="flex items-center gap-2">
+        <a href="/projects" class="rounded-md border border-slate-800 px-3 py-2 text-xs text-slate-400 hover:text-white hover:bg-slate-900 transition">← All projects</a>
+        <form hx-post="/api/projects/{{ project.id }}/resize" hx-target="body" hx-swap="outerHTML"
+              class="flex items-center gap-1">
+            <select name="preset" onchange="this.form.requestSubmit()"
+                    class="rounded-md border border-slate-700 bg-slate-950/60 px-2 py-2 text-xs text-slate-300">
+                <option value="" disabled selected>Resize…</option>
+                {% set cur = project.width ~ 'x' ~ project.height %}
+                <option value="16:9">16:9 · Landscape (1920×1080)</option>
+                <option value="9:16">9:16 · Vertical (1080×1920)</option>
+                <option value="1:1">1:1 · Square (1080×1080)</option>
+                <option value="4:5">4:5 · Portrait (1080×1350)</option>
+                <option value="21:9">21:9 · Cinematic (2560×1080)</option>
+                <option value="4:3">4:3 · Classic (1440×1080)</option>
+            </select>
+        </form>
+        <form hx-post="/api/projects/{{ project.id }}/overlay" hx-target="#overlay-status"
+              hx-swap="innerHTML" hx-encoding="multipart/form-data" class="flex items-center gap-1">
+            <label class="rounded-md border border-slate-700 px-3 py-2 text-xs text-slate-400 hover:text-white hover:bg-slate-900 cursor-pointer transition">
+                Logo / PiP…
+                <input type="file" name="image" accept="image/*" class="hidden" onchange="this.form.requestSubmit()">
+            </label>
+        </form>
+        <span id="overlay-status" class="text-[11px] text-slate-500">
+            {% if project.overlay_path %}<span class="text-emerald-400">Logo set ✓</span>{% endif %}
+        </span>
+        <form hx-post="/api/projects/{{ project.id }}/render" hx-target="#renders-card" hx-swap="outerHTML">
+            <button class="rounded-md bg-emerald-500 hover:bg-emerald-400 px-4 py-2 text-sm font-semibold text-emerald-950 transition disabled:opacity-40" {% if not clips %}disabled{% endif %}>
+                Render project
+            </button>
+        </form>
+    </div>
+</header>
+
+<div class="grid grid-cols-12 gap-4">
+    <aside class="col-span-12 lg:col-span-3" id="asset-library">
+        {% include "partials/asset_library.html" %}
+    </aside>
+
+    <section class="col-span-12 lg:col-span-6 rounded-xl border border-slate-800/80 bg-slate-900/40 backdrop-blur p-4">
+        <h2 class="mb-3 mono text-[10px] uppercase tracking-[0.18em] text-slate-500">Preview</h2>
+        {% if selected_clip and selected_asset %}
+            <video controls preload="metadata" class="w-full aspect-video rounded-md bg-black"
+                   src="/api/assets/{{ selected_asset.id }}/preview#t={{ selected_clip.source_start }},{{ selected_clip.source_end }}">
+            </video>
+            <div class="mt-3 mono text-[11px] text-slate-400 space-y-1">
+                <p><span class="text-slate-500">Asset:</span> {{ selected_asset.filename }} · {{ fmt_dur(selected_asset.duration) }} · {{ selected_asset.width }}×{{ selected_asset.height }}</p>
+                <p><span class="text-slate-500">Range:</span> {{ fmt_dur(selected_clip.source_start) }} → {{ fmt_dur(selected_clip.source_end) }} ({{ fmt_dur(selected_clip.source_end - selected_clip.source_start) }}) · Track {{ selected_clip.track_index }} · at t={{ fmt_dur(selected_clip.timeline_start) }}</p>
+                <p class="text-slate-600">Preview plays the source asset. Trim and effects are applied at render time.</p>
+            </div>
+        {% else %}
+            <div class="aspect-video flex items-center justify-center rounded-md bg-slate-950/60 border border-dashed border-slate-800">
+                <p class="text-sm text-slate-500">Select a clip on the timeline to preview</p>
+            </div>
+        {% endif %}
+    </section>
+
+    <aside class="col-span-12 lg:col-span-3" id="effects-panel">
+        {% include "partials/effects_panel.html" %}
+    </aside>
+</div>
+
+<div class="mt-4" id="timeline-container">
+    {% include "partials/timeline.html" %}
+</div>
+
+{% if selected_clip %}
+<div class="mt-4">
+    {% include "partials/interactive_recolor.html" %}
+</div>
+
+<div class="mt-4">
+    {% include "partials/ai_tools.html" %}
+</div>
+
+<section class="mt-4 rounded-xl border border-slate-800/80 bg-slate-900/40 backdrop-blur p-4">
+    <h2 class="mb-3 mono text-[10px] uppercase tracking-[0.18em] text-slate-500">Edit selected clip</h2>
+    <form hx-patch="/api/clips/{{ selected_clip.id }}" hx-target="body" hx-swap="outerHTML" class="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <label class="block">
+            <span class="mono text-[10px] uppercase tracking-wider text-slate-500">Track</span>
+            <input type="number" name="track_index" min="0" max="9" value="{{ selected_clip.track_index }}" class="mt-1 w-full rounded-md border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-sm">
+        </label>
+        <label class="block">
+            <span class="mono text-[10px] uppercase tracking-wider text-slate-500">Timeline start (s)</span>
+            <input type="number" name="timeline_start" min="0" step="0.1" value="{{ selected_clip.timeline_start }}" class="mt-1 w-full rounded-md border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-sm">
+        </label>
+        <label class="block">
+            <span class="mono text-[10px] uppercase tracking-wider text-slate-500">Source start (s)</span>
+            <input type="number" name="source_start" min="0" step="0.1" value="{{ selected_clip.source_start }}" class="mt-1 w-full rounded-md border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-sm">
+        </label>
+        <label class="block">
+            <span class="mono text-[10px] uppercase tracking-wider text-slate-500">Source end (s)</span>
+            <input type="number" name="source_end" min="0" step="0.1" value="{{ selected_clip.source_end }}" class="mt-1 w-full rounded-md border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-sm">
+        </label>
+        <div class="flex items-end">
+            <button class="w-full rounded-md bg-emerald-500/90 hover:bg-emerald-500 px-3 py-1.5 text-sm font-semibold text-emerald-950 transition">Apply</button>
+        </div>
+    </form>
+    <div class="mt-3 flex items-center gap-3 flex-wrap">
+        <form hx-post="/api/clips/{{ selected_clip.id }}/split" hx-target="body" hx-swap="outerHTML" class="flex items-center gap-2">
+            <span class="mono text-[10px] uppercase tracking-wider text-slate-500">Split at offset (s)</span>
+            <input type="number" name="at_seconds" min="0.1" step="0.1" value="{{ ((selected_clip.source_end - selected_clip.source_start) / 2)|round(1) }}" class="w-20 rounded-md border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-sm">
+            <button class="rounded-md border border-slate-700 px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-800 transition">Split</button>
+        </form>
+        <form hx-post="/api/clips/{{ selected_clip.id }}/delete" hx-target="body" hx-swap="outerHTML" hx-confirm="Delete this clip?">
+            <button class="rounded-md border border-rose-700/50 bg-rose-500/10 px-3 py-1.5 text-xs text-rose-300 hover:bg-rose-500/20 transition">Delete clip</button>
+        </form>
+    </div>
+</section>
+{% endif %}
+
+<div class="mt-4" id="renders-container">
+    {% include "partials/renders.html" %}
+</div>
+
+{% endblock %}

@@ -1,0 +1,52 @@
+{% set track_colors = ['bg-emerald-500/70', 'bg-sky-500/70', 'bg-amber-500/70', 'bg-fuchsia-500/70', 'bg-rose-500/70'] %}
+<div id="timeline-container" class="rounded-xl border border-slate-800/80 bg-slate-900/40 backdrop-blur p-4">
+    <div class="mb-3 flex items-center justify-between">
+        <h2 class="mono text-[10px] uppercase tracking-[0.18em] text-slate-500">Timeline</h2>
+        <span class="mono text-[10px] text-slate-600">{{ fmt_dur(timeline_duration) }} total</span>
+    </div>
+
+    <!-- Time ruler -->
+    <div class="relative ml-12 h-5 border-b border-slate-800">
+        {% set step = 5 if timeline_duration < 60 else (10 if timeline_duration < 180 else 30) %}
+        {% set n_ticks = (timeline_duration / step)|int + 1 %}
+        {% for i in range(n_ticks) %}
+        {% set t = i * step %}
+        {% if t <= timeline_duration %}
+        <span class="absolute top-0 mono text-[9px] text-slate-500" style="left: {{ (t / timeline_duration * 100) }}%">
+            <span class="block border-l border-slate-700 h-2 -ml-px"></span>
+            {{ fmt_dur(t) }}
+        </span>
+        {% endif %}
+        {% endfor %}
+    </div>
+
+    <!-- Tracks -->
+    <div class="mt-1 space-y-1.5">
+        {% for track in tracks %}
+        <div class="flex items-stretch gap-2">
+            <div class="w-10 shrink-0 flex items-center justify-center rounded-md border border-slate-800/60 bg-slate-950/60 mono text-[10px] text-slate-500">T{{ track }}</div>
+            <div class="relative flex-1 h-12 rounded-md border border-slate-800/60 bg-slate-950/40 timeline-track overflow-hidden">
+                {% for c in clips %}
+                {% if c.track_index == track %}
+                {% set dur = c.source_end - c.source_start %}
+                {% set left_pct = (c.timeline_start / timeline_duration) * 100 %}
+                {% set width_pct = (dur / timeline_duration) * 100 %}
+                <a href="/projects/{{ project.id }}?clip={{ c.id }}"
+                   class="clip-bar absolute top-1 bottom-1 flex items-center px-2 rounded-md
+                          {{ track_colors[track % 5] }} text-slate-950
+                          {% if selected_clip and selected_clip.id == c.id %}selected{% endif %}"
+                   style="left: {{ left_pct }}%; width: max({{ width_pct }}%, 24px);"
+                   title="t={{ fmt_dur(c.timeline_start) }} · {{ fmt_dur(dur) }}">
+                    <span class="mono text-[10px] font-semibold truncate">{{ fmt_dur(dur) }}</span>
+                </a>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if not clips %}
+    <p class="mt-4 text-center text-xs text-slate-500">Add a clip from the asset library to start building your timeline.</p>
+    {% endif %}
+</div>

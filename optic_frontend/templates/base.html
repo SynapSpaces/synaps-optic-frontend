@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>hair-recolor editor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+        .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50%      { opacity: 0.55; transform: scale(0.8); }
+        }
+        .pulse-dot { animation: pulse-dot 2s ease-in-out infinite; }
+        .htmx-indicator { opacity: 0; transition: opacity 200ms ease-in; }
+        .htmx-request .htmx-indicator, .htmx-request.htmx-indicator { opacity: 1; }
+        .clip-bar { transition: filter 120ms, transform 120ms; cursor: pointer; }
+        .clip-bar:hover { filter: brightness(1.06); }
+        .clip-bar.selected { outline: 2px solid rgb(16 185 129); outline-offset: 2px; z-index: 5; }
+        .timeline-track { background-image: repeating-linear-gradient(90deg, transparent 0, transparent 49px, rgba(15,23,42,0.06) 49px, rgba(15,23,42,0.06) 50px); }
+    </style>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-900">
+    <header class="sticky top-0 z-30 bg-white/85 backdrop-blur border-b border-slate-200">
+        <nav class="mx-auto {% block nav_container %}max-w-5xl{% endblock %} px-6 py-3 flex items-center justify-between">
+            <a href="/projects" class="mono text-xs uppercase tracking-[0.2em] text-slate-700 hover:text-slate-900 transition">hair-recolor editor</a>
+            <ul class="flex items-center gap-1 text-sm">
+                <li><a href="/projects" class="px-3 py-1.5 rounded-md {% if request.url.path.startswith('/projects') %}text-slate-900 bg-slate-100{% else %}text-slate-500 hover:text-slate-900 hover:bg-slate-100{% endif %} transition">Projects</a></li>
+            </ul>
+        </nav>
+    </header>
+    <main class="{% block container_class %}mx-auto max-w-5xl px-6 py-12{% endblock %}">
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

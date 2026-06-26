@@ -1,0 +1,235 @@
+<div id="recolor-panel" class="rounded-xl border border-fuchsia-500/30 bg-gradient-to-br from-slate-900/60 via-fuchsia-950/15 to-slate-900/60 backdrop-blur p-5">
+    {% if not selected_clip or not selected_asset %}
+    <p class="text-xs text-slate-500">Select a clip to use interactive hair recolor.</p>
+    {% else %}
+
+    <header class="mb-4 flex items-baseline justify-between">
+        <div>
+            <p class="mono text-[10px] uppercase tracking-[0.25em] text-fuchsia-400/80">AI</p>
+            <h2 class="mt-1 text-lg font-semibold text-white">Interactive Hair Recolor</h2>
+        </div>
+        <p class="mono text-[10px] text-slate-500">MediaPipe selfie-multiclass</p>
+    </header>
+
+    {% if not selected_asset_analyzed and (not selected_analysis or selected_analysis.status in ('failed', None)) %}
+    <!-- NOT ANALYZED -->
+    <div class="rounded-lg border border-slate-800/60 bg-slate-950/40 p-4 text-center">
+        <p class="text-sm text-slate-300">This asset hasn't been analyzed yet.</p>
+        <p class="mt-1 mono text-[11px] text-slate-500">Analysis runs the hair segmentation model on every frame.<br>
+            About 1 second per 5 frames on CPU. After it finishes, clicking is instant.</p>
+        {% if selected_analysis and selected_analysis.status == 'failed' %}
+        <p class="mt-2 text-xs text-rose-400">Previous attempt failed: {{ selected_analysis.error }}</p>
+        {% endif %}
+        <form hx-post="/api/assets/{{ selected_asset.id }}/analyze"
+              hx-target="#recolor-panel"
+              hx-swap="outerHTML"
+              class="mt-3">
+            <button class="rounded-md bg-fuchsia-500 hover:bg-fuchsia-400 px-4 py-2 text-sm font-semibold text-fuchsia-950 transition">
+                Analyze asset
+            </button>
+        </form>
+    </div>
+
+    {% elif selected_analysis and selected_analysis.status in ('queued', 'running') %}
+    <!-- ANALYZING -->
+    <div id="analyzing-block"
+         hx-get="/api/assets/{{ selected_asset.id }}/analysis_status?clip_id={{ selected_clip.id }}"
+         hx-trigger="every 1s"
+         hx-swap="outerHTML"
+         hx-target="#recolor-panel"
+         class="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
+        <p class="text-sm text-amber-200">
+            <span class="mono text-[10px] uppercase tracking-wider text-amber-400 mr-1">{{ selected_analysis.status }}</span>
+            Analyzing frames…
+        </p>
+        <div class="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-800">
+            <div class="h-full bg-amber-400/80 transition-all duration-300" style="width: {{ selected_analysis.progress }}%"></div>
+        </div>
+        <p class="mt-1 mono text-[10px] text-amber-300/80">{{ selected_analysis.frames_done }} / {{ selected_analysis.frames_total or '?' }} frames · {{ selected_analysis.progress }}%</p>
+    </div>
+
+    {% elif selected_asset_analyzed %}
+    <!-- ANALYZED — interactive preview -->
+    {% set clip_dur = selected_clip.source_end - selected_clip.source_start %}
+    <div class="space-y-3">
+        <div class="relative rounded-lg overflow-hidden border border-slate-800 bg-black">
+            <canvas id="recolor-canvas" class="block w-full cursor-crosshair"></canvas>
+            <div id="recolor-loading" class="absolute inset-0 flex items-center justify-center bg-slate-950/60 mono text-xs text-slate-300">loading…</div>
+        </div>
+
+        <div class="flex items-center gap-3 flex-wrap">
+            <label class="block flex-1 min-w-[220px]">
+                <div class="flex items-center justify-between">
+                    <span class="mono text-[10px] uppercase tracking-wider text-slate-500">Frame</span>
+                    <span id="recolor-frame-label" class="mono text-[10px] text-slate-400">0.00 / {{ "%.2f"|format(clip_dur) }} s</span>
+                </div>
+                <input id="recolor-frame-slider" type="range" min="0" max="{{ clip_dur }}" step="0.05" value="0" class="mt-1 block w-full accent-fuchsia-400">
+            </label>
+            <label class="block">
+                <span class="mono text-[10px] uppercase tracking-wider text-slate-500">Color</span>
+                <input id="recolor-color" type="color" value="#9333ea" class="mt-1 block h-9 w-20 rounded border border-slate-700 bg-slate-950 cursor-pointer">
+            </label>
+            <label class="block flex-1 min-w-[140px]">
+                <div class="flex items-center justify-between">
+                    <span class="mono text-[10px] uppercase tracking-wider text-slate-500">Strength</span>
+                    <span id="recolor-strength-label" class="mono text-[10px] text-slate-400">60%</span>
+                </div>
+                <input id="recolor-strength" type="range" min="0" max="100" step="1" value="60" class="mt-1 block w-full accent-fuchsia-400">
+            </label>
+        </div>
+
+        <div id="recolor-status" class="mono text-[11px] text-slate-500 min-h-[1.2em]">
+            Click on the hair in the preview to confirm the segmentation.
+        </div>
+
+        <form hx-post="/api/clips/{{ selected_clip.id }}/effects"
+              hx-target="#effects-panel"
+              hx-swap="outerHTML"
+              class="pt-2 border-t border-slate-800/60">
+            <input type="hidden" name="effect_type" value="hair_recolor_interactive">
+            <button class="w-full rounded-md bg-emerald-500 hover:bg-emerald-400 px-4 py-2 text-sm font-semibold text-emerald-950 transition">
+                Apply hair recolor effect to clip
+            </button>
+            <p class="mt-1 mono text-[10px] text-slate-500 text-center">Tweak color/strength in the Effects panel after applying.</p>
+        </form>
+    </div>
+
+    <script>
+    (function() {
+        const ASSET_ID = "{{ selected_asset.id }}";
+        const SOURCE_START = {{ selected_clip.source_start }};
+        const FPS = {{ selected_asset.fps }};
+
+        const canvas = document.getElementById("recolor-canvas");
+        const ctx = canvas.getContext("2d");
+        const loading = document.getElementById("recolor-loading");
+        const slider = document.getElementById("recolor-frame-slider");
+        const frameLabel = document.getElementById("recolor-frame-label");
+        const colorInput = document.getElementById("recolor-color");
+        const strengthInput = document.getElementById("recolor-strength");
+        const strengthLabel = document.getElementById("recolor-strength-label");
+        const statusEl = document.getElementById("recolor-status");
+
+        let frameImageData = null;
+        let maskImageData = null;
+        let currentT = 0;
+        let loadToken = 0;
+        let redrawScheduled = false;
+
+        function hexToRgb(hex) {
+            const h = hex.replace("#", "");
+            return {
+                r: parseInt(h.slice(0, 2), 16),
+                g: parseInt(h.slice(2, 4), 16),
+                b: parseInt(h.slice(4, 6), 16),
+            };
+        }
+
+        function loadImage(url) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = reject;
+                img.src = url;
+            });
+        }
+
+        async function loadAt(tSeconds) {
+            const myToken = ++loadToken;
+            loading.style.display = "flex";
+            const t = SOURCE_START + tSeconds;
+            try {
+                const [frameImg, maskImg] = await Promise.all([
+                    loadImage(`/api/assets/${ASSET_ID}/frame?t=${t.toFixed(3)}`),
+                    loadImage(`/api/assets/${ASSET_ID}/mask?t=${t.toFixed(3)}`),
+                ]);
+                if (myToken !== loadToken) return;  // stale
+                canvas.width = frameImg.width;
+                canvas.height = frameImg.height;
+                ctx.drawImage(frameImg, 0, 0);
+                frameImageData = ctx.getImageData(0, 0, frameImg.width, frameImg.height);
+                ctx.drawImage(maskImg, 0, 0, frameImg.width, frameImg.height);
+                maskImageData = ctx.getImageData(0, 0, frameImg.width, frameImg.height);
+                redraw();
+            } catch (e) {
+                statusEl.textContent = "failed to load frame/mask: " + e;
+                statusEl.classList.add("text-rose-400");
+            } finally {
+                if (myToken === loadToken) loading.style.display = "none";
+            }
+        }
+
+        function redraw() {
+            if (!frameImageData || !maskImageData) return;
+            const tint = hexToRgb(colorInput.value);
+            const strength = (+strengthInput.value) / 100;
+            const fdata = frameImageData.data;
+            const mdata = maskImageData.data;
+            const out = ctx.createImageData(canvas.width, canvas.height);
+            const odata = out.data;
+            for (let i = 0; i < fdata.length; i += 4) {
+                const m = (mdata[i] / 255) * strength;
+                odata[i]     = fdata[i]     * (1 - m) + tint.r * m;
+                odata[i + 1] = fdata[i + 1] * (1 - m) + tint.g * m;
+                odata[i + 2] = fdata[i + 2] * (1 - m) + tint.b * m;
+                odata[i + 3] = 255;
+            }
+            ctx.putImageData(out, 0, 0);
+        }
+
+        function scheduleRedraw() {
+            if (redrawScheduled) return;
+            redrawScheduled = true;
+            requestAnimationFrame(() => { redrawScheduled = false; redraw(); });
+        }
+
+        slider.addEventListener("input", (e) => {
+            currentT = +e.target.value;
+            frameLabel.textContent = currentT.toFixed(2) + " / {{ "%.2f"|format(clip_dur) }} s";
+            loadAt(currentT);
+        });
+
+        colorInput.addEventListener("input", scheduleRedraw);
+        strengthInput.addEventListener("input", (e) => {
+            strengthLabel.textContent = e.target.value + "%";
+            scheduleRedraw();
+        });
+
+        canvas.addEventListener("click", (e) => {
+            if (!maskImageData) return;
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const x = Math.floor((e.clientX - rect.left) * scaleX);
+            const y = Math.floor((e.clientY - rect.top) * scaleY);
+            const idx = (y * canvas.width + x) * 4;
+            const m = maskImageData.data[idx];
+            const isHair = m > 128;
+            statusEl.classList.remove("text-rose-400", "text-emerald-400");
+            statusEl.classList.add(isHair ? "text-emerald-400" : "text-rose-400");
+            statusEl.textContent = isHair
+                ? `Hair detected at (${x}, ${y}) — mask=${m}/255. Recolor preview active.`
+                : `Not hair at (${x}, ${y}) — mask=${m}/255. Try clicking on hair.`;
+            // Visual ping
+            const ping = document.createElement("div");
+            ping.style.cssText = `position:fixed; left:${e.clientX - 6}px; top:${e.clientY - 6}px; width:12px; height:12px; border-radius:50%; background:${isHair ? "#10b981" : "#ef4444"}; pointer-events:none; box-shadow:0 0 0 0 ${isHair ? "rgba(16,185,129,0.6)" : "rgba(239,68,68,0.6)"}; animation:ping-out 600ms ease-out forwards; z-index:1000;`;
+            document.body.appendChild(ping);
+            setTimeout(() => ping.remove(), 600);
+        });
+
+        // Animation keyframes (inject once)
+        if (!document.getElementById("ping-style")) {
+            const style = document.createElement("style");
+            style.id = "ping-style";
+            style.textContent = `@keyframes ping-out { from { box-shadow: 0 0 0 0 rgba(16,185,129,0.6); opacity:1; } to { box-shadow: 0 0 0 28px rgba(16,185,129,0); opacity:0; } }`;
+            document.head.appendChild(style);
+        }
+
+        // Initial load
+        loadAt(0);
+    })();
+    </script>
+
+    {% endif %}
+    {% endif %}
+</div>

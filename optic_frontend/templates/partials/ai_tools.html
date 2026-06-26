@@ -1,0 +1,91 @@
+<div id="ai-tools-card"
+     class="rounded-xl border border-slate-800/80 bg-slate-900/40 backdrop-blur p-4"
+     {% if transcript and transcript.status in ('queued', 'running') %}
+     hx-get="/partials/clips/{{ selected_clip.id }}/ai_tools"
+     hx-trigger="every 2s" hx-swap="outerHTML"
+     {% endif %}>
+    <h2 class="mb-3 mono text-[10px] uppercase tracking-[0.18em] text-slate-500">AI tools · selected clip</h2>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Auto captions -->
+        <div class="rounded-lg border border-slate-800/70 bg-slate-950/40 p-3">
+            <div class="flex items-center justify-between">
+                <h3 class="text-sm font-semibold text-slate-200">Auto captions</h3>
+                {% if transcript %}
+                <span class="mono text-[10px] uppercase tracking-wider
+                    {% if transcript.status == 'done' %}text-emerald-400
+                    {% elif transcript.status == 'failed' %}text-rose-400
+                    {% elif transcript.status == 'running' %}text-amber-300
+                    {% else %}text-slate-500{% endif %}">{{ transcript.status }}</span>
+                {% endif %}
+            </div>
+            <p class="mt-1 text-[11px] text-slate-500">Whisper speech-to-text → SRT. Add the
+                <span class="text-slate-300">“Auto Captions / Subtitles”</span> effect to burn them in.</p>
+
+            {% if transcript and transcript.status == 'running' %}
+            <div class="mt-2 h-1 w-full overflow-hidden rounded-full bg-slate-800">
+                <div class="h-full bg-amber-400/80 transition-all" style="width: {{ transcript.progress }}%"></div>
+            </div>
+            <p class="mt-1 mono text-[10px] text-slate-500">{{ transcript.progress }}%</p>
+            {% elif transcript and transcript.status == 'failed' %}
+            <p class="mt-2 text-xs text-rose-400 break-words">{{ transcript.error or 'failed' }}</p>
+            {% endif %}
+
+            <div class="mt-3 flex items-center gap-2 flex-wrap">
+                <form hx-post="/api/clips/{{ selected_clip.id }}/transcribe" hx-target="#ai-tools-card" hx-swap="outerHTML">
+                    <button class="rounded-md bg-fuchsia-500/90 hover:bg-fuchsia-500 px-3 py-1.5 text-xs font-semibold text-white transition"
+                        {% if transcript and transcript.status in ('queued','running') %}disabled{% endif %}>
+                        {% if has_srt %}Re-generate{% else %}Generate captions{% endif %}
+                    </button>
+                </form>
+                {% if has_srt %}
+                <a href="/api/assets/{{ selected_asset.id }}/subtitles.srt"
+                   class="rounded-md border border-slate-700 px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-800 transition">
+                   Download SRT{% if transcript and transcript.segments %} ({{ transcript.segments }}){% endif %}
+                </a>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Auto-cut -->
+        <div class="rounded-lg border border-slate-800/70 bg-slate-950/40 p-3">
+            <h3 class="text-sm font-semibold text-slate-200">Auto-cut into scenes</h3>
+            <p class="mt-1 text-[11px] text-slate-500">Detects shot changes inside this clip's range and
+                replaces it with one clip per scene on the same track.</p>
+            <form class="mt-3 flex items-center gap-2"
+                  hx-post="/api/clips/{{ selected_clip.id }}/autocut"
+                  hx-target="#timeline-container" hx-swap="innerHTML">
+                <label class="mono text-[10px] uppercase tracking-wider text-slate-500">Sensitivity</label>
+                <input type="number" name="threshold" min="5" max="60" step="1" value="27"
+                       class="w-16 rounded-md border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-sm">
+                <button class="rounded-md bg-sky-500/90 hover:bg-sky-500 px-3 py-1.5 text-xs font-semibold text-white transition">
+                    Auto-cut (scenes)
+                </button>
+            </form>
+            <form class="mt-2"
+                  hx-post="/api/clips/{{ selected_clip.id }}/smartcut"
+                  hx-target="#timeline-container" hx-swap="innerHTML">
+                <button class="rounded-md bg-indigo-500/90 hover:bg-indigo-500 px-3 py-1.5 text-xs font-semibold text-white transition disabled:opacity-40"
+                        {% if not has_srt %}disabled title="Generate captions first"{% endif %}>
+                    Smart-cut by transcript
+                </button>
+                <span class="ml-2 text-[10px] text-slate-600">{% if not has_srt %}needs captions{% else %}one clip per sentence{% endif %}</span>
+            </form>
+            <form class="mt-2 flex items-center gap-2"
+                  hx-post="/api/clips/{{ selected_clip.id }}/desilence"
+                  hx-target="#timeline-container" hx-swap="innerHTML">
+                <label class="mono text-[10px] uppercase tracking-wider text-slate-500">Silence dB</label>
+                <input type="number" name="noise_db" min="-60" max="-10" step="1" value="-30"
+                       class="w-16 rounded-md border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-sm">
+                <button class="rounded-md bg-teal-500/90 hover:bg-teal-500 px-3 py-1.5 text-xs font-semibold text-white transition">
+                    Remove silences
+                </button>
+            </form>
+            <p class="mt-2 text-[11px] text-slate-600">
+                Background blur/replace and auto-reframe are added from the
+                <span class="text-slate-400">Effects</span> panel after you
+                {% if selected_asset_analyzed %}<span class="text-emerald-400">✓ analyzed</span> this asset{% else %}analyze this asset (see the recolor panel){% endif %}.
+            </p>
+        </div>
+    </div>
+</div>

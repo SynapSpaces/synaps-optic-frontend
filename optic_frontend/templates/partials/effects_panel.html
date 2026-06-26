@@ -1,0 +1,76 @@
+<div id="effects-panel" class="rounded-xl border border-slate-800/80 bg-slate-900/40 backdrop-blur p-4 h-full">
+    <h2 class="mb-3 mono text-[10px] uppercase tracking-[0.18em] text-slate-500">Effects</h2>
+
+    {% if not selected_clip %}
+    <p class="text-xs text-slate-500">Select a clip on the timeline to add or edit effects.</p>
+    {% else %}
+
+    {% if not selected_effects %}
+    <p class="text-xs text-slate-500 mb-3">No effects on this clip yet.</p>
+    {% endif %}
+
+    <div class="space-y-3">
+        {% for eff in selected_effects %}
+        {% set spec = effect_types[eff.effect_type] %}
+        {% set params = eff.params_json|fromjson if eff.params_json is string else eff.params_json %}
+        <div class="rounded-md border border-slate-800/60 bg-slate-950/40 p-3">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-semibold text-slate-200">{{ spec.label }}</span>
+                <form hx-post="/api/effects/{{ eff.id }}/delete"
+                      hx-target="#effects-panel"
+                      hx-swap="outerHTML">
+                    <button class="rounded border border-rose-700/40 bg-rose-500/10 px-1.5 py-0.5 text-[10px] text-rose-300 hover:bg-rose-500/20 transition">×</button>
+                </form>
+            </div>
+            <form hx-post="/api/effects/{{ eff.id }}/update"
+                  hx-target="#effects-panel"
+                  hx-swap="outerHTML"
+                  hx-trigger="change delay:300ms"
+                  class="space-y-2">
+                {% for p in spec.params %}
+                <label class="block">
+                    <div class="flex items-center justify-between mb-0.5">
+                        <span class="mono text-[9px] uppercase tracking-wider text-slate-500">{{ p.label }}</span>
+                        {% if p.type != 'text' %}<span class="mono text-[10px] text-slate-300">{{ params[p.name] }}</span>{% endif %}
+                    </div>
+                    {% if p.type == 'color' %}
+                    <input type="color" name="{{ p.name }}" value="{{ params[p.name] }}"
+                           class="block w-full h-8 rounded border border-slate-700 bg-slate-950 cursor-pointer">
+                    {% elif p.type == 'range' %}
+                    <input type="range" name="{{ p.name }}"
+                           min="{{ p.min }}" max="{{ p.max }}" step="{{ p.step|default(1) }}"
+                           value="{{ params[p.name] }}"
+                           class="block w-full accent-fuchsia-400">
+                    {% elif p.type == 'text' %}
+                    <input type="text" name="{{ p.name }}" value="{{ params[p.name] }}" maxlength="120"
+                           class="block w-full rounded border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-slate-200">
+                    {% elif p.type == 'select' %}
+                    <select name="{{ p.name }}"
+                            class="block w-full rounded border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-slate-200">
+                        {% for opt in p.options %}
+                        <option value="{{ opt }}" {% if params[p.name] == opt %}selected{% endif %}>{{ opt }}</option>
+                        {% endfor %}
+                    </select>
+                    {% endif %}
+                </label>
+                {% endfor %}
+            </form>
+        </div>
+        {% endfor %}
+    </div>
+
+    <form hx-post="/api/clips/{{ selected_clip.id }}/effects"
+          hx-target="#effects-panel"
+          hx-swap="outerHTML"
+          class="mt-4 flex items-center gap-2">
+        <select name="effect_type" class="flex-1 rounded-md border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-xs text-slate-200">
+            {% for type, spec in effect_types.items() %}
+            <option value="{{ type }}">{{ spec.label }}{% if not spec.native %} (re-renders){% endif %}</option>
+            {% endfor %}
+        </select>
+        <button class="rounded-md bg-fuchsia-500/90 hover:bg-fuchsia-400 px-3 py-1.5 text-xs font-semibold text-fuchsia-950 transition">
+            Add
+        </button>
+    </form>
+    {% endif %}
+</div>
