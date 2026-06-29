@@ -141,20 +141,9 @@
           </form>
         </div>
 
-        <!-- TEXT (captions / titles) -->
+        <!-- TEXT (titles) -->
         <div data-panel="text" class="p-4" hidden>
-          {% if has_clip %}
-          <p class="text-xs text-slate-400 mb-3">Burn-in captions are added as an effect on the selected clip. Generate the transcript in <button onclick="VE.show('subtitles')" class="text-blue-400 hover:underline">Subtitles</button> first, then add captions here.</p>
-          <form hx-post="/api/clips/{{ selected_clip.id }}/effects" hx-target="#effects-panel" hx-swap="outerHTML"
-                hx-on::after-request="VE.show('videos')">
-            <input type="hidden" name="effect_type" value="captions">
-            <button class="w-full rounded-lg bg-[var(--accent)] hover:bg-blue-500 px-4 py-2.5 text-sm font-semibold text-white transition flex items-center justify-center gap-2">
-              {{ icon('captions','w-4 h-4') }} Add captions to clip
-            </button>
-          </form>
-          {% else %}
-          <p class="text-xs text-slate-500">Select a clip on the timeline to add text / captions.</p>
-          {% endif %}
+          {% include "partials/text_panel.html" %}
         </div>
 
         <!-- VIDEOS (clip inspector: Edit / Effects / Transitions) -->
@@ -259,6 +248,14 @@
         <!-- SUBTITLES (AI captions + smart edits) -->
         <div data-panel="subtitles" class="p-3 space-y-3" hidden>
           {% if has_clip %}
+          <form hx-post="/api/clips/{{ selected_clip.id }}/effects" hx-target="#effects-panel" hx-swap="outerHTML"
+                hx-on::after-request="VE.show('videos')">
+            <input type="hidden" name="effect_type" value="subtitles">
+            <button class="w-full flex items-center justify-center gap-2 rounded-lg bg-[var(--accent)] hover:bg-blue-500 px-4 py-2.5 text-sm font-semibold text-white transition">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" class="w-4 h-4"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 13a2 2 0 0 0 3 1.7M14 13a2 2 0 0 0 3 1.7"/></svg>
+              Burn captions into video
+            </button>
+          </form>
           {% include "partials/ai_tools.html" %}
           {% include "partials/interactive_recolor.html" %}
           {% else %}
@@ -396,9 +393,8 @@ window.VE = (function () {
 
   function init() {
     let start = "{{ 'videos' if has_clip else 'media' }}";
-    {% if not has_clip %}
+    // Persist the active tool across full re-renders (e.g. body swaps from Text edits).
     try { const saved = sessionStorage.getItem(KEY); if (saved && titles[saved]) start = saved; } catch (e) {}
-    {% endif %}
     show(start);
     wireVideo();
     wireTools();
