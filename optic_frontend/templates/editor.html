@@ -7,10 +7,12 @@
 {%- if name == 'plus' -%}<path d="M12 5v14M5 12h14"/>
 {%- elif name == 'upload' -%}<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/>
 {%- elif name == 'canvas' -%}<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>
+{%- elif name == 'type' -%}<path d="M4 6V4h16v2M12 4v16M8 20h8"/>
 {%- elif name == 'wand' -%}<path d="M15 4V2M15 10V8M11 6H9M21 6h-2"/><path d="m3 21 12-12 3 3L6 24z" transform="translate(-1 -3)"/><path d="m14 7 3 3"/>
 {%- elif name == 'sparkles' -%}<path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z"/><path d="M19 14l.8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8z"/>
 {%- elif name == 'scissors' -%}<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.12 15.88M14.47 14.48 20 20M8.12 8.12 12 12"/>
 {%- elif name == 'film' -%}<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 3v18M17 3v18M3 7.5h4M3 12h4M3 16.5h4M17 7.5h4M17 12h4M17 16.5h4"/>
+{%- elif name == 'record' -%}<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.5" fill="currentColor" stroke="none"/>
 {%- elif name == 'video' -%}<path d="m23 7-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/>
 {%- elif name == 'music' -%}<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
 {%- elif name == 'image' -%}<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.6-3.6a2 2 0 0 0-2.8 0L6 20"/>
@@ -24,14 +26,9 @@
 {%- elif name == 'redo' -%}<path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/>
 {%- elif name == 'cursor' -%}<path d="m4 4 7 16 2.5-6L20 11z" fill="currentColor"/>
 {%- elif name == 'hand' -%}<path d="M18 11V6a2 2 0 0 0-4 0M14 10V4a2 2 0 0 0-4 0v6M10 10.5V6a2 2 0 0 0-4 0v8a8 8 0 0 0 8 8 8 8 0 0 0 8-8v-3a2 2 0 0 0-4 0"/>
-{%- elif name == 'copy' -%}<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>
 {%- elif name == 'trash' -%}<path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M6 6l1 14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-14"/>
 {%- elif name == 'download' -%}<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
-{%- elif name == 'zoom-in' -%}<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3M11 8v6M8 11h6"/>
-{%- elif name == 'zoom-out' -%}<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3M8 11h6"/>
-{%- elif name == 'fit' -%}<path d="M3 8V5a2 2 0 0 1 2-2h3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3"/>
 {%- elif name == 'chevrons-left' -%}<path d="m11 17-5-5 5-5M18 17l-5-5 5-5"/>
-{%- elif name == 'arrows' -%}<path d="M3 12h18M3 12l4-4M3 12l4 4M21 12l-4-4M21 12l-4 4"/>
 {%- endif -%}
 </svg>
 {% endmacro %}
@@ -73,7 +70,7 @@
         <span class="grid place-items-center w-8 h-8 rounded-full bg-gradient-to-br from-fuchsia-400 to-purple-600 text-[11px] font-semibold text-white ring-2 ring-[var(--panel)]">AI</span>
       </div>
       <form hx-post="/api/projects/{{ project.id }}/render" hx-target="#renders-card" hx-swap="outerHTML">
-        <button onclick="VE.show('export')"
+        <button onclick="VE.show('records')"
                 class="flex items-center gap-1.5 rounded-lg bg-[var(--accent)] hover:bg-blue-500 px-4 py-2 text-sm font-semibold text-white transition disabled:opacity-40"
                 {% if not clips %}disabled{% endif %}>
           {{ icon('download','w-4 h-4') }} Export
@@ -98,11 +95,12 @@
       {% set rails = [
         ('media','upload','Uploads'),
         ('canvas','canvas','Canvas'),
-        ('text','captions','Text'),
-        ('effects','sparkles','Effects'),
-        ('ai','wand','AI Magic'),
-        ('clip','scissors','Clip'),
-        ('export','film','Export'),
+        ('text','type','Text'),
+        ('videos','video','Videos'),
+        ('audios','music','Audios'),
+        ('photos','image','Photos'),
+        ('records','record','Records'),
+        ('subtitles','captions','Subtitles'),
       ] %}
       {% for key, ic, label in rails %}
       <button data-rail="{{ key }}" onclick="VE.show('{{ key }}')"
@@ -121,48 +119,34 @@
       </div>
       <div class="flex-1 overflow-y-auto">
 
-        <!-- MEDIA / UPLOADS -->
+        <!-- UPLOADS -->
         <div data-panel="media" class="p-3">
           {% include "partials/asset_library.html" %}
         </div>
 
         <!-- CANVAS -->
-        <div data-panel="canvas" class="p-4 space-y-5" hidden>
-          <div>
-            <p class="mono text-[10px] uppercase tracking-wider text-slate-500 mb-2">Aspect ratio</p>
-            <form hx-post="/api/projects/{{ project.id }}/resize" hx-target="body" hx-swap="outerHTML">
-              <div class="grid grid-cols-2 gap-2">
-                {% for val, lbl in [('16:9','16:9 Landscape'),('9:16','9:16 Vertical'),('1:1','1:1 Square'),('4:5','4:5 Portrait'),('21:9','21:9 Cinema'),('4:3','4:3 Classic')] %}
-                {% set w,h = ({'16:9':(1920,1080),'9:16':(1080,1920),'1:1':(1080,1080),'4:5':(1080,1350),'21:9':(2560,1080),'4:3':(1440,1080)})[val] %}
-                <button name="preset" value="{{ val }}"
-                        class="rounded-lg border hairline px-3 py-2.5 text-left transition hover:border-blue-500/60 hover:bg-white/5
-                               {% if project.width == w and project.height == h %}border-blue-500/70 bg-blue-500/10{% endif %}">
-                  <span class="block text-xs font-medium text-slate-200">{{ lbl }}</span>
-                </button>
-                {% endfor %}
-              </div>
-            </form>
-          </div>
-          <div class="border-t hairline pt-4">
-            <p class="mono text-[10px] uppercase tracking-wider text-slate-500 mb-2">Logo / Picture-in-picture</p>
-            <form hx-post="/api/projects/{{ project.id }}/overlay" hx-target="#overlay-status" hx-swap="innerHTML" hx-encoding="multipart/form-data">
-              <label class="flex items-center justify-center gap-2 rounded-lg border border-dashed hairline px-3 py-4 text-xs text-slate-400 hover:text-white hover:border-blue-500/60 cursor-pointer transition">
-                {{ icon('image','w-4 h-4') }} Upload overlay image
-                <input type="file" name="image" accept="image/*" class="hidden" onchange="this.form.requestSubmit()">
-              </label>
-            </form>
-            <p id="overlay-status" class="mt-2 text-[11px] text-slate-500">
-              {% if project.overlay_path %}<span class="text-emerald-400">Logo set ✓</span>{% endif %}
-            </p>
-          </div>
+        <div data-panel="canvas" class="p-4" hidden>
+          <p class="mono text-[10px] uppercase tracking-wider text-slate-500 mb-2">Aspect ratio</p>
+          <form hx-post="/api/projects/{{ project.id }}/resize" hx-target="body" hx-swap="outerHTML">
+            <div class="grid grid-cols-2 gap-2">
+              {% for val, lbl in [('16:9','16:9 Landscape'),('9:16','9:16 Vertical'),('1:1','1:1 Square'),('4:5','4:5 Portrait'),('21:9','21:9 Cinema'),('4:3','4:3 Classic')] %}
+              {% set w,h = ({'16:9':(1920,1080),'9:16':(1080,1920),'1:1':(1080,1080),'4:5':(1080,1350),'21:9':(2560,1080),'4:3':(1440,1080)})[val] %}
+              <button name="preset" value="{{ val }}"
+                      class="rounded-lg border hairline px-3 py-2.5 text-left transition hover:border-blue-500/60 hover:bg-white/5
+                             {% if project.width == w and project.height == h %}border-blue-500/70 bg-blue-500/10{% endif %}">
+                <span class="block text-xs font-medium text-slate-200">{{ lbl }}</span>
+              </button>
+              {% endfor %}
+            </div>
+          </form>
         </div>
 
-        <!-- TEXT (captions effect) -->
+        <!-- TEXT (captions / titles) -->
         <div data-panel="text" class="p-4" hidden>
           {% if has_clip %}
-          <p class="text-xs text-slate-400 mb-3">Burn-in captions/subtitles are added as an effect on the selected clip. Generate the transcript in the <button onclick="VE.show('ai')" class="text-blue-400 hover:underline">AI Magic</button> tab, then add the captions effect below.</p>
+          <p class="text-xs text-slate-400 mb-3">Burn-in captions are added as an effect on the selected clip. Generate the transcript in <button onclick="VE.show('subtitles')" class="text-blue-400 hover:underline">Subtitles</button> first, then add captions here.</p>
           <form hx-post="/api/clips/{{ selected_clip.id }}/effects" hx-target="#effects-panel" hx-swap="outerHTML"
-                hx-on::after-request="VE.show('effects')">
+                hx-on::after-request="VE.show('videos')">
             <input type="hidden" name="effect_type" value="captions">
             <button class="w-full rounded-lg bg-[var(--accent)] hover:bg-blue-500 px-4 py-2.5 text-sm font-semibold text-white transition flex items-center justify-center gap-2">
               {{ icon('captions','w-4 h-4') }} Add captions to clip
@@ -173,71 +157,102 @@
           {% endif %}
         </div>
 
-        <!-- EFFECTS -->
-        <div data-panel="effects" class="p-3" hidden>
+        <!-- VIDEOS (clip inspector + effects) -->
+        <div data-panel="videos" class="p-4 space-y-4" hidden>
+          {% if has_clip %}
+          {% set sel_dur = selected_clip.source_end - selected_clip.source_start %}
+          <div>
+            <p class="mono text-[10px] uppercase tracking-wider text-slate-500 mb-2">Selected clip</p>
+            <form hx-patch="/api/clips/{{ selected_clip.id }}" hx-target="body" hx-swap="outerHTML" class="space-y-3">
+              <label class="block">
+                <span class="mono text-[10px] uppercase tracking-wider text-slate-500">Track</span>
+                <input type="number" name="track_index" min="0" max="9" value="{{ selected_clip.track_index }}" class="mt-1 w-full rounded-lg border hairline bg-[var(--bg)] px-3 py-2 text-sm">
+              </label>
+              <div class="grid grid-cols-2 gap-3">
+                <label class="block">
+                  <span class="mono text-[10px] uppercase tracking-wider text-slate-500">Timeline start</span>
+                  <input type="number" name="timeline_start" min="0" step="0.1" value="{{ selected_clip.timeline_start }}" class="mt-1 w-full rounded-lg border hairline bg-[var(--bg)] px-3 py-2 text-sm">
+                </label>
+                <label class="block">
+                  <span class="mono text-[10px] uppercase tracking-wider text-slate-500">Source start</span>
+                  <input type="number" name="source_start" min="0" step="0.1" value="{{ selected_clip.source_start }}" class="mt-1 w-full rounded-lg border hairline bg-[var(--bg)] px-3 py-2 text-sm">
+                </label>
+                <label class="block">
+                  <span class="mono text-[10px] uppercase tracking-wider text-slate-500">Source end</span>
+                  <input type="number" name="source_end" min="0" step="0.1" value="{{ selected_clip.source_end }}" class="mt-1 w-full rounded-lg border hairline bg-[var(--bg)] px-3 py-2 text-sm">
+                </label>
+                <div class="flex items-end">
+                  <button class="w-full rounded-lg bg-[var(--accent)] hover:bg-blue-500 px-3 py-2 text-sm font-semibold text-white transition">Apply</button>
+                </div>
+              </div>
+            </form>
+            <div class="mt-3 flex gap-2">
+              <form hx-post="/api/clips/{{ selected_clip.id }}/split" hx-target="body" hx-swap="outerHTML" class="flex items-center gap-2 flex-1">
+                <input type="number" name="at_seconds" min="0.1" step="0.1" value="{{ (sel_dur / 2)|round(1) }}" class="w-16 rounded-lg border hairline bg-[var(--bg)] px-2 py-1.5 text-sm">
+                <button class="flex-1 flex items-center justify-center gap-1.5 rounded-lg border hairline px-3 py-1.5 text-xs text-slate-300 hover:bg-white/5 transition">{{ icon('scissors','w-3.5 h-3.5') }} Split</button>
+              </form>
+              <form hx-post="/api/clips/{{ selected_clip.id }}/delete" hx-target="body" hx-swap="outerHTML" hx-confirm="Delete this clip?">
+                <button class="flex items-center justify-center gap-1.5 rounded-lg border border-rose-700/50 bg-rose-500/10 px-3 py-1.5 text-xs text-rose-300 hover:bg-rose-500/20 transition">{{ icon('trash','w-3.5 h-3.5') }}</button>
+              </form>
+            </div>
+          </div>
+          {% else %}
+          <p class="text-xs text-slate-500">Select a clip on the timeline to trim, split, or apply effects to it.</p>
+          {% endif %}
           {% include "partials/effects_panel.html" %}
         </div>
 
-        <!-- AI MAGIC -->
-        <div data-panel="ai" class="p-3 space-y-3" hidden>
-          {% if has_clip %}
-          {% include "partials/interactive_recolor.html" %}
-          {% include "partials/ai_tools.html" %}
-          {% else %}
-          <p class="text-xs text-slate-500">Select a clip on the timeline to use AI tools (captions, auto-cut, recolor, background blur…).</p>
-          {% endif %}
-        </div>
-
-        <!-- CLIP -->
-        <div data-panel="clip" class="p-4" hidden>
-          {% if has_clip %}
-          {% set sel_dur = selected_clip.source_end - selected_clip.source_start %}
-          <form hx-patch="/api/clips/{{ selected_clip.id }}" hx-target="body" hx-swap="outerHTML" class="space-y-3">
-            <label class="block">
-              <span class="mono text-[10px] uppercase tracking-wider text-slate-500">Track</span>
-              <input type="number" name="track_index" min="0" max="9" value="{{ selected_clip.track_index }}" class="mt-1 w-full rounded-lg border hairline bg-[var(--bg)] px-3 py-2 text-sm">
-            </label>
-            <div class="grid grid-cols-2 gap-3">
-              <label class="block">
-                <span class="mono text-[10px] uppercase tracking-wider text-slate-500">Timeline start</span>
-                <input type="number" name="timeline_start" min="0" step="0.1" value="{{ selected_clip.timeline_start }}" class="mt-1 w-full rounded-lg border hairline bg-[var(--bg)] px-3 py-2 text-sm">
-              </label>
-              <label class="block">
-                <span class="mono text-[10px] uppercase tracking-wider text-slate-500">Source start</span>
-                <input type="number" name="source_start" min="0" step="0.1" value="{{ selected_clip.source_start }}" class="mt-1 w-full rounded-lg border hairline bg-[var(--bg)] px-3 py-2 text-sm">
-              </label>
-              <label class="block">
-                <span class="mono text-[10px] uppercase tracking-wider text-slate-500">Source end</span>
-                <input type="number" name="source_end" min="0" step="0.1" value="{{ selected_clip.source_end }}" class="mt-1 w-full rounded-lg border hairline bg-[var(--bg)] px-3 py-2 text-sm">
-              </label>
-              <div class="flex items-end">
-                <button class="w-full rounded-lg bg-[var(--accent)] hover:bg-blue-500 px-3 py-2 text-sm font-semibold text-white transition">Apply</button>
-              </div>
+        <!-- AUDIOS (voiceover / TTS) -->
+        <div data-panel="audios" class="p-4" hidden>
+          <p class="mono text-[10px] uppercase tracking-wider text-slate-500 mb-2">Voiceover · Text-to-Speech</p>
+          <form hx-post="/api/projects/{{ project.id }}/tts" hx-target="#asset-library" hx-swap="outerHTML"
+                hx-indicator="#audios-tts-spinner" hx-on::after-request="VE.show('media')"
+                class="rounded-lg border hairline panel p-3">
+            <textarea name="text" rows="3" required placeholder="Type narration to speak…"
+                class="block w-full rounded-lg border hairline bg-[var(--bg)] px-3 py-2 text-xs text-slate-200"></textarea>
+            <div class="mt-2 flex items-center gap-2">
+              <label class="mono text-[9px] uppercase tracking-wider text-slate-500">Speed</label>
+              <input type="range" name="rate" min="-6" max="6" value="0" step="1" class="flex-1">
+              <button class="rounded-lg bg-[var(--accent)] hover:bg-blue-500 px-3 py-1.5 text-xs font-semibold text-white transition">Generate</button>
             </div>
+            <p id="audios-tts-spinner" class="mt-1 mono text-[10px] text-amber-300 htmx-indicator">Synthesizing voice…</p>
           </form>
-          <div class="mt-4 pt-4 border-t hairline space-y-2">
-            <form hx-post="/api/clips/{{ selected_clip.id }}/split" hx-target="body" hx-swap="outerHTML" class="flex items-center gap-2">
-              <span class="mono text-[10px] uppercase tracking-wider text-slate-500 flex-1">Split at (s)</span>
-              <input type="number" name="at_seconds" min="0.1" step="0.1" value="{{ (sel_dur / 2)|round(1) }}" class="w-20 rounded-lg border hairline bg-[var(--bg)] px-2 py-1.5 text-sm">
-              <button class="flex items-center gap-1.5 rounded-lg border hairline px-3 py-1.5 text-xs text-slate-300 hover:bg-white/5 transition">{{ icon('scissors','w-3.5 h-3.5') }} Split</button>
-            </form>
-            <form hx-post="/api/clips/{{ selected_clip.id }}/delete" hx-target="body" hx-swap="outerHTML" hx-confirm="Delete this clip?">
-              <button class="w-full flex items-center justify-center gap-1.5 rounded-lg border border-rose-700/50 bg-rose-500/10 px-3 py-2 text-xs text-rose-300 hover:bg-rose-500/20 transition">{{ icon('trash','w-3.5 h-3.5') }} Delete clip</button>
-            </form>
-          </div>
-          {% else %}
-          <p class="text-xs text-slate-500">Select a clip on the timeline to edit its track, trim, split or delete it.</p>
-          {% endif %}
+          <p class="mt-3 text-[11px] text-slate-500">Generated audio appears in the <button onclick="VE.show('media')" class="text-blue-400 hover:underline">Uploads</button> panel — add it to a timeline track from there.</p>
         </div>
 
-        <!-- EXPORT -->
-        <div data-panel="export" class="p-3 space-y-3" hidden>
+        <!-- PHOTOS (logo / picture-in-picture) -->
+        <div data-panel="photos" class="p-4" hidden>
+          <p class="mono text-[10px] uppercase tracking-wider text-slate-500 mb-2">Logo / Picture-in-picture</p>
+          <form hx-post="/api/projects/{{ project.id }}/overlay" hx-target="#overlay-status" hx-swap="innerHTML" hx-encoding="multipart/form-data">
+            <label class="flex items-center justify-center gap-2 rounded-lg border border-dashed hairline px-3 py-6 text-xs text-slate-400 hover:text-white hover:border-blue-500/60 cursor-pointer transition">
+              {{ icon('image','w-4 h-4') }} Upload overlay image
+              <input type="file" name="image" accept="image/*" class="hidden" onchange="this.form.requestSubmit()">
+            </label>
+          </form>
+          <p id="overlay-status" class="mt-2 text-[11px] text-slate-500">
+            {% if project.overlay_path %}<span class="text-emerald-400">Logo set ✓</span>{% endif %}
+          </p>
+          <p class="mt-3 text-[11px] text-slate-500">The overlay is composited on top of the rendered video as a logo / watermark.</p>
+        </div>
+
+        <!-- RECORDS (renders / exports) -->
+        <div data-panel="records" class="p-3 space-y-3" hidden>
           <form hx-post="/api/projects/{{ project.id }}/render" hx-target="#renders-card" hx-swap="outerHTML">
             <button class="w-full flex items-center justify-center gap-2 rounded-lg bg-[var(--accent)] hover:bg-blue-500 px-4 py-2.5 text-sm font-semibold text-white transition disabled:opacity-40" {% if not clips %}disabled{% endif %}>
               {{ icon('download','w-4 h-4') }} Render &amp; export project
             </button>
           </form>
           {% include "partials/renders.html" %}
+        </div>
+
+        <!-- SUBTITLES (AI captions + smart edits) -->
+        <div data-panel="subtitles" class="p-3 space-y-3" hidden>
+          {% if has_clip %}
+          {% include "partials/ai_tools.html" %}
+          {% include "partials/interactive_recolor.html" %}
+          {% else %}
+          <p class="text-xs text-slate-500">Select a clip on the timeline to auto-generate subtitles, auto-cut scenes, remove silences, or recolor.</p>
+          {% endif %}
         </div>
 
       </div>
@@ -292,9 +307,10 @@
 <script>
 window.VE = (function () {
   const KEY = "ve.activePanel.{{ project.id }}";
-  const titles = { media:"Uploads", canvas:"Canvas", text:"Text", effects:"Effects", ai:"AI Magic", clip:"Clip", export:"Export" };
+  const titles = { media:"Uploads", canvas:"Canvas", text:"Text", videos:"Videos", audios:"Audios", photos:"Photos", records:"Records", subtitles:"Subtitles" };
 
   function show(key) {
+    if (!titles[key]) key = "media";
     document.querySelectorAll("[data-panel]").forEach(p => p.hidden = (p.dataset.panel !== key));
     document.querySelectorAll("[data-rail]").forEach(r => r.classList.toggle("active", r.dataset.rail === key));
     const t = document.getElementById("inspector-title");
@@ -303,7 +319,6 @@ window.VE = (function () {
   }
 
   function toggleInspector() {
-    // (visual only) collapse not persisted — kept simple
     const aside = document.querySelector("aside.panel-2");
     if (aside) aside.classList.toggle("hidden");
   }
@@ -340,7 +355,6 @@ window.VE = (function () {
       if (playhead) playhead.style.left = Math.min(100, Math.max(0, (tlPos / total) * 100)) + "%";
       if (v.currentTime >= (+v.dataset.srcEnd || v.duration)) v.pause();
     });
-    // start at clip in-point
     v.addEventListener("loadedmetadata", () => { v.currentTime = srcStart; });
   }
 
@@ -353,9 +367,10 @@ window.VE = (function () {
   }
 
   function init() {
-    let start = "{{ 'clip' if has_clip else 'media' }}";
+    let start = "{{ 'videos' if has_clip else 'media' }}";
+    {% if not has_clip %}
     try { const saved = sessionStorage.getItem(KEY); if (saved && titles[saved]) start = saved; } catch (e) {}
-    {% if has_clip %}/* prefer clip view right after selecting */ start = "clip";{% endif %}
+    {% endif %}
     show(start);
     wireVideo();
     wireTools();
