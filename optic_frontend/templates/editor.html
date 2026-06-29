@@ -203,21 +203,65 @@
         </div>
 
         <!-- AUDIOS (voiceover / TTS) -->
-        <div data-panel="audios" class="p-4" hidden>
-          <p class="mono text-[10px] uppercase tracking-wider text-slate-500 mb-2">Voiceover · Text-to-Speech</p>
-          <form hx-post="/api/projects/{{ project.id }}/tts" hx-target="#asset-library" hx-swap="outerHTML"
-                hx-indicator="#audios-tts-spinner" hx-on::after-request="VE.show('media')"
-                class="rounded-lg border hairline panel p-3">
-            <textarea name="text" rows="3" required placeholder="Type narration to speak…"
-                class="block w-full rounded-lg border hairline bg-[var(--bg)] px-3 py-2 text-xs text-slate-200"></textarea>
-            <div class="mt-2 flex items-center gap-2">
-              <label class="mono text-[9px] uppercase tracking-wider text-slate-500">Speed</label>
-              <input type="range" name="rate" min="-6" max="6" value="0" step="1" class="flex-1">
-              <button class="rounded-lg bg-[var(--accent)] hover:bg-blue-500 px-3 py-1.5 text-xs font-semibold text-white transition">Generate</button>
+        <div data-panel="audios" class="p-4 space-y-5" hidden>
+          <!-- Upload music / audio -->
+          <div>
+            <p class="mono text-[10px] uppercase tracking-wider text-slate-500 mb-2">Music &amp; audio</p>
+            <form hx-post="/api/projects/{{ project.id }}/assets" hx-encoding="multipart/form-data"
+                  hx-target="#asset-library" hx-swap="outerHTML" hx-on::after-request="VE.show('media')">
+              <label class="flex items-center justify-center gap-2 rounded-lg border border-dashed hairline px-3 py-5 text-xs text-slate-400 hover:text-white hover:border-blue-500/60 cursor-pointer transition">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" class="w-4 h-4"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                Upload audio file
+                <input type="file" name="video" accept="audio/*" class="hidden" onchange="this.form.requestSubmit()">
+              </label>
+            </form>
+          </div>
+
+          <!-- Voiceover / TTS -->
+          <div>
+            <p class="mono text-[10px] uppercase tracking-wider text-slate-500 mb-2">Voiceover · Text-to-Speech</p>
+            <form hx-post="/api/projects/{{ project.id }}/tts" hx-target="#asset-library" hx-swap="outerHTML"
+                  hx-indicator="#audios-tts-spinner" hx-on::after-request="VE.show('media')"
+                  class="rounded-lg border hairline panel p-3">
+              <textarea name="text" rows="3" required placeholder="Type narration to speak…"
+                  class="block w-full rounded-lg border hairline bg-[var(--bg)] px-3 py-2 text-xs text-slate-200"></textarea>
+              <div class="mt-2 flex items-center gap-2">
+                <label class="mono text-[9px] uppercase tracking-wider text-slate-500">Speed</label>
+                <input type="range" name="rate" min="-6" max="6" value="0" step="1" class="flex-1">
+                <button class="rounded-lg bg-[var(--accent)] hover:bg-blue-500 px-3 py-1.5 text-xs font-semibold text-white transition">Generate</button>
+              </div>
+              <p id="audios-tts-spinner" class="mt-1 mono text-[10px] text-amber-300 htmx-indicator">Synthesizing voice…</p>
+            </form>
+            <p class="mt-2 text-[11px] text-slate-500">Uploaded / generated audio appears in <button onclick="VE.show('media')" class="text-blue-400 hover:underline">Uploads</button> — add it to a track from there.</p>
+          </div>
+
+          <!-- Per-clip audio adjustments -->
+          <div class="border-t hairline pt-4">
+            <p class="mono text-[10px] uppercase tracking-wider text-slate-500 mb-2">Audio on selected clip</p>
+            {% if has_clip %}
+            <form hx-post="/api/clips/{{ selected_clip.id }}/effects" hx-target="#effects-panel" hx-swap="outerHTML"
+                  hx-on::after-request="VE.show('videos')" class="mb-2">
+              <input type="hidden" name="effect_type" value="volume">
+              <div class="flex items-center justify-between">
+                <span class="mono text-[10px] uppercase tracking-wider text-slate-500">Volume</span>
+                <span class="mono text-[10px] text-slate-300" id="aud-gain-label">0 dB</span>
+              </div>
+              <input type="range" name="gain_db" min="-30" max="12" value="0" step="1" class="mt-1 block w-full"
+                     oninput="document.getElementById('aud-gain-label').textContent=this.value+' dB'">
+              <button class="mt-2 w-full rounded-lg bg-[var(--accent)] hover:bg-blue-500 px-3 py-1.5 text-xs font-semibold text-white transition">Apply volume</button>
+            </form>
+            <div class="grid grid-cols-2 gap-2">
+              {% for et, lbl in [('audio_fade_in','Fade in'),('audio_fade_out','Fade out'),('mute','Mute'),('normalize','Normalize')] %}
+              <form hx-post="/api/clips/{{ selected_clip.id }}/effects" hx-target="#effects-panel" hx-swap="outerHTML" hx-on::after-request="VE.show('videos')">
+                <input type="hidden" name="effect_type" value="{{ et }}">
+                <button class="w-full rounded-lg border hairline panel px-3 py-1.5 text-xs text-slate-300 hover:border-blue-500/60 hover:bg-white/5 transition">{{ lbl }}</button>
+              </form>
+              {% endfor %}
             </div>
-            <p id="audios-tts-spinner" class="mt-1 mono text-[10px] text-amber-300 htmx-indicator">Synthesizing voice…</p>
-          </form>
-          <p class="mt-3 text-[11px] text-slate-500">Generated audio appears in the <button onclick="VE.show('media')" class="text-blue-400 hover:underline">Uploads</button> panel — add it to a timeline track from there.</p>
+            {% else %}
+            <p class="text-[11px] text-slate-500">Select a clip to adjust its volume, fades, mute, or normalize.</p>
+            {% endif %}
+          </div>
         </div>
 
         <!-- PHOTOS (logo / picture-in-picture) -->
