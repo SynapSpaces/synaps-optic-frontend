@@ -584,6 +584,8 @@ window.VE = (function () {
     let start = "{{ 'videos' if has_clip else 'media' }}";
     // Persist the active tool across full re-renders (e.g. body swaps from Text edits).
     try { const saved = sessionStorage.getItem(KEY); if (saved && titles[saved]) start = saved; } catch (e) {}
+    // ?panel=<tool> (from the AI home action tiles) wins on first load.
+    try { const pq = new URLSearchParams(location.search).get("panel"); if (pq && titles[pq]) start = pq; } catch (e) {}
     show(start);
     wireVideo();
     wireTools();
