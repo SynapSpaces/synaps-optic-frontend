@@ -1,132 +1,368 @@
 {% extends "base.html" %}
-{% block nav_container %}max-w-[1600px]{% endblock %}
-{% block container_class %}max-w-[1600px] mx-auto px-6 py-6{% endblock %}
-{% block content %}
+{% block body_class %}h-screen overflow-hidden app-bg text-slate-200{% endblock %}
 
-<header class="mb-6 flex items-center justify-between gap-6 flex-wrap">
-    <div>
-        <p class="mono text-[10px] uppercase tracking-[0.25em] text-fuchsia-400/80">project</p>
-        <h1 class="mt-1 text-2xl font-semibold text-white">{{ project.name }}</h1>
-        <p class="mt-1 mono text-[11px] text-slate-500">
-            {{ project.width }}×{{ project.height }} @ {{ project.fps }}fps ·
-            {{ clips|length }} clip{{ "s" if clips|length != 1 else "" }} ·
-            {{ assets|length }} asset{{ "s" if assets|length != 1 else "" }} ·
-            timeline {{ fmt_dur(timeline_duration) }}
-        </p>
+{# ---------------- inline icon set (Lucide-style) ---------------- #}
+{% macro icon(name, cls="w-5 h-5") %}
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="{{ cls }}">
+{%- if name == 'plus' -%}<path d="M12 5v14M5 12h14"/>
+{%- elif name == 'upload' -%}<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/>
+{%- elif name == 'canvas' -%}<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>
+{%- elif name == 'wand' -%}<path d="M15 4V2M15 10V8M11 6H9M21 6h-2"/><path d="m3 21 12-12 3 3L6 24z" transform="translate(-1 -3)"/><path d="m14 7 3 3"/>
+{%- elif name == 'sparkles' -%}<path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z"/><path d="M19 14l.8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8z"/>
+{%- elif name == 'scissors' -%}<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.12 15.88M14.47 14.48 20 20M8.12 8.12 12 12"/>
+{%- elif name == 'film' -%}<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 3v18M17 3v18M3 7.5h4M3 12h4M3 16.5h4M17 7.5h4M17 12h4M17 16.5h4"/>
+{%- elif name == 'video' -%}<path d="m23 7-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/>
+{%- elif name == 'music' -%}<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+{%- elif name == 'image' -%}<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.6-3.6a2 2 0 0 0-2.8 0L6 20"/>
+{%- elif name == 'captions' -%}<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 13a2 2 0 0 0 3 1.7M14 13a2 2 0 0 0 3 1.7"/>
+{%- elif name == 'play' -%}<path d="M6 4l14 8-14 8z" fill="currentColor" stroke="none"/>
+{%- elif name == 'pause' -%}<rect x="6" y="4" width="4" height="16" rx="1" fill="currentColor" stroke="none"/><rect x="14" y="4" width="4" height="16" rx="1" fill="currentColor" stroke="none"/>
+{%- elif name == 'skip-back' -%}<path d="M19 20 9 12l10-8zM5 19V5" fill="currentColor"/>
+{%- elif name == 'skip-fwd' -%}<path d="M5 4l10 8-10 8zM19 5v14" fill="currentColor"/>
+{%- elif name == 'maximize' -%}<path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/>
+{%- elif name == 'undo' -%}<path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/>
+{%- elif name == 'redo' -%}<path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/>
+{%- elif name == 'cursor' -%}<path d="m4 4 7 16 2.5-6L20 11z" fill="currentColor"/>
+{%- elif name == 'hand' -%}<path d="M18 11V6a2 2 0 0 0-4 0M14 10V4a2 2 0 0 0-4 0v6M10 10.5V6a2 2 0 0 0-4 0v8a8 8 0 0 0 8 8 8 8 0 0 0 8-8v-3a2 2 0 0 0-4 0"/>
+{%- elif name == 'copy' -%}<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>
+{%- elif name == 'trash' -%}<path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M6 6l1 14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-14"/>
+{%- elif name == 'download' -%}<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+{%- elif name == 'zoom-in' -%}<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3M11 8v6M8 11h6"/>
+{%- elif name == 'zoom-out' -%}<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3M8 11h6"/>
+{%- elif name == 'fit' -%}<path d="M3 8V5a2 2 0 0 1 2-2h3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3"/>
+{%- elif name == 'chevrons-left' -%}<path d="m11 17-5-5 5-5M18 17l-5-5 5-5"/>
+{%- elif name == 'arrows' -%}<path d="M3 12h18M3 12l4-4M3 12l4 4M21 12l-4-4M21 12l-4 4"/>
+{%- endif -%}
+</svg>
+{% endmacro %}
+
+{% set has_clip = selected_clip is not none %}
+
+{% block body %}
+<div class="h-screen flex flex-col select-none">
+
+  <!-- ============================ TOP BAR ============================ -->
+  <header class="h-14 shrink-0 panel border-b hairline flex items-center px-3 gap-4">
+    <!-- logo + project -->
+    <div class="flex items-center gap-3 min-w-0">
+      <a href="/projects" title="All projects"
+         class="grid place-items-center w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 text-white shrink-0">
+        {{ icon('play','w-4 h-4') }}
+      </a>
+      <div class="flex items-center gap-2 min-w-0">
+        <span class="text-sm text-slate-200 truncate max-w-[220px]" title="{{ project.name }}">{{ project.name }}</span>
+        <span class="mono text-[10px] text-slate-500 hidden md:inline">{{ project.width }}×{{ project.height }} · {{ project.fps }}fps</span>
+      </div>
     </div>
-    <div class="flex items-center gap-2">
-        <a href="/projects" class="rounded-md border border-slate-800 px-3 py-2 text-xs text-slate-400 hover:text-white hover:bg-slate-900 transition">← All projects</a>
-        <form hx-post="/api/projects/{{ project.id }}/resize" hx-target="body" hx-swap="outerHTML"
-              class="flex items-center gap-1">
-            <select name="preset" onchange="this.form.requestSubmit()"
-                    class="rounded-md border border-slate-700 bg-slate-950/60 px-2 py-2 text-xs text-slate-300">
-                <option value="" disabled selected>Resize…</option>
-                {% set cur = project.width ~ 'x' ~ project.height %}
-                <option value="16:9">16:9 · Landscape (1920×1080)</option>
-                <option value="9:16">9:16 · Vertical (1080×1920)</option>
-                <option value="1:1">1:1 · Square (1080×1080)</option>
-                <option value="4:5">4:5 · Portrait (1080×1350)</option>
-                <option value="21:9">21:9 · Cinematic (2560×1080)</option>
-                <option value="4:3">4:3 · Classic (1440×1080)</option>
-            </select>
-        </form>
-        <form hx-post="/api/projects/{{ project.id }}/overlay" hx-target="#overlay-status"
-              hx-swap="innerHTML" hx-encoding="multipart/form-data" class="flex items-center gap-1">
-            <label class="rounded-md border border-slate-700 px-3 py-2 text-xs text-slate-400 hover:text-white hover:bg-slate-900 cursor-pointer transition">
-                Logo / PiP…
-                <input type="file" name="image" accept="image/*" class="hidden" onchange="this.form.requestSubmit()">
-            </label>
-        </form>
-        <span id="overlay-status" class="text-[11px] text-slate-500">
-            {% if project.overlay_path %}<span class="text-emerald-400">Logo set ✓</span>{% endif %}
-        </span>
-        <form hx-post="/api/projects/{{ project.id }}/render" hx-target="#renders-card" hx-swap="outerHTML">
-            <button class="rounded-md bg-emerald-500 hover:bg-emerald-400 px-4 py-2 text-sm font-semibold text-emerald-950 transition disabled:opacity-40" {% if not clips %}disabled{% endif %}>
-                Render project
-            </button>
-        </form>
+
+    <!-- center tools -->
+    <div class="flex-1 flex items-center justify-center gap-1">
+      <div class="flex items-center gap-0.5 rounded-lg panel-2 border hairline p-0.5">
+        <button id="tool-select" class="tool-btn grid place-items-center w-8 h-8 rounded-md text-white bg-white/10" title="Select">{{ icon('cursor','w-4 h-4') }}</button>
+        <button id="tool-hand" class="tool-btn grid place-items-center w-8 h-8 rounded-md text-slate-400 hover:text-white" title="Hand / Pan">{{ icon('hand','w-4 h-4') }}</button>
+      </div>
+      <div class="w-px h-6 bg-[var(--line)] mx-1"></div>
+      <button class="grid place-items-center w-8 h-8 rounded-md text-slate-500 hover:text-white hover:bg-white/5" title="Undo">{{ icon('undo','w-4 h-4') }}</button>
+      <button class="grid place-items-center w-8 h-8 rounded-md text-slate-500 hover:text-white hover:bg-white/5" title="Redo">{{ icon('redo','w-4 h-4') }}</button>
     </div>
-</header>
 
-<div class="grid grid-cols-12 gap-4">
-    <aside class="col-span-12 lg:col-span-3" id="asset-library">
-        {% include "partials/asset_library.html" %}
-    </aside>
+    <!-- right -->
+    <div class="flex items-center gap-3">
+      <div class="flex -space-x-2">
+        <span class="grid place-items-center w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 text-[11px] font-semibold text-white ring-2 ring-[var(--panel)]">DW</span>
+        <span class="grid place-items-center w-8 h-8 rounded-full bg-gradient-to-br from-fuchsia-400 to-purple-600 text-[11px] font-semibold text-white ring-2 ring-[var(--panel)]">AI</span>
+      </div>
+      <form hx-post="/api/projects/{{ project.id }}/render" hx-target="#renders-card" hx-swap="outerHTML">
+        <button onclick="VE.show('export')"
+                class="flex items-center gap-1.5 rounded-lg bg-[var(--accent)] hover:bg-blue-500 px-4 py-2 text-sm font-semibold text-white transition disabled:opacity-40"
+                {% if not clips %}disabled{% endif %}>
+          {{ icon('download','w-4 h-4') }} Export
+        </button>
+      </form>
+    </div>
+  </header>
 
-    <section class="col-span-12 lg:col-span-6 rounded-xl border border-slate-800/80 bg-slate-900/40 backdrop-blur p-4">
-        <h2 class="mb-3 mono text-[10px] uppercase tracking-[0.18em] text-slate-500">Preview</h2>
-        {% if selected_clip and selected_asset %}
-            <video controls preload="metadata" class="w-full aspect-video rounded-md bg-black"
-                   src="/api/assets/{{ selected_asset.id }}/preview#t={{ selected_clip.source_start }},{{ selected_clip.source_end }}">
-            </video>
-            <div class="mt-3 mono text-[11px] text-slate-400 space-y-1">
-                <p><span class="text-slate-500">Asset:</span> {{ selected_asset.filename }} · {{ fmt_dur(selected_asset.duration) }} · {{ selected_asset.width }}×{{ selected_asset.height }}</p>
-                <p><span class="text-slate-500">Range:</span> {{ fmt_dur(selected_clip.source_start) }} → {{ fmt_dur(selected_clip.source_end) }} ({{ fmt_dur(selected_clip.source_end - selected_clip.source_start) }}) · Track {{ selected_clip.track_index }} · at t={{ fmt_dur(selected_clip.timeline_start) }}</p>
-                <p class="text-slate-600">Preview plays the source asset. Trim and effects are applied at render time.</p>
-            </div>
-        {% else %}
-            <div class="aspect-video flex items-center justify-center rounded-md bg-slate-950/60 border border-dashed border-slate-800">
-                <p class="text-sm text-slate-500">Select a clip on the timeline to preview</p>
-            </div>
-        {% endif %}
-    </section>
+  <!-- ============================ WORKSPACE ============================ -->
+  <div class="flex-1 flex min-h-0">
 
-    <aside class="col-span-12 lg:col-span-3" id="effects-panel">
-        {% include "partials/effects_panel.html" %}
-    </aside>
-</div>
+    <!-- ---------- ICON RAIL ---------- -->
+    <nav class="w-[78px] shrink-0 panel border-r hairline flex flex-col items-center py-3 gap-1 overflow-y-auto">
+      <label class="grid place-items-center w-11 h-11 rounded-full bg-[var(--accent)] hover:bg-blue-500 text-white cursor-pointer mb-2 shrink-0" title="Upload media">
+        {{ icon('plus','w-5 h-5') }}
+        <input type="file" name="video" accept="video/*" class="hidden"
+               hx-post="/api/projects/{{ project.id }}/assets" hx-encoding="multipart/form-data"
+               hx-target="#asset-library" hx-swap="outerHTML"
+               onchange="VE.show('media')">
+      </label>
 
-<div class="mt-4" id="timeline-container">
-    {% include "partials/timeline.html" %}
-</div>
+      {% set rails = [
+        ('media','upload','Uploads'),
+        ('canvas','canvas','Canvas'),
+        ('text','captions','Text'),
+        ('effects','sparkles','Effects'),
+        ('ai','wand','AI Magic'),
+        ('clip','scissors','Clip'),
+        ('export','film','Export'),
+      ] %}
+      {% for key, ic, label in rails %}
+      <button data-rail="{{ key }}" onclick="VE.show('{{ key }}')"
+              class="rail-item relative grid place-items-center w-[62px] py-2 rounded-lg shrink-0">
+        {{ icon(ic) }}
+        <span class="mt-1 text-[10px] font-medium">{{ label }}</span>
+      </button>
+      {% endfor %}
+    </nav>
 
-{% if selected_clip %}
-<div class="mt-4">
-    {% include "partials/interactive_recolor.html" %}
-</div>
+    <!-- ---------- INSPECTOR ---------- -->
+    <aside class="w-[330px] shrink-0 panel-2 border-r hairline flex flex-col min-h-0">
+      <div class="h-12 shrink-0 flex items-center justify-between px-4 border-b hairline">
+        <h2 id="inspector-title" class="text-sm font-semibold text-white">Uploads</h2>
+        <button onclick="VE.toggleInspector()" class="text-slate-500 hover:text-white" title="Collapse">{{ icon('chevrons-left','w-4 h-4') }}</button>
+      </div>
+      <div class="flex-1 overflow-y-auto">
 
-<div class="mt-4">
-    {% include "partials/ai_tools.html" %}
-</div>
-
-<section class="mt-4 rounded-xl border border-slate-800/80 bg-slate-900/40 backdrop-blur p-4">
-    <h2 class="mb-3 mono text-[10px] uppercase tracking-[0.18em] text-slate-500">Edit selected clip</h2>
-    <form hx-patch="/api/clips/{{ selected_clip.id }}" hx-target="body" hx-swap="outerHTML" class="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <label class="block">
-            <span class="mono text-[10px] uppercase tracking-wider text-slate-500">Track</span>
-            <input type="number" name="track_index" min="0" max="9" value="{{ selected_clip.track_index }}" class="mt-1 w-full rounded-md border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-sm">
-        </label>
-        <label class="block">
-            <span class="mono text-[10px] uppercase tracking-wider text-slate-500">Timeline start (s)</span>
-            <input type="number" name="timeline_start" min="0" step="0.1" value="{{ selected_clip.timeline_start }}" class="mt-1 w-full rounded-md border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-sm">
-        </label>
-        <label class="block">
-            <span class="mono text-[10px] uppercase tracking-wider text-slate-500">Source start (s)</span>
-            <input type="number" name="source_start" min="0" step="0.1" value="{{ selected_clip.source_start }}" class="mt-1 w-full rounded-md border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-sm">
-        </label>
-        <label class="block">
-            <span class="mono text-[10px] uppercase tracking-wider text-slate-500">Source end (s)</span>
-            <input type="number" name="source_end" min="0" step="0.1" value="{{ selected_clip.source_end }}" class="mt-1 w-full rounded-md border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-sm">
-        </label>
-        <div class="flex items-end">
-            <button class="w-full rounded-md bg-emerald-500/90 hover:bg-emerald-500 px-3 py-1.5 text-sm font-semibold text-emerald-950 transition">Apply</button>
+        <!-- MEDIA / UPLOADS -->
+        <div data-panel="media" class="p-3">
+          {% include "partials/asset_library.html" %}
         </div>
-    </form>
-    <div class="mt-3 flex items-center gap-3 flex-wrap">
-        <form hx-post="/api/clips/{{ selected_clip.id }}/split" hx-target="body" hx-swap="outerHTML" class="flex items-center gap-2">
-            <span class="mono text-[10px] uppercase tracking-wider text-slate-500">Split at offset (s)</span>
-            <input type="number" name="at_seconds" min="0.1" step="0.1" value="{{ ((selected_clip.source_end - selected_clip.source_start) / 2)|round(1) }}" class="w-20 rounded-md border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-sm">
-            <button class="rounded-md border border-slate-700 px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-800 transition">Split</button>
-        </form>
-        <form hx-post="/api/clips/{{ selected_clip.id }}/delete" hx-target="body" hx-swap="outerHTML" hx-confirm="Delete this clip?">
-            <button class="rounded-md border border-rose-700/50 bg-rose-500/10 px-3 py-1.5 text-xs text-rose-300 hover:bg-rose-500/20 transition">Delete clip</button>
-        </form>
-    </div>
-</section>
-{% endif %}
 
-<div class="mt-4" id="renders-container">
-    {% include "partials/renders.html" %}
+        <!-- CANVAS -->
+        <div data-panel="canvas" class="p-4 space-y-5" hidden>
+          <div>
+            <p class="mono text-[10px] uppercase tracking-wider text-slate-500 mb-2">Aspect ratio</p>
+            <form hx-post="/api/projects/{{ project.id }}/resize" hx-target="body" hx-swap="outerHTML">
+              <div class="grid grid-cols-2 gap-2">
+                {% for val, lbl in [('16:9','16:9 Landscape'),('9:16','9:16 Vertical'),('1:1','1:1 Square'),('4:5','4:5 Portrait'),('21:9','21:9 Cinema'),('4:3','4:3 Classic')] %}
+                {% set w,h = ({'16:9':(1920,1080),'9:16':(1080,1920),'1:1':(1080,1080),'4:5':(1080,1350),'21:9':(2560,1080),'4:3':(1440,1080)})[val] %}
+                <button name="preset" value="{{ val }}"
+                        class="rounded-lg border hairline px-3 py-2.5 text-left transition hover:border-blue-500/60 hover:bg-white/5
+                               {% if project.width == w and project.height == h %}border-blue-500/70 bg-blue-500/10{% endif %}">
+                  <span class="block text-xs font-medium text-slate-200">{{ lbl }}</span>
+                </button>
+                {% endfor %}
+              </div>
+            </form>
+          </div>
+          <div class="border-t hairline pt-4">
+            <p class="mono text-[10px] uppercase tracking-wider text-slate-500 mb-2">Logo / Picture-in-picture</p>
+            <form hx-post="/api/projects/{{ project.id }}/overlay" hx-target="#overlay-status" hx-swap="innerHTML" hx-encoding="multipart/form-data">
+              <label class="flex items-center justify-center gap-2 rounded-lg border border-dashed hairline px-3 py-4 text-xs text-slate-400 hover:text-white hover:border-blue-500/60 cursor-pointer transition">
+                {{ icon('image','w-4 h-4') }} Upload overlay image
+                <input type="file" name="image" accept="image/*" class="hidden" onchange="this.form.requestSubmit()">
+              </label>
+            </form>
+            <p id="overlay-status" class="mt-2 text-[11px] text-slate-500">
+              {% if project.overlay_path %}<span class="text-emerald-400">Logo set ✓</span>{% endif %}
+            </p>
+          </div>
+        </div>
+
+        <!-- TEXT (captions effect) -->
+        <div data-panel="text" class="p-4" hidden>
+          {% if has_clip %}
+          <p class="text-xs text-slate-400 mb-3">Burn-in captions/subtitles are added as an effect on the selected clip. Generate the transcript in the <button onclick="VE.show('ai')" class="text-blue-400 hover:underline">AI Magic</button> tab, then add the captions effect below.</p>
+          <form hx-post="/api/clips/{{ selected_clip.id }}/effects" hx-target="#effects-panel" hx-swap="outerHTML"
+                hx-on::after-request="VE.show('effects')">
+            <input type="hidden" name="effect_type" value="captions">
+            <button class="w-full rounded-lg bg-[var(--accent)] hover:bg-blue-500 px-4 py-2.5 text-sm font-semibold text-white transition flex items-center justify-center gap-2">
+              {{ icon('captions','w-4 h-4') }} Add captions to clip
+            </button>
+          </form>
+          {% else %}
+          <p class="text-xs text-slate-500">Select a clip on the timeline to add text / captions.</p>
+          {% endif %}
+        </div>
+
+        <!-- EFFECTS -->
+        <div data-panel="effects" class="p-3" hidden>
+          {% include "partials/effects_panel.html" %}
+        </div>
+
+        <!-- AI MAGIC -->
+        <div data-panel="ai" class="p-3 space-y-3" hidden>
+          {% if has_clip %}
+          {% include "partials/interactive_recolor.html" %}
+          {% include "partials/ai_tools.html" %}
+          {% else %}
+          <p class="text-xs text-slate-500">Select a clip on the timeline to use AI tools (captions, auto-cut, recolor, background blur…).</p>
+          {% endif %}
+        </div>
+
+        <!-- CLIP -->
+        <div data-panel="clip" class="p-4" hidden>
+          {% if has_clip %}
+          {% set sel_dur = selected_clip.source_end - selected_clip.source_start %}
+          <form hx-patch="/api/clips/{{ selected_clip.id }}" hx-target="body" hx-swap="outerHTML" class="space-y-3">
+            <label class="block">
+              <span class="mono text-[10px] uppercase tracking-wider text-slate-500">Track</span>
+              <input type="number" name="track_index" min="0" max="9" value="{{ selected_clip.track_index }}" class="mt-1 w-full rounded-lg border hairline bg-[var(--bg)] px-3 py-2 text-sm">
+            </label>
+            <div class="grid grid-cols-2 gap-3">
+              <label class="block">
+                <span class="mono text-[10px] uppercase tracking-wider text-slate-500">Timeline start</span>
+                <input type="number" name="timeline_start" min="0" step="0.1" value="{{ selected_clip.timeline_start }}" class="mt-1 w-full rounded-lg border hairline bg-[var(--bg)] px-3 py-2 text-sm">
+              </label>
+              <label class="block">
+                <span class="mono text-[10px] uppercase tracking-wider text-slate-500">Source start</span>
+                <input type="number" name="source_start" min="0" step="0.1" value="{{ selected_clip.source_start }}" class="mt-1 w-full rounded-lg border hairline bg-[var(--bg)] px-3 py-2 text-sm">
+              </label>
+              <label class="block">
+                <span class="mono text-[10px] uppercase tracking-wider text-slate-500">Source end</span>
+                <input type="number" name="source_end" min="0" step="0.1" value="{{ selected_clip.source_end }}" class="mt-1 w-full rounded-lg border hairline bg-[var(--bg)] px-3 py-2 text-sm">
+              </label>
+              <div class="flex items-end">
+                <button class="w-full rounded-lg bg-[var(--accent)] hover:bg-blue-500 px-3 py-2 text-sm font-semibold text-white transition">Apply</button>
+              </div>
+            </div>
+          </form>
+          <div class="mt-4 pt-4 border-t hairline space-y-2">
+            <form hx-post="/api/clips/{{ selected_clip.id }}/split" hx-target="body" hx-swap="outerHTML" class="flex items-center gap-2">
+              <span class="mono text-[10px] uppercase tracking-wider text-slate-500 flex-1">Split at (s)</span>
+              <input type="number" name="at_seconds" min="0.1" step="0.1" value="{{ (sel_dur / 2)|round(1) }}" class="w-20 rounded-lg border hairline bg-[var(--bg)] px-2 py-1.5 text-sm">
+              <button class="flex items-center gap-1.5 rounded-lg border hairline px-3 py-1.5 text-xs text-slate-300 hover:bg-white/5 transition">{{ icon('scissors','w-3.5 h-3.5') }} Split</button>
+            </form>
+            <form hx-post="/api/clips/{{ selected_clip.id }}/delete" hx-target="body" hx-swap="outerHTML" hx-confirm="Delete this clip?">
+              <button class="w-full flex items-center justify-center gap-1.5 rounded-lg border border-rose-700/50 bg-rose-500/10 px-3 py-2 text-xs text-rose-300 hover:bg-rose-500/20 transition">{{ icon('trash','w-3.5 h-3.5') }} Delete clip</button>
+            </form>
+          </div>
+          {% else %}
+          <p class="text-xs text-slate-500">Select a clip on the timeline to edit its track, trim, split or delete it.</p>
+          {% endif %}
+        </div>
+
+        <!-- EXPORT -->
+        <div data-panel="export" class="p-3 space-y-3" hidden>
+          <form hx-post="/api/projects/{{ project.id }}/render" hx-target="#renders-card" hx-swap="outerHTML">
+            <button class="w-full flex items-center justify-center gap-2 rounded-lg bg-[var(--accent)] hover:bg-blue-500 px-4 py-2.5 text-sm font-semibold text-white transition disabled:opacity-40" {% if not clips %}disabled{% endif %}>
+              {{ icon('download','w-4 h-4') }} Render &amp; export project
+            </button>
+          </form>
+          {% include "partials/renders.html" %}
+        </div>
+
+      </div>
+    </aside>
+
+    <!-- ---------- CENTER (preview + timeline) ---------- -->
+    <section id="stage-col" class="flex-1 flex flex-col min-h-0">
+
+      <!-- PREVIEW -->
+      <div class="flex-1 min-h-0 flex flex-col bg-[#08080a]">
+        <div class="flex-1 min-h-0 grid place-items-center p-5">
+          {% if selected_clip and selected_asset %}
+          <video id="preview-video" preload="metadata" playsinline
+                 class="max-w-full max-h-full rounded-lg bg-black shadow-2xl shadow-black/60"
+                 data-tl-start="{{ selected_clip.timeline_start }}"
+                 data-src-start="{{ selected_clip.source_start }}"
+                 data-src-end="{{ selected_clip.source_end }}"
+                 data-tl-total="{{ timeline_duration }}"
+                 src="/api/assets/{{ selected_asset.id }}/preview#t={{ selected_clip.source_start }},{{ selected_clip.source_end }}"></video>
+          {% else %}
+          <div class="w-full max-w-3xl aspect-video grid place-items-center rounded-lg bg-[#101013] border border-dashed hairline">
+            <div class="text-center">
+              <div class="mx-auto mb-3 grid place-items-center w-12 h-12 rounded-full panel-2 text-slate-500">{{ icon('film','w-6 h-6') }}</div>
+              <p class="text-sm text-slate-400">Select a clip on the timeline to preview</p>
+              <p class="mt-1 text-xs text-slate-600">Upload media with the <span class="text-slate-400">+</span> button to get started</p>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- transport -->
+        <div class="h-12 shrink-0 flex items-center justify-center gap-3 px-4 relative">
+          <span id="time-readout" class="mono text-[11px] text-slate-500 absolute left-4">00:00.00 / {{ fmt_dur(timeline_duration) }}</span>
+          <button onclick="VE.seekStart()" class="grid place-items-center w-9 h-9 rounded-full text-slate-300 hover:text-white hover:bg-white/5 transition" title="Restart">{{ icon('skip-back','w-4 h-4') }}</button>
+          <button id="play-btn" onclick="VE.togglePlay()" class="grid place-items-center w-11 h-11 rounded-full bg-white text-black hover:bg-slate-200 transition shadow-lg" title="Play / Pause">
+            <span id="play-icon">{{ icon('play','w-5 h-5') }}</span>
+          </button>
+          <button onclick="VE.seekEnd()" class="grid place-items-center w-9 h-9 rounded-full text-slate-300 hover:text-white hover:bg-white/5 transition" title="To end">{{ icon('skip-fwd','w-4 h-4') }}</button>
+          <button onclick="VE.fullscreen()" class="grid place-items-center w-9 h-9 rounded-full text-slate-400 hover:text-white hover:bg-white/5 transition absolute right-4" title="Fullscreen">{{ icon('maximize','w-4 h-4') }}</button>
+        </div>
+      </div>
+
+      <!-- TIMELINE -->
+      <div class="h-[290px] shrink-0 panel border-t hairline flex flex-col min-h-0" id="timeline-wrap">
+        {% include "partials/timeline.html" %}
+      </div>
+
+    </section>
+  </div>
 </div>
 
+<script>
+window.VE = (function () {
+  const KEY = "ve.activePanel.{{ project.id }}";
+  const titles = { media:"Uploads", canvas:"Canvas", text:"Text", effects:"Effects", ai:"AI Magic", clip:"Clip", export:"Export" };
+
+  function show(key) {
+    document.querySelectorAll("[data-panel]").forEach(p => p.hidden = (p.dataset.panel !== key));
+    document.querySelectorAll("[data-rail]").forEach(r => r.classList.toggle("active", r.dataset.rail === key));
+    const t = document.getElementById("inspector-title");
+    if (t && titles[key]) t.textContent = titles[key];
+    try { sessionStorage.setItem(KEY, key); } catch (e) {}
+  }
+
+  function toggleInspector() {
+    // (visual only) collapse not persisted — kept simple
+    const aside = document.querySelector("aside.panel-2");
+    if (aside) aside.classList.toggle("hidden");
+  }
+
+  // ---- preview transport ----
+  function vid() { return document.getElementById("preview-video"); }
+  function togglePlay() { const v = vid(); if (!v) return; v.paused ? v.play() : v.pause(); }
+  function seekStart() { const v = vid(); if (v) { v.currentTime = +v.dataset.srcStart || 0; } }
+  function seekEnd()   { const v = vid(); if (v) { v.currentTime = +v.dataset.srcEnd || v.duration; } }
+  function fullscreen(){ const v = vid(); if (v && v.requestFullscreen) v.requestFullscreen(); }
+
+  function fmt(t) {
+    if (!isFinite(t)) t = 0;
+    const m = Math.floor(t / 60), s = Math.floor(t % 60), cs = Math.floor((t * 100) % 100);
+    return String(m).padStart(2,"0")+":"+String(s).padStart(2,"0")+"."+String(cs).padStart(2,"0");
+  }
+
+  function wireVideo() {
+    const v = vid(); if (!v) return;
+    const icon = document.getElementById("play-icon");
+    const readout = document.getElementById("time-readout");
+    const total = +v.dataset.tlTotal || 1;
+    const tlStart = +v.dataset.tlStart || 0;
+    const srcStart = +v.dataset.srcStart || 0;
+    const playhead = document.getElementById("playhead");
+
+    const PLAY = `{{ icon('play','w-5 h-5')|trim }}`;
+    const PAUSE = `{{ icon('pause','w-5 h-5')|trim }}`;
+    v.addEventListener("play",  () => { if (icon) icon.innerHTML = PAUSE; });
+    v.addEventListener("pause", () => { if (icon) icon.innerHTML = PLAY; });
+    v.addEventListener("timeupdate", () => {
+      const tlPos = tlStart + (v.currentTime - srcStart);
+      if (readout) readout.textContent = fmt(Math.max(0, tlPos)) + " / {{ fmt_dur(timeline_duration) }}";
+      if (playhead) playhead.style.left = Math.min(100, Math.max(0, (tlPos / total) * 100)) + "%";
+      if (v.currentTime >= (+v.dataset.srcEnd || v.duration)) v.pause();
+    });
+    // start at clip in-point
+    v.addEventListener("loadedmetadata", () => { v.currentTime = srcStart; });
+  }
+
+  // ---- tool toggle (visual) ----
+  function wireTools() {
+    document.querySelectorAll(".tool-btn").forEach(b => b.addEventListener("click", () => {
+      document.querySelectorAll(".tool-btn").forEach(x => { x.classList.remove("text-white","bg-white/10"); x.classList.add("text-slate-400"); });
+      b.classList.remove("text-slate-400"); b.classList.add("text-white","bg-white/10");
+    }));
+  }
+
+  function init() {
+    let start = "{{ 'clip' if has_clip else 'media' }}";
+    try { const saved = sessionStorage.getItem(KEY); if (saved && titles[saved]) start = saved; } catch (e) {}
+    {% if has_clip %}/* prefer clip view right after selecting */ start = "clip";{% endif %}
+    show(start);
+    wireVideo();
+    wireTools();
+  }
+
+  if (document.readyState !== "loading") init(); else document.addEventListener("DOMContentLoaded", init);
+  return { show, toggleInspector, togglePlay, seekStart, seekEnd, fullscreen };
+})();
+</script>
 {% endblock %}

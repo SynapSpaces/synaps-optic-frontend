@@ -1,5 +1,5 @@
-<div class="rounded-xl border border-slate-800/80 bg-slate-900/40 backdrop-blur p-4 h-full">
-    <h2 class="mb-3 mono text-[10px] uppercase tracking-[0.18em] text-slate-500">Asset library</h2>
+<div id="asset-library" class="space-y-4">
+    <h2 class="mono text-[10px] uppercase tracking-[0.18em] text-slate-500">Asset library</h2>
 
     <form hx-post="/api/projects/{{ project.id }}/assets"
           hx-encoding="multipart/form-data"

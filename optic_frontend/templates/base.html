@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>hair-recolor editor</title>
+    <title>Video Editor AI</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,23 +18,61 @@
         .pulse-dot { animation: pulse-dot 2s ease-in-out infinite; }
         .htmx-indicator { opacity: 0; transition: opacity 200ms ease-in; }
         .htmx-request .htmx-indicator, .htmx-request.htmx-indicator { opacity: 1; }
-        .clip-bar { transition: filter 120ms, transform 120ms; cursor: pointer; }
-        .clip-bar:hover { filter: brightness(1.06); }
-        .clip-bar.selected { outline: 2px solid rgb(16 185 129); outline-offset: 2px; z-index: 5; }
-        .timeline-track { background-image: repeating-linear-gradient(90deg, transparent 0, transparent 49px, rgba(15,23,42,0.06) 49px, rgba(15,23,42,0.06) 50px); }
+
+        /* ---- Pro-editor chrome ---- */
+        :root {
+            --bg: #0c0c0e;        /* app background */
+            --panel: #161619;     /* panels / rails */
+            --panel-2: #1d1d21;   /* raised surfaces */
+            --line: #2a2a30;      /* hairlines */
+            --accent: #3b82f6;    /* primary blue (Export) */
+        }
+        .app-bg     { background: var(--bg); }
+        .panel      { background: var(--panel); }
+        .panel-2    { background: var(--panel-2); }
+        .hairline   { border-color: var(--line); }
+
+        /* Custom scrollbars */
+        ::-webkit-scrollbar { width: 9px; height: 9px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #34343c; border-radius: 9px; border: 2px solid transparent; background-clip: content-box; }
+        ::-webkit-scrollbar-thumb:hover { background: #44444e; background-clip: content-box; }
+
+        /* Range sliders */
+        input[type=range] { -webkit-appearance: none; appearance: none; height: 4px; border-radius: 4px; background: #34343c; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #e5e7eb; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,.5); }
+        input[type=range]:focus { outline: none; }
+
+        /* Rail item */
+        .rail-item { color: #8a8a93; transition: color .12s, background .12s; }
+        .rail-item:hover { color: #e5e7eb; background: rgba(255,255,255,.04); }
+        .rail-item.active { color: #fff; background: rgba(59,130,246,.16); }
+        .rail-item.active::before { content:""; position:absolute; left:0; top:50%; transform:translateY(-50%); width:3px; height:26px; border-radius:0 3px 3px 0; background: var(--accent); }
+
+        /* Clip bars */
+        .clip-bar { transition: filter 120ms, box-shadow 120ms; cursor: pointer; }
+        .clip-bar:hover { filter: brightness(1.08); }
+        .clip-bar.selected { box-shadow: 0 0 0 2px #fff, 0 0 0 4px rgba(59,130,246,.6); z-index: 5; }
+
+        /* Ruler tick backdrop */
+        .ruler-grid { background-image: repeating-linear-gradient(90deg, rgba(255,255,255,.05) 0, rgba(255,255,255,.05) 1px, transparent 1px, transparent 50px); }
+
+        [hidden] { display: none !important; }
     </style>
 </head>
-<body class="min-h-screen bg-slate-50 text-slate-900">
-    <header class="sticky top-0 z-30 bg-white/85 backdrop-blur border-b border-slate-200">
+<body class="{% block body_class %}min-h-screen app-bg text-slate-200{% endblock %}">
+{% block body %}
+    <header class="sticky top-0 z-30 panel/95 backdrop-blur border-b hairline">
         <nav class="mx-auto {% block nav_container %}max-w-5xl{% endblock %} px-6 py-3 flex items-center justify-between">
-            <a href="/projects" class="mono text-xs uppercase tracking-[0.2em] text-slate-700 hover:text-slate-900 transition">hair-recolor editor</a>
+            <a href="/projects" class="mono text-xs uppercase tracking-[0.2em] text-slate-300 hover:text-white transition">Video Editor AI</a>
             <ul class="flex items-center gap-1 text-sm">
-                <li><a href="/projects" class="px-3 py-1.5 rounded-md {% if request.url.path.startswith('/projects') %}text-slate-900 bg-slate-100{% else %}text-slate-500 hover:text-slate-900 hover:bg-slate-100{% endif %} transition">Projects</a></li>
+                <li><a href="/projects" class="px-3 py-1.5 rounded-md {% if request.url.path.startswith('/projects') %}text-white bg-white/10{% else %}text-slate-400 hover:text-white hover:bg-white/5{% endif %} transition">Projects</a></li>
             </ul>
         </nav>
     </header>
     <main class="{% block container_class %}mx-auto max-w-5xl px-6 py-12{% endblock %}">
         {% block content %}{% endblock %}
     </main>
+{% endblock %}
 </body>
 </html>
