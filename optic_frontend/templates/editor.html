@@ -157,11 +157,16 @@
           {% endif %}
         </div>
 
-        <!-- VIDEOS (clip inspector + effects) -->
-        <div data-panel="videos" class="p-4 space-y-4" hidden>
+        <!-- VIDEOS (clip inspector: Edit / Effects / Transitions) -->
+        <div data-panel="videos" class="p-4" hidden>
           {% if has_clip %}
           {% set sel_dur = selected_clip.source_end - selected_clip.source_start %}
-          <div>
+          <div class="flex gap-1 mb-4 rounded-lg panel p-0.5 border hairline text-xs">
+            <button class="vsub-btn flex-1 rounded-md py-1.5 font-medium text-slate-400" data-vsub="edit">Edit</button>
+            <button class="vsub-btn flex-1 rounded-md py-1.5 font-medium text-slate-400" data-vsub="effects">Effects</button>
+            <button class="vsub-btn flex-1 rounded-md py-1.5 font-medium text-slate-400" data-vsub="transitions">Transitions</button>
+          </div>
+          <div data-vpanel="edit">
             <p class="mono text-[10px] uppercase tracking-wider text-slate-500 mb-2">Selected clip</p>
             <form hx-patch="/api/clips/{{ selected_clip.id }}" hx-target="body" hx-swap="outerHTML" class="space-y-3">
               <label class="block">
@@ -195,11 +200,17 @@
                 <button class="flex items-center justify-center gap-1.5 rounded-lg border border-rose-700/50 bg-rose-500/10 px-3 py-1.5 text-xs text-rose-300 hover:bg-rose-500/20 transition">{{ icon('trash','w-3.5 h-3.5') }}</button>
               </form>
             </div>
+          </div><!-- /vpanel:edit -->
+          <div data-vpanel="effects" hidden class="space-y-4">
+            {% include "partials/filters_panel.html" %}
+            <div class="border-t hairline pt-3">{% include "partials/effects_panel.html" %}</div>
+          </div>
+          <div data-vpanel="transitions" hidden>
+            {% include "partials/transitions_panel.html" %}
           </div>
           {% else %}
           <p class="text-xs text-slate-500">Select a clip on the timeline to trim, split, or apply effects to it.</p>
           {% endif %}
-          {% include "partials/effects_panel.html" %}
         </div>
 
         <!-- AUDIOS (voiceover / TTS) -->
@@ -358,6 +369,23 @@ window.VE = (function () {
     v.addEventListener("loadedmetadata", () => { v.currentTime = srcStart; });
   }
 
+  // ---- sub-tabs inside the Videos inspector (Edit / Effects / Transitions) ----
+  function showSub(key) {
+    document.querySelectorAll("[data-vpanel]").forEach(p => p.hidden = (p.dataset.vpanel !== key));
+    document.querySelectorAll(".vsub-btn").forEach(b => {
+      const on = b.dataset.vsub === key;
+      b.classList.toggle("bg-white/10", on);
+      b.classList.toggle("text-white", on);
+      b.classList.toggle("text-slate-400", !on);
+    });
+  }
+  function wireSubtabs() {
+    const btns = document.querySelectorAll(".vsub-btn");
+    if (!btns.length) return;
+    btns.forEach(b => b.addEventListener("click", () => showSub(b.dataset.vsub)));
+    showSub("edit");
+  }
+
   // ---- tool toggle (visual) ----
   function wireTools() {
     document.querySelectorAll(".tool-btn").forEach(b => b.addEventListener("click", () => {
@@ -374,6 +402,7 @@ window.VE = (function () {
     show(start);
     wireVideo();
     wireTools();
+    wireSubtabs();
   }
 
   if (document.readyState !== "loading") init(); else document.addEventListener("DOMContentLoaded", init);

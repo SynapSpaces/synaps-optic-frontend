@@ -1,0 +1,40 @@
+{# Discovery gallery: categorized effect tiles. Clicking a tile adds the effect to the
+   selected clip and swaps the applied-effects list (#effects-panel). #}
+{% if selected_clip %}
+{% set swatches = {
+  'look_cinematic':'linear-gradient(135deg,#0e3b43,#e8964b)',
+  'look_warm':'linear-gradient(135deg,#7a3b12,#f2b15a)',
+  'look_cool':'linear-gradient(135deg,#13314f,#4aa7d8)',
+  'look_bw':'linear-gradient(135deg,#111,#bbb)',
+  'look_sepia':'linear-gradient(135deg,#3a2a16,#c9a26a)',
+  'look_vintage':'linear-gradient(135deg,#4a3b2a,#d8c08a)',
+  'old_film':'linear-gradient(135deg,#2a261f,#9c8e6f)',
+  'vhs':'linear-gradient(135deg,#1a0a2a,#ff2d7e)',
+} %}
+<div class="space-y-4">
+  {% for key, label, types in effect_categories %}
+  <div>
+    <p class="mono text-[10px] uppercase tracking-wider text-slate-500 mb-2">{{ label }}</p>
+    <div class="grid grid-cols-2 gap-2">
+      {% for t in types %}
+      {% set spec = effect_types[t] %}
+      {% set name = (spec.label.split('·')[-1]).strip() if '·' in spec.label else spec.label %}
+      <form hx-post="/api/clips/{{ selected_clip.id }}/effects" hx-target="#effects-panel" hx-swap="outerHTML">
+        <input type="hidden" name="effect_type" value="{{ t }}">
+        <button class="group w-full overflow-hidden rounded-lg border hairline panel hover:border-blue-500/60 transition text-left">
+          <span class="block h-9 w-full"
+                style="background: {{ swatches[t] if t in swatches else 'linear-gradient(135deg,#23232a,#34343c)' }}"></span>
+          <span class="block px-2 py-1.5">
+            <span class="block text-[11px] font-medium text-slate-200 truncate group-hover:text-white">{{ name }}</span>
+            {% if not spec.native %}<span class="block text-[9px] text-amber-400/80">re-renders</span>{% endif %}
+          </span>
+        </button>
+      </form>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<p class="text-xs text-slate-500">Select a clip to browse filters &amp; effects.</p>
+{% endif %}

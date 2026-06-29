@@ -1,0 +1,36 @@
+{# Transition picker: applies the `transition` effect (from the previous clip) to the
+   selected clip. Duration field is shared across tiles via hx-include. #}
+{% if selected_clip %}
+{% set tspec = effect_types['transition'] %}
+{% set styles = tspec.params[0].options %}
+{% set icons = {
+  'fade':'▢','dissolve':'▦','wipeleft':'◧','wiperight':'◨',
+  'slideup':'▲','slidedown':'▼','circleopen':'◯','radial':'◐'
+} %}
+<div class="space-y-3">
+  <label class="block">
+    <div class="flex items-center justify-between mb-1">
+      <span class="mono text-[10px] uppercase tracking-wider text-slate-500">Duration</span>
+      <span class="mono text-[10px] text-slate-300" id="transition-dur-label">1.0s</span>
+    </div>
+    <input id="transition-duration" name="duration" type="range" min="0.2" max="3.0" step="0.1" value="1.0"
+           class="block w-full" oninput="document.getElementById('transition-dur-label').textContent=this.value+'s'">
+  </label>
+  <div class="grid grid-cols-2 gap-2">
+    {% for style in styles %}
+    <form hx-post="/api/clips/{{ selected_clip.id }}/effects" hx-include="#transition-duration"
+          hx-target="#effects-panel" hx-swap="outerHTML">
+      <input type="hidden" name="effect_type" value="transition">
+      <input type="hidden" name="style" value="{{ style }}">
+      <button class="w-full flex items-center gap-2 rounded-lg border hairline panel px-3 py-2.5 hover:border-blue-500/60 hover:bg-white/5 transition">
+        <span class="text-base leading-none text-slate-300">{{ icons[style] if style in icons else '▢' }}</span>
+        <span class="text-[11px] font-medium text-slate-200 capitalize">{{ style }}</span>
+      </button>
+    </form>
+    {% endfor %}
+  </div>
+  <p class="text-[11px] text-slate-500">Transitions blend from the <span class="text-slate-300">previous</span> clip on the timeline.</p>
+</div>
+{% else %}
+<p class="text-xs text-slate-500">Select a clip to add a transition.</p>
+{% endif %}
