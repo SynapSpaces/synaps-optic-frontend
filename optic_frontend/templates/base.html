@@ -60,6 +60,14 @@
         /* Ruler tick backdrop */
         .ruler-grid { background-image: repeating-linear-gradient(90deg, rgba(255,255,255,.05) 0, rgba(255,255,255,.05) 1px, transparent 1px, transparent 50px); }
 
+        /* Canvas overlay (draggable text/shape on the preview) */
+        #canvas-overlay { pointer-events: none; }
+        .ovl-box { position: absolute; pointer-events: auto; cursor: move; box-sizing: border-box; }
+        .ovl-text { display: flex; align-items: center; justify-content: center; white-space: nowrap; }
+        .ovl-box:hover { outline: 1px dashed rgba(255,255,255,.75); }
+        .ovl-label { padding: 0 .15em; background: rgba(0,0,0,.4); line-height: 1.1; pointer-events: none; font-weight: 600; }
+        .ovl-resize { position: absolute; right: -5px; bottom: -5px; width: 11px; height: 11px; background: #fff; border-radius: 2px; cursor: nwse-resize; pointer-events: auto; box-shadow: 0 0 0 1px rgba(0,0,0,.4); }
+
         [hidden] { display: none !important; }
     </style>
 </head>
