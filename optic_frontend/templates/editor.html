@@ -474,6 +474,73 @@ window.VE = (function () {
     showSub("edit");
   }
 
+  // ---- timeline direct manipulation: drag to move, trim edges, change lane ----
+  function wireTimelineDrag() {
+    const inner = document.getElementById("tl-inner");
+    if (!inner || !window.htmx) return;
+    const total = +inner.dataset.total || 1;
+    const lanes = Array.from(document.querySelectorAll(".tl-lane"));
+
+    document.querySelectorAll(".tl-clip").forEach(clip => {
+      clip.setAttribute("draggable", "false");
+      let mode = null, startX = 0, startY = 0, moved = false, pps = 1;
+      let oTl = 0, oSs = 0, oSe = 0, oTrack = 0, oLeft = 0, oWidth = 0;
+
+      function onMove(e) {
+        const dx = e.clientX - startX;
+        if (Math.abs(dx) > 3 || Math.abs(e.clientY - startY) > 3) moved = true;
+        if (mode === "move") clip.style.left = Math.max(0, oLeft + dx) + "px";
+        else if (mode === "l") {
+          const nl = Math.max(0, Math.min(oLeft + dx, oLeft + oWidth - 20));
+          clip.style.left = nl + "px";
+          clip.style.width = (oWidth - (nl - oLeft)) + "px";
+        } else if (mode === "r") {
+          clip.style.width = Math.max(20, oWidth + dx) + "px";
+        }
+      }
+      function onUp(e) {
+        window.removeEventListener("pointermove", onMove);
+        if (!moved) { mode = null; return; }   // no drag → let the <a> select the clip
+        const dxSec = (e.clientX - startX) / pps;
+        const v = { track_index: oTrack, timeline_start: oTl, source_start: oSs, source_end: oSe };
+        if (mode === "move") {
+          v.timeline_start = Math.max(0, +(oTl + dxSec).toFixed(2));
+          const lane = lanes.find(L => { const r = L.getBoundingClientRect(); return e.clientY >= r.top && e.clientY <= r.bottom; });
+          if (lane) v.track_index = +lane.dataset.lane;
+        } else if (mode === "l") {
+          const d = Math.max(-oSs, Math.min(dxSec, (oSe - oSs) - 0.1));
+          v.source_start = +(oSs + d).toFixed(2);
+          v.timeline_start = Math.max(0, +(oTl + d).toFixed(2));
+        } else if (mode === "r") {
+          v.source_end = Math.max(oSs + 0.1, +(oSe + dxSec).toFixed(2));
+        }
+        mode = null;
+        window.htmx.ajax("PATCH", "/api/clips/" + clip.dataset.clip, { values: v, target: "body", swap: "outerHTML" });
+      }
+      clip.addEventListener("click", e => { if (moved) e.preventDefault(); });
+      clip.addEventListener("dragstart", e => e.preventDefault());
+      clip.addEventListener("pointermove", e => {
+        if (mode) return;  // mid-drag
+        const r = clip.getBoundingClientRect(), off = e.clientX - r.left, E = 8;
+        clip.style.cursor = (off <= E || off >= r.width - E) ? "ew-resize" : "grab";
+      });
+      clip.addEventListener("pointerdown", e => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        // Detect edge by cursor geometry (robust vs which child got the event).
+        const r = clip.getBoundingClientRect(), off = e.clientX - r.left, E = 8;
+        mode = off <= E ? "l" : (off >= r.width - E ? "r" : "move");
+        moved = false; startX = e.clientX; startY = e.clientY;
+        pps = inner.clientWidth / total;
+        oTl = +clip.dataset.tlStart; oSs = +clip.dataset.srcStart; oSe = +clip.dataset.srcEnd;
+        oTrack = +clip.dataset.track; oLeft = clip.offsetLeft; oWidth = clip.offsetWidth;
+        try { clip.setPointerCapture(e.pointerId); } catch (_) {}
+        window.addEventListener("pointermove", onMove);
+        window.addEventListener("pointerup", onUp, { once: true });
+      });
+    });
+  }
+
   // ---- tool toggle (visual) ----
   function wireTools() {
     document.querySelectorAll(".tool-btn").forEach(b => b.addEventListener("click", () => {
@@ -490,6 +557,7 @@ window.VE = (function () {
     wireVideo();
     wireTools();
     wireSubtabs();
+    wireTimelineDrag();
   }
 
   if (document.readyState !== "loading") init(); else document.addEventListener("DOMContentLoaded", init);

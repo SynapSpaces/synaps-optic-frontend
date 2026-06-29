@@ -53,7 +53,7 @@
 
     <!-- right: ruler + lanes (horizontal scroll) -->
     <div class="flex-1 overflow-x-auto overflow-y-hidden">
-      <div class="relative" style="width: max(100%, {{ inner_w }}px);">
+      <div id="tl-inner" data-total="{{ timeline_duration }}" data-project="{{ project.id }}" class="relative" style="width: max(100%, {{ inner_w }}px);">
 
         <!-- ruler -->
         <div class="h-7 relative border-b hairline ruler-grid">
@@ -71,7 +71,7 @@
 
         <!-- lanes -->
         {% for track in tracks %}
-        <div class="h-16 relative border-b hairline {% if loop.index0 % 2 %}bg-white/[0.015]{% endif %}">
+        <div class="tl-lane h-16 relative border-b hairline {% if loop.index0 % 2 %}bg-white/[0.015]{% endif %}" data-lane="{{ track }}">
           {% for c in clips %}
           {% if c.track_index == track %}
           {% set a = (assets|selectattr('id','equalto',c.asset_id)|first) %}
@@ -82,13 +82,17 @@
           {% set is_audio = a and (((a.width or 0) == 0) or fn.endswith(('.mp3','.wav','.m4a','.aac','.ogg'))) %}
           {% set tint = lane_palette[track % 6] %}
           <a href="/projects/{{ project.id }}?clip={{ c.id }}"
-             class="clip-bar absolute top-1.5 bottom-1.5 flex items-center rounded-lg overflow-hidden border
+             class="tl-clip clip-bar absolute top-1.5 bottom-1.5 flex items-center rounded-lg overflow-hidden border
                     {% if selected_clip and selected_clip.id == c.id %}selected{% endif %}"
+             data-clip="{{ c.id }}" data-tl-start="{{ c.timeline_start }}"
+             data-src-start="{{ c.source_start }}" data-src-end="{{ c.source_end }}" data-track="{{ track }}"
              style="left: {{ left_pct }}%; width: max({{ width_pct }}%, 28px);
                     {% if is_audio %}background:linear-gradient(180deg,#10b98133,#10b98114);border-color:#10b98155;
                     {% elif a and a.thumbnail_path %}background:#000;border-color:{{ tint }}66;
                     {% else %}background:linear-gradient(180deg,{{ tint }}44,{{ tint }}22);border-color:{{ tint }}66;{% endif %}"
              title="{{ a.filename if a else 'clip' }} · t={{ fmt_dur(c.timeline_start) }} · {{ fmt_dur(dur) }}">
+            <span class="tl-trim absolute left-0 top-0 bottom-0 w-1.5 cursor-ew-resize bg-white/0 hover:bg-white/40 z-20" data-edge="l"></span>
+            <span class="tl-trim absolute right-0 top-0 bottom-0 w-1.5 cursor-ew-resize bg-white/0 hover:bg-white/40 z-20" data-edge="r"></span>
 
             {% if is_audio %}
             <div class="absolute inset-0 opacity-60" style="background-image:repeating-linear-gradient(90deg,#34d39977 0,#34d39977 1px,transparent 1px,transparent 4px);"></div>

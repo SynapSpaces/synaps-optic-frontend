@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Video Editor AI</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <script src="/static/htmx.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
@@ -50,6 +50,9 @@
         .rail-item.active::before { content:""; position:absolute; left:0; top:50%; transform:translateY(-50%); width:3px; height:26px; border-radius:0 3px 3px 0; background: var(--accent); }
 
         /* Clip bars */
+        /* All clip children are decorative; the <a> handles drag/trim (edge by geometry). */
+        .tl-clip > * { pointer-events: none; }
+        .tl-clip { touch-action: none; }
         .clip-bar { transition: filter 120ms, box-shadow 120ms; cursor: pointer; }
         .clip-bar:hover { filter: brightness(1.08); }
         .clip-bar.selected { box-shadow: 0 0 0 2px #fff, 0 0 0 4px rgba(59,130,246,.6); z-index: 5; }
