@@ -189,6 +189,21 @@
                 <button class="flex items-center justify-center gap-1.5 rounded-lg border border-rose-700/50 bg-rose-500/10 px-3 py-1.5 text-xs text-rose-300 hover:bg-rose-500/20 transition">{{ icon('trash','w-3.5 h-3.5') }}</button>
               </form>
             </div>
+            <div class="mt-4 pt-4 border-t hairline">
+              <p class="mono text-[10px] uppercase tracking-wider text-slate-500 mb-1">Transform · overlay / PiP</p>
+              <p class="text-[10px] text-slate-500 mb-2">Applies when the clip sits on a track <span class="text-slate-300">above</span> the base. Scale &lt; 100% = picture-in-picture.</p>
+              <form hx-patch="/api/clips/{{ selected_clip.id }}" hx-target="body" hx-swap="outerHTML" hx-trigger="change delay:300ms" class="space-y-2">
+                {% for nm, lbl, mn, mx in [('scale_pct','Scale %',5,100),('opacity','Opacity %',0,100),('x_pct','X %',0,100),('y_pct','Y %',0,100)] %}
+                <label class="block">
+                  <div class="flex items-center justify-between">
+                    <span class="mono text-[9px] uppercase tracking-wider text-slate-500">{{ lbl }}</span>
+                    <span class="mono text-[10px] text-slate-300">{{ selected_clip[nm]|round(0)|int }}</span>
+                  </div>
+                  <input type="range" name="{{ nm }}" min="{{ mn }}" max="{{ mx }}" step="1" value="{{ selected_clip[nm] }}" class="mt-1 block w-full">
+                </label>
+                {% endfor %}
+              </form>
+            </div>
           </div><!-- /vpanel:edit -->
           <div data-vpanel="effects" hidden class="space-y-4">
             {% include "partials/filters_panel.html" %}
