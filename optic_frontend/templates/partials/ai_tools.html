@@ -1,7 +1,8 @@
 <div id="ai-tools-card"
      class="rounded-xl border border-slate-800/80 bg-slate-900/40 backdrop-blur p-4"
      {% if (transcript and transcript.status in ('queued', 'running'))
-          or (animation and animation.status in ('queued', 'running')) %}
+          or (animation and animation.status in ('queued', 'running'))
+          or active_animations %}
      hx-get="/partials/clips/{{ selected_clip.id }}/ai_tools"
      hx-trigger="every 3s" hx-swap="outerHTML"
      {% endif %}>
@@ -115,16 +116,22 @@
             <p class="mt-2 text-xs text-rose-400 break-words">{{ animation.error or 'failed' }}</p>
             {% endif %}
 
+            {% set own_active = 1 if (animation and animation.status in ('queued', 'running')) else 0 %}
+            {% if active_animations and active_animations > own_active %}
+            <p class="mt-2 mono text-[10px] text-amber-300/80">
+                {{ active_animations - own_active }} more scene animation{{ 's' if active_animations - own_active != 1 }} in the queue — jobs run one at a time</p>
+            {% endif %}
+
             <form hx-post="/api/clips/{{ selected_clip.id }}/animate" hx-target="#ai-tools-card" hx-swap="outerHTML">
                 <div class="mt-3 flex items-center gap-3 flex-wrap">
                     <label class="mono text-[10px] uppercase tracking-wider text-slate-500">Motion</label>
-                    <input type="range" name="motion" min="20" max="255" step="5"
+                    <input type="range" name="motion" min="20" max="255" step="5" id="anim-motion" hx-preserve
                            value="{{ animation.motion if animation and animation.motion else 160 }}"
                            class="w-32 accent-violet-500"
                            oninput="this.closest('div').querySelector('output').value = this.value">
-                    <output class="mono text-[10px] text-slate-400 w-7">{{ animation.motion if animation and animation.motion else 160 }}</output>
+                    <output id="anim-motion-out" hx-preserve class="mono text-[10px] text-slate-400 w-7">{{ animation.motion if animation and animation.motion else 160 }}</output>
                     <label class="mono text-[10px] uppercase tracking-wider text-slate-500">Seed</label>
-                    <input type="number" name="seed" min="0" max="999999" step="1"
+                    <input type="number" name="seed" min="0" max="999999" step="1" id="anim-seed" hx-preserve
                            value="{{ animation.seed if animation and animation.seed is not none else 0 }}"
                            title="Same seed = same motion; change it to get a different take"
                            class="w-20 rounded-md border border-slate-700 bg-slate-950/60 px-2 py-1 text-xs">
