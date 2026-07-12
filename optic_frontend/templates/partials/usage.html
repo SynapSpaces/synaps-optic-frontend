@@ -1,0 +1,53 @@
+<section class="mx-auto max-w-5xl mb-6">
+  <div class="rounded-xl border hairline panel-2 p-4">
+    <h2 class="mono text-[10px] uppercase tracking-[0.18em] text-slate-500 mb-3">Usage · this workspace</h2>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <!-- Storage -->
+      <div>
+        <div class="flex items-center justify-between text-xs text-slate-300">
+          <span>Storage</span>
+          <span class="mono text-[11px] text-slate-400">{{ (storage_used_bytes / 1024**3) | round(2) }} GB / {{ (storage_cap_bytes / 1024**3) | round(0) | int }} GB</span>
+        </div>
+        <div class="mt-1 h-1 w-full overflow-hidden rounded-full bg-slate-800">
+          <div class="h-full bg-sky-400/80 transition-all" style="width: {{ storage_pct }}%"></div>
+        </div>
+      </div>
+
+      <!-- SVD animations today -->
+      <div>
+        <div class="flex items-center justify-between text-xs text-slate-300">
+          <span>SVD animations today</span>
+          <span class="mono text-[11px] text-slate-400">{{ svd_today }} / {{ svd_cap }}</span>
+        </div>
+        <div class="mt-1 h-1 w-full overflow-hidden rounded-full bg-slate-800">
+          <div class="h-full bg-violet-400/80 transition-all" style="width: {{ [(svd_today / svd_cap * 100) if svd_cap else 0, 100] | min }}%"></div>
+        </div>
+      </div>
+
+      <!-- Scene images today -->
+      <div>
+        <div class="flex items-center justify-between text-xs text-slate-300">
+          <span>Scene images today</span>
+          <span class="mono text-[11px] text-slate-400">{{ images_today }} / {{ images_cap }}</span>
+        </div>
+        <div class="mt-1 h-1 w-full overflow-hidden rounded-full bg-slate-800">
+          <div class="h-full bg-fuchsia-400/80 transition-all" style="width: {{ [(images_today / images_cap * 100) if images_cap else 0, 100] | min }}%"></div>
+        </div>
+      </div>
+
+      <!-- Rendered video today -->
+      <div>
+        <div class="flex items-center justify-between text-xs text-slate-300">
+          <span>Rendered video today</span>
+          <span class="mono text-[11px] text-slate-400">{{ render_minutes_today }} min / {{ render_minutes_cap }} min</span>
+        </div>
+        <div class="mt-1 h-1 w-full overflow-hidden rounded-full bg-slate-800">
+          <div class="h-full bg-amber-400/80 transition-all" style="width: {{ [(render_minutes_today / render_minutes_cap * 100) if render_minutes_cap else 0, 100] | min }}%"></div>
+        </div>
+      </div>
+    </div>
+
+    <p class="mt-3 text-[11px] text-slate-500">Daily limits reset at 00:00 UTC.</p>
+  </div>
+</section>
