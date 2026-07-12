@@ -1,0 +1,26 @@
+{% if ai_generation and ai_generation.status in ('queued', 'running') %}
+<div id="ai-generate-status"
+     class="rounded-lg border border-violet-800/60 bg-violet-950/30 px-4 py-2 text-xs text-violet-200 flex items-center gap-3"
+     hx-get="/partials/projects/{{ project_id }}/ai_generate"
+     hx-trigger="every 3s" hx-swap="outerHTML">
+  <span class="h-2 w-2 rounded-full bg-violet-400 animate-pulse"></span>
+  {% if ai_generation.status == 'queued' and not gpu_online %}
+    <span>Generation is waking up — your job is queued and will run when the studio GPU is back.</span>
+  {% elif ai_generation.status == 'queued' %}
+    <span>Queued — generating on the studio GPU, jobs run one at a time.</span>
+  {% else %}
+    <span>Generating your scenes… {{ ai_generation.progress or 0 }}%</span>
+  {% endif %}
+</div>
+{% elif ai_generation and ai_generation.status == 'done' %}
+<div id="ai-generate-status" hx-get="/partials/projects/{{ project_id }}/ai_generate"
+     hx-trigger="load delay:100ms" hx-swap="none">
+  <script>window.location.reload();</script>
+</div>
+{% elif ai_generation and ai_generation.status == 'failed' %}
+<div id="ai-generate-status" class="rounded-lg border border-rose-800/60 bg-rose-950/30 px-4 py-2 text-xs text-rose-300">
+  Generation failed: {{ ai_generation.error or 'unknown error' }}
+</div>
+{% else %}
+<div id="ai-generate-status"></div>
+{% endif %}

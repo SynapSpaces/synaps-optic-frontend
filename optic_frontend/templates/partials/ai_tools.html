@@ -111,7 +111,7 @@
                 <div class="h-full bg-violet-400/80 transition-all" style="width: {{ animation.progress or 3 }}%"></div>
             </div>
             <p class="mt-1 mono text-[10px] text-slate-500">
-                {% if animation.status == 'queued' %}queued…{% else %}{{ animation.progress or 0 }}% — generating on GPU, keep working{% endif %}</p>
+                {% if animation.status == 'queued' %}{% if not gpu_online %}generation is waking up — queued{% else %}queued…{% endif %}{% else %}{{ animation.progress or 0 }}% — generating on GPU, keep working{% endif %}</p>
             {% elif animation and animation.status == 'failed' %}
             <p class="mt-2 text-xs text-rose-400 break-words">{{ animation.error or 'failed' }}</p>
             {% endif %}
