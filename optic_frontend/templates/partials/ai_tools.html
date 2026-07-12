@@ -112,6 +112,9 @@
             </div>
             <p class="mt-1 mono text-[10px] text-slate-500">
                 {% if animation.status == 'queued' %}{% if not gpu_online %}generation is waking up — queued{% else %}queued…{% endif %}{% else %}{{ animation.progress or 0 }}% — generating on GPU, keep working{% endif %}</p>
+            {% if animation.status == 'queued' and queue_position is defined and queue_position is not none %}
+            <p class="mt-1 mono text-[10px] text-violet-300">You are #{{ queue_position + 1 }} in line on the studio GPU.</p>
+            {% endif %}
             {% elif animation and animation.status == 'failed' %}
             <p class="mt-2 text-xs text-rose-400 break-words">{{ animation.error or 'failed' }}</p>
             {% endif %}

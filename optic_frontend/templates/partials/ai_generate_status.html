@@ -6,8 +6,14 @@
   <span class="h-2 w-2 rounded-full bg-violet-400 animate-pulse"></span>
   {% if ai_generation.status == 'queued' and not gpu_online %}
     <span>Generation is waking up — your job is queued and will run when the studio GPU is back.</span>
+    {% if queue_position is defined and queue_position is not none %}
+      <span class="text-violet-300">You are #{{ queue_position + 1 }} in line.</span>
+    {% endif %}
   {% elif ai_generation.status == 'queued' %}
     <span>Queued — generating on the studio GPU, jobs run one at a time.</span>
+    {% if queue_position is defined and queue_position is not none %}
+      <span class="text-violet-300">You are #{{ queue_position + 1 }} in line.</span>
+    {% endif %}
   {% else %}
     <span>Generating your scenes… {{ ai_generation.progress or 0 }}%</span>
   {% endif %}
