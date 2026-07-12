@@ -78,6 +78,9 @@
             <a href="/projects" class="mono text-xs uppercase tracking-[0.2em] text-slate-300 hover:text-white transition">Video Editor AI</a>
             <ul class="flex items-center gap-1 text-sm">
                 <li><a href="/projects" class="px-3 py-1.5 rounded-md {% if request.url.path.startswith('/projects') %}text-white bg-white/10{% else %}text-slate-400 hover:text-white hover:bg-white/5{% endif %} transition">Projects</a></li>
+                {% if is_owner %}
+                <li><a href="/admin/invites" class="px-3 py-1.5 rounded-md {% if request.url.path.startswith('/admin') %}text-white bg-white/10{% else %}text-slate-400 hover:text-white hover:bg-white/5{% endif %} transition">Invites</a></li>
+                {% endif %}
             </ul>
         </nav>
     </header>

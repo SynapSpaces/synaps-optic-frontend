@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="mx-auto max-w-3xl">
+  <h1 class="text-2xl font-semibold text-white">Invites</h1>
+  <p class="mt-1 text-sm text-slate-400">Create a code, then copy its link to invite someone.</p>
+
+  <form method="post" action="/admin/invites" class="mt-6 flex items-end gap-3 rounded-xl border hairline panel-2 p-4">
+    <div class="flex-1">
+      <label class="mono text-[10px] uppercase tracking-[0.18em] text-slate-500" for="invite-email">Reserve for email (optional)</label>
+      <input id="invite-email" type="email" name="email" placeholder="someone@example.com"
+             class="mt-1 block w-full rounded-lg border hairline bg-transparent px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-fuchsia-500/40">
+    </div>
+    <button type="submit"
+            class="rounded-lg bg-gradient-to-br from-fuchsia-500 to-orange-500 px-4 py-2 text-sm font-medium text-white hover:brightness-110 transition">
+      Create invite code
+    </button>
+  </form>
+
+  <div class="mt-6">
+    {% if not invites %}
+    <div class="rounded-xl border border-dashed hairline panel-2 p-12 text-center">
+      <p class="text-sm text-slate-500">No invite codes yet. Create one above.</p>
+    </div>
+    {% else %}
+    <div class="rounded-xl border hairline panel-2 divide-y divide-white/5">
+      {% for invite in invites %}
+      <div class="flex items-center gap-3 p-4">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2">
+            <span class="mono text-sm text-white">{{ invite.code }}</span>
+            {% if invite.redeemed_by %}
+            <span class="rounded-full bg-slate-700/60 px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-300">redeemed</span>
+            {% else %}
+            <span class="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] uppercase tracking-wide text-emerald-300">available</span>
+            {% endif %}
+          </div>
+          <div class="mt-1 flex items-center gap-2">
+            <code class="mono truncate text-[11px] text-slate-400">{{ app_url }}/invite/{{ invite.code }}</code>
+            <button type="button"
+                    onclick="navigator.clipboard.writeText('{{ app_url }}/invite/{{ invite.code }}')"
+                    class="shrink-0 rounded-md border hairline px-2 py-0.5 text-[10px] text-slate-300 hover:bg-white/5 transition">
+              Copy
+            </button>
+          </div>
+          {% if invite.email %}
+          <p class="mt-1 text-[11px] text-slate-500">Reserved for {{ invite.email }}</p>
+          {% endif %}
+        </div>
+        <span class="mono shrink-0 text-[10px] text-slate-500">{{ fmt(invite.created_at) }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}
