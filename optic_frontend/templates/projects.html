@@ -25,6 +25,44 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
       </button>
     </div>
+
+    <!-- Generation controls: aspect ratio (GEN-01), motion toggle (D-01), motion intensity (GEN-02), length (GEN-04) -->
+    <div class="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-300">
+      <label class="flex items-center gap-1.5">
+        Aspect
+        <select name="aspect" class="rounded-md border hairline bg-transparent px-2 py-1 text-slate-200">
+          <option value="9:16" selected>9:16 (vertical)</option>
+          <option value="16:9">16:9 (widescreen)</option>
+          <option value="1:1">1:1 (square)</option>
+        </select>
+      </label>
+
+      <label class="flex items-center gap-1.5">
+        Motion
+        <select name="motion_mode" class="rounded-md border hairline bg-transparent px-2 py-1 text-slate-200">
+          <option value="svd" selected>Real motion (SVD)</option>
+          <option value="ken_burns">Quick draft (Ken Burns)</option>
+        </select>
+      </label>
+
+      <label class="flex items-center gap-1.5">
+        Subtle
+        <input type="range" name="motion" min="100" max="220" step="20" value="160"
+               class="w-24 accent-fuchsia-500"
+               oninput="this.nextElementSibling.textContent=this.value">
+        <span class="w-8 text-right text-slate-400">160</span>
+        Dynamic
+      </label>
+
+      <label class="flex items-center gap-1.5">
+        Length
+        <select name="length" class="rounded-md border hairline bg-transparent px-2 py-1 text-slate-200">
+          <option value="short">Short (~2 scenes)</option>
+          <option value="medium">Medium (~3 scenes)</option>
+          <option value="long" selected>Long (~4 scenes)</option>
+        </select>
+      </label>
+    </div>
   </form>
   <p class="mt-2 text-[11px] text-slate-500">AI plans your project with a locally-hosted model and narrates it offline. AI can make mistakes — please verify important information.</p>
 
