@@ -14,6 +14,20 @@
     {% if queue_position is defined and queue_position is not none %}
       <span class="text-violet-300">You are #{{ queue_position + 1 }} in line.</span>
     {% endif %}
+  {% elif scenes %}
+    {% set status_labels = {'pending': 'queued', 'generating_image': 'generating image', 'animating': 'animating', 'done': 'done', 'failed': 'failed'} %}
+    <div class="flex flex-col gap-1">
+      {% for s in scenes %}
+      <div class="{% if s.status == 'done' %}text-emerald-300{% elif s.status == 'failed' %}text-rose-300{% else %}text-violet-300{% endif %}">
+        Scene {{ s.scene_index + 1 }} of {{ scenes|length }}: {{ status_labels.get(s.status, s.status) }}
+        {% if s.status in ('generating_image', 'animating') %}
+          {% if not gpu_online %}(stalled — waking up the studio GPU){% else %}({{ s.progress or 0 }}%){% endif %}
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  {% elif not gpu_online %}
+    <span>Generation stalled — waiting for the studio GPU… progress is saved, resumes automatically</span>
   {% else %}
     <span>Generating your scenes… {{ ai_generation.progress or 0 }}%</span>
   {% endif %}
