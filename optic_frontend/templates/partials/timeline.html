@@ -2,7 +2,7 @@
 {% set PPS = 90 %}
 {% set inner_w = (timeline_duration * PPS)|round(0,'ceil')|int %}
 {% set lane_palette = ['#7c5cff','#3b82f6','#10b981','#f59e0b','#ef4444','#ec4899'] %}
-<div id="timeline-container" class="flex flex-col h-full min-h-0">
+<div id="timeline-container" class="flex flex-col h-full min-h-0" {% if oob_timeline %}hx-swap-oob="true"{% endif %}>
 
   <!-- toolbar -->
   <div class="h-11 shrink-0 flex items-center gap-1 px-3 border-b hairline">

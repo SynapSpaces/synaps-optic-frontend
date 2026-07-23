@@ -32,6 +32,7 @@
     <span>Generating your scenes… {{ ai_generation.progress or 0 }}%</span>
   {% endif %}
 </div>
+{% if oob_timeline %}{% include "partials/timeline.html" %}{% endif %}
 {% elif ai_generation and ai_generation.status == 'done' %}
 <div id="ai-generate-status" hx-get="/partials/projects/{{ project_id }}/ai_generate"
      hx-trigger="load delay:100ms" hx-swap="none">
