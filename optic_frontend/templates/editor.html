@@ -344,6 +344,22 @@
 
         <!-- RECORDS (renders / exports) -->
         <div data-panel="records" class="p-3 space-y-3" hidden>
+          <!-- Background music (GEN-06: bundled CC0/CC-BY tracks, auto-ducked under voice) -->
+          <div class="border-b hairline pb-3">
+            <p class="mono text-[10px] uppercase tracking-wider text-slate-500 mb-2">Background music</p>
+            <form hx-post="/api/projects/{{ project.id }}/music" hx-target="#music-status" hx-swap="innerHTML">
+              <select name="music_key" onchange="this.form.requestSubmit()"
+                      class="w-full rounded-lg border hairline panel px-3 py-2 text-xs text-slate-300">
+                <option value="" {% if not project.background_music_key %}selected{% endif %}>No music</option>
+                {% for track in music_tracks %}
+                <option value="{{ track }}" {% if project.background_music_key == track %}selected{% endif %}>{{ track }}</option>
+                {% endfor %}
+              </select>
+            </form>
+            <p id="music-status" class="mt-2 text-[11px] text-slate-500">
+              {% if not music_tracks %}No bundled tracks available yet.{% endif %}
+            </p>
+          </div>
           <form hx-post="/api/projects/{{ project.id }}/render" hx-target="#renders-card" hx-swap="outerHTML">
             <button class="w-full flex items-center justify-center gap-2 rounded-lg bg-[var(--accent)] hover:bg-blue-500 px-4 py-2.5 text-sm font-semibold text-white transition disabled:opacity-40" {% if not clips %}disabled{% endif %}>
               {{ icon('download','w-4 h-4') }} Render &amp; export project
