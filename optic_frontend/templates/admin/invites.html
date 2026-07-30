@@ -11,6 +11,11 @@
       <input id="invite-email" type="email" name="email" placeholder="someone@example.com"
              class="mt-1 block w-full rounded-lg border hairline bg-transparent px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-fuchsia-500/40">
     </div>
+    <div class="w-40">
+      <label class="mono text-[10px] uppercase tracking-[0.18em] text-slate-500" for="invite-expires">Expires in N days (optional)</label>
+      <input id="invite-expires" type="number" name="expires_in_days" min="1" placeholder="never"
+             class="mt-1 block w-full rounded-lg border hairline bg-transparent px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-fuchsia-500/40">
+    </div>
     <button type="submit"
             class="rounded-lg bg-gradient-to-br from-fuchsia-500 to-orange-500 px-4 py-2 text-sm font-medium text-white hover:brightness-110 transition">
       Create invite code
@@ -29,10 +34,14 @@
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-2">
             <span class="mono text-sm text-white">{{ invite.code }}</span>
-            {% if invite.redeemed_by %}
+            {% if invite.revoked_at %}
+            <span class="rounded-full bg-rose-500/15 px-2 py-0.5 text-[10px] uppercase tracking-wide text-rose-300">revoked</span>
+            {% elif invite.redeemed_by %}
             <span class="rounded-full bg-slate-700/60 px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-300">redeemed</span>
+            {% elif invite.expired %}
+            <span class="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] uppercase tracking-wide text-amber-300">expired</span>
             {% else %}
-            <span class="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] uppercase tracking-wide text-emerald-300">available</span>
+            <span class="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] uppercase tracking-wide text-emerald-300">unredeemed</span>
             {% endif %}
           </div>
           <div class="mt-1 flex items-center gap-2">
@@ -46,8 +55,19 @@
           {% if invite.email %}
           <p class="mt-1 text-[11px] text-slate-500">Reserved for {{ invite.email }}</p>
           {% endif %}
+          {% if invite.redeemed_by %}
+          <p class="mt-1 text-[11px] text-slate-500">Redeemed by {{ invite.redeemed_by_email or invite.redeemed_by }} at {{ fmt(invite.redeemed_at) }}</p>
+          {% endif %}
         </div>
         <span class="mono shrink-0 text-[10px] text-slate-500">{{ fmt(invite.created_at) }}</span>
+        {% if not invite.redeemed_by and not invite.revoked_at %}
+        <form method="post" action="/admin/invites/{{ invite.code }}/revoke" class="shrink-0">
+          <button type="submit"
+                  class="rounded-md border hairline px-2 py-1 text-[10px] text-rose-300 hover:bg-rose-500/10 transition">
+            Revoke
+          </button>
+        </form>
+        {% endif %}
       </div>
       {% endfor %}
     </div>
