@@ -23,6 +23,10 @@
     <p class="text-center text-sm text-slate-400 mb-6">We'll email you a magic link — no password.</p>
 
     <form method="post" action="/auth/login" class="space-y-4">
+        <div style="position:absolute; left:-9999px; top:-9999px;" aria-hidden="true">
+            <label for="hp_website">Leave this field empty</label>
+            <input type="text" id="hp_website" name="hp_website" tabindex="-1" autocomplete="off" />
+        </div>
         <input
             type="email" name="email" required autofocus placeholder="you@example.com"
             class="w-full rounded-lg bg-[#0c0c0e] border hairline px-3 py-2.5 text-sm text-slate-200
