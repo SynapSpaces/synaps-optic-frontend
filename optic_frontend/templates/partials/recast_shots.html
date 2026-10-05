@@ -1,0 +1,59 @@
+<div id="recast-shots" class="grid gap-3">
+  {% if shots %}
+  <div class="flex gap-1 h-14" role="tablist">
+    {% for s in shots %}
+    <button type="button" data-shot="{{ s.shot_index }}" onclick="RC.select({{ s.shot_index }})"
+            class="rc-shot relative rounded-lg border hairline panel-2 px-2 text-left overflow-hidden hover:border-blue-500/60 transition"
+            style="flex: {{ s.end_frame - s.start_frame }} 1 0">
+      <div class="text-sm font-medium text-slate-200">Shot {{ s.shot_index }}</div>
+      <div class="mono text-[10px] text-slate-500">{{ '%02d:%02d'|format((s.start_frame * 2 // 24) // 60, (s.start_frame * 2 // 24) % 60) }}–{{ '%02d:%02d'|format((s.end_frame * 2 // 24) // 60, (s.end_frame * 2 // 24) % 60) }}</div>
+      {% if s.status in ('queued', 'rendering') %}<span class="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-amber-400 pulse-dot"></span>
+      {% elif s.decision == 'approve' %}<span class="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-emerald-400"></span>
+      {% elif s.decision == 'reroll' %}<span class="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-amber-400"></span>
+      {% elif s.status == 'failed' %}<span class="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-rose-500"></span>{% endif %}
+    </button>
+    {% endfor %}
+  </div>
+
+  {% for s in shots %}
+  <div data-shot-panel="{{ s.shot_index }}" class="rounded-xl border hairline panel-2 p-4 grid gap-3" hidden>
+    <div class="flex flex-wrap items-center gap-3">
+      <span class="text-sm font-semibold text-white">Shot {{ s.shot_index }}</span>
+      <span class="mono text-[10px] uppercase tracking-wider
+          {% if s.decision == 'approve' %}text-emerald-400{% elif s.decision == 'reroll' %}text-amber-300{% else %}text-slate-500{% endif %}">
+        {{ 'approved' if s.decision == 'approve' else ('re-roll' if s.decision == 'reroll' else 'unreviewed') }}</span>
+      {% if s.fix_count %}<span class="mono text-[10px] text-slate-500">re-rendered {{ s.fix_count }}×</span>{% endif %}
+      {% if s.status == 'rendering' %}<span class="text-xs text-amber-300">rendering · {{ s.progress }}%</span>
+      {% elif s.status == 'queued' %}<span class="text-xs text-amber-300">queued for re-render</span>
+      {% elif s.status == 'failed' %}<span class="text-xs text-rose-400">{{ s.error }}</span>{% endif %}
+      <div class="ml-auto flex gap-2">
+        <form hx-post="/api/recast/shots/{{ s.id }}/review" hx-target="#recast-shots" hx-swap="outerHTML" hx-include="#note-{{ s.id }}">
+          <input type="hidden" name="decision" value="{{ 'clear' if s.decision == 'approve' else 'approve' }}">
+          <button type="submit" class="rounded-md border border-emerald-700/60 px-3 py-1.5 text-xs {% if s.decision == 'approve' %}bg-emerald-500/20 text-emerald-200{% else %}text-emerald-300 hover:bg-emerald-900/30{% endif %} transition">Approve</button>
+        </form>
+        {% if take.side == 'cat' and take.mode == 'full' %}
+        <form hx-post="/api/recast/shots/{{ s.id }}/reroll" hx-target="#recast-shots" hx-swap="outerHTML"
+              hx-confirm="Re-render shot {{ s.shot_index }} with a new seed? About 25 minutes plus the post chain.">
+          <button type="submit" {% if take.status != 'done' or s.status in ('queued', 'rendering') %}disabled{% endif %}
+                  class="rounded-md border border-rose-700/50 bg-rose-500/10 px-3 py-1.5 text-xs text-rose-300 hover:bg-rose-500/20 transition disabled:opacity-40">Re-roll</button>
+        </form>
+        {% else %}
+        <form hx-post="/api/recast/shots/{{ s.id }}/review" hx-target="#recast-shots" hx-swap="outerHTML" hx-include="#note-{{ s.id }}">
+          <input type="hidden" name="decision" value="{{ 'clear' if s.decision == 'reroll' else 'reroll' }}">
+          <button type="submit" class="rounded-md border border-rose-700/50 px-3 py-1.5 text-xs text-rose-300 hover:bg-rose-500/10 transition">Flag for re-roll</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    <label class="block">
+      <span class="mono text-[9px] uppercase tracking-wider text-slate-500">Note</span>
+      <textarea id="note-{{ s.id }}" name="note" rows="2" placeholder="e.g. pink paw smear at 6.5 s, left of the stool"
+                hx-post="/api/recast/shots/{{ s.id }}/review" hx-trigger="change delay:400ms" hx-target="#recast-shots" hx-swap="outerHTML"
+                class="mt-1 w-full rounded-lg border hairline bg-[var(--bg)] px-3 py-2 text-sm">{{ s.note }}</textarea>
+    </label>
+  </div>
+  {% endfor %}
+  {% elif take.mode == 'probe' %}
+  <p class="text-xs text-slate-500">A probe renders the first 33 frames only; shots are reviewed on full takes.</p>
+  {% endif %}
+</div>

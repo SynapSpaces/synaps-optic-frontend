@@ -1,0 +1,4 @@
+<span class="inline-flex items-center gap-2 rounded-full border hairline panel-2 px-3 py-1 text-xs text-slate-300">
+  <span class="h-2 w-2 rounded-full {% if gpu.online and gpu.busy %}bg-amber-400 pulse-dot{% elif gpu.online %}bg-emerald-400{% else %}bg-slate-500{% endif %}"></span>
+  {% if gpu.online and gpu.busy %}studio GPU busy · {{ gpu.busy.replace('_', ' ') }}{% elif gpu.online %}studio GPU online{% else %}studio GPU offline — jobs wait{% endif %}
+</span>

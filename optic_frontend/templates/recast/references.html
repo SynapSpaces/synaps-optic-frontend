@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="mx-auto max-w-5xl">
+  <div class="flex flex-wrap items-end justify-between gap-4 mb-6">
+    <div>
+      <a href="/recast" class="mono text-[10px] uppercase tracking-[0.25em] text-slate-500 hover:text-slate-300">← Recast</a>
+      <h1 class="text-2xl font-semibold text-white">References</h1>
+      <p class="mt-1 text-sm text-slate-400">The render takes your identity only from the promoted reference image, so the face must be large and sharp. Bare-faced photos: the prompt adds the sunglasses.</p>
+    </div>
+    {% include "partials/recast_gpu_pill.html" %}
+  </div>
+
+  <form method="post" action="/api/recast/references" enctype="multipart/form-data" class="rounded-xl border hairline panel-2 p-4 grid gap-3"
+        onsubmit="this.querySelector('button[type=submit]').disabled=true">
+    <div class="grid gap-3 sm:grid-cols-[1fr_auto]">
+      <label class="block text-sm">
+        <span class="mono text-[9px] uppercase tracking-wider text-slate-500">Name</span>
+        <input name="name" placeholder="e.g. close-ups, black suit" maxlength="80" class="mt-1 w-full rounded-lg border hairline bg-[var(--bg)] px-3 py-2 text-sm">
+      </label>
+    </div>
+    <label class="flex items-center justify-center gap-2 rounded-lg border border-dashed hairline px-3 py-6 text-xs text-slate-400 hover:text-white hover:border-blue-500/60 cursor-pointer transition">
+      <span id="ref-files-label">Choose 2–3 close-ups (front, ¾, side; face filling the frame; even light). JPG, PNG or HEIC.</span>
+      <input type="file" name="photos" accept="image/*,.heic,.heif" multiple required class="hidden"
+             onchange="document.getElementById('ref-files-label').textContent = this.files.length + ' photo(s) selected'">
+    </label>
+    <div class="flex items-center justify-between gap-3">
+      <p class="text-xs text-slate-500">Builds on the studio GPU in about a minute (face detection + person matte).</p>
+      <button type="submit" class="rounded-lg bg-[var(--accent)] hover:bg-blue-500 px-4 py-2 text-sm font-semibold text-white transition disabled:opacity-40">Upload and build</button>
+    </div>
+  </form>
+
+  <h2 class="text-xl font-semibold text-white mt-10 mb-4">References</h2>
+  {% include "partials/recast_references.html" %}
+</section>
+{% endblock %}
