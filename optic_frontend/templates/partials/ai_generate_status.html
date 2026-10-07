@@ -48,9 +48,12 @@
   {% endif %}
 </div>
 {% if oob_timeline %}{% include "partials/timeline.html" %}{% endif %}
-{% elif ai_generation and ai_generation.status == 'done' %}
-<div id="ai-generate-status" hx-get="/partials/projects/{{ project_id }}/ai_generate"
-     hx-trigger="load delay:100ms" hx-swap="none">
+{% elif ai_generation and ai_generation.status == 'done' and request.headers.get('HX-Request') %}
+{# The generation finished while this box was polling: reload once so the full editor
+   (timeline, assets) reflects it. Only on the htmx poll response. On a full page render
+   the editor already shows the result, and emitting the reload there made the page
+   reload itself forever (editor.html includes this partial). #}
+<div id="ai-generate-status" hx-swap="none">
   <script>window.location.reload();</script>
 </div>
 {% elif ai_generation and ai_generation.status == 'failed' %}
