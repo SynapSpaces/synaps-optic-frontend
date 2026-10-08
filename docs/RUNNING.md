@@ -55,13 +55,19 @@ the Recast compare view loads frames (the backend calls are answered by a stub).
 
 A failing test saves a screenshot to `e2e-artifacts/`. Plain `pytest` skips these tests.
 
-To make a video of a run, like [e2e-run.mp4](e2e-run.mp4), record every test and join the clips with
-captions (needs ffmpeg on `PATH`):
+To make a narrated video of a run, like [e2e-run.mp4](e2e-run.mp4) (transcript:
+[e2e-run-transcript.md](e2e-run-transcript.md), subtitles: [e2e-run.srt](e2e-run.srt)), record every
+test and join the clips. Each clip plays at half speed with a spoken line and a caption; the voice is
+Piper's free British English female voice "cori", downloaded once (about 115 MB). Needs ffmpeg on `PATH`.
 
 ```sh
-.venv/Scripts/python tools/e2e_video.py                  # writes e2e-artifacts/e2e-run.mp4
-.venv/Scripts/python tools/e2e_video.py --slowmo 600 -k theme   # slower, dark-mode tests only
+.venv/Scripts/python -m pip install -e .[video]
+.venv/Scripts/python tools/e2e_video.py                      # writes e2e-artifacts/e2e-run.mp4, .srt and transcript
+.venv/Scripts/python tools/e2e_video.py --speed 1 -k theme   # normal speed, dark-mode tests only
+.venv/Scripts/python tools/e2e_video.py --no-voice           # captions without the voice-over
 ```
+
+The spoken lines live in `tools/e2e_narration.py`, one per test; add a line there when you add a test.
 
 To refresh the GIF above after a visual change:
 

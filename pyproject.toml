@@ -12,6 +12,7 @@ dependencies = []
 [project.optional-dependencies]
 test = ["pytest", "jinja2>=3.1"]
 e2e = ["pytest", "jinja2>=3.1", "playwright>=1.45", "pillow"]
+video = ["pytest", "jinja2>=3.1", "playwright>=1.45", "pillow", "piper-tts>=1.3"]   # tools/e2e_video.py voice-over
 
 [tool.hatch.build.targets.wheel]
 packages = ["optic_frontend"]

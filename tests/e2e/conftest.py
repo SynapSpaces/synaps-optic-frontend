@@ -19,6 +19,7 @@ import json
 import os
 import socketserver
 import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -28,6 +29,7 @@ ARTIFACTS = ROOT / "e2e-artifacts"
 VIDEO = os.environ.get("E2E_VIDEO") == "1"
 VIDEO_DIR = ARTIFACTS / "videos"
 VIEWPORT = {"width": 1280, "height": 800}
+DWELL_MS = 1500   # video only: stay on the final screen so the result is visible before the context closes
 _order = itertools.count(1)
 
 
@@ -35,17 +37,28 @@ def new_context(browser, **kw):
     """A browser context; with E2E_VIDEO=1 it records a video of every page it opens."""
     if VIDEO:
         kw.update(record_video_dir=str(VIDEO_DIR / "_raw"), record_video_size=VIEWPORT)
-    return browser.new_context(viewport=VIEWPORT, **kw)
+    ctx = browser.new_context(viewport=VIEWPORT, **kw)
+    ctx._e2e_t0 = time.monotonic()        # when recording started, to trim the blank lead-in
+    ctx._e2e_ready = None
+    return ctx
 
 
-def keep_video(page, test_name: str) -> None:
-    """After the context is closed: file the test's video under its run-order number and name."""
+def dwell(page) -> None:
+    if VIDEO:
+        page.wait_for_timeout(DWELL_MS)
+
+
+def keep_video(page, test_name: str, ready_at: float | None = None) -> None:
+    """After the context is closed: file the test's video under its run-order number and name, with a
+    sidecar JSON saying where the first styled page appears (the frames before it are blank)."""
     if not VIDEO or page.video is None:
         return
     safe = "".join(c if c.isalnum() or c in "-_[]." else "_" for c in test_name)
+    dest = VIDEO_DIR / f"{next(_order):03d}_{safe}.webm"
     try:
-        page.video.save_as(str(VIDEO_DIR / f"{next(_order):03d}_{safe}.webm"))
+        page.video.save_as(str(dest))
         page.video.delete()
+        dest.with_suffix(".json").write_text(json.dumps({"start": max(0.0, (ready_at or 0.0) - 0.2)}))
     except Exception:  # noqa: BLE001
         pass
 
@@ -139,6 +152,8 @@ class Session:
         self.page.wait_for_function(
             "() => [...document.querySelectorAll('style')].some(s => s.textContent.includes('--tw-'))", timeout=60000)
         self.page.evaluate("document.fonts.ready")
+        if self.ctx._e2e_ready is None:
+            self.ctx._e2e_ready = time.monotonic() - self.ctx._e2e_t0
 
     def theme(self) -> str:
         return self.page.evaluate("document.documentElement.dataset.theme")
@@ -159,8 +174,9 @@ def session(browser, site, request):
         except Exception:  # noqa: BLE001
             pass
     errors = list(s.errors)
+    dwell(s.page)
     s.ctx.close()
-    keep_video(s.page, request.node.name)
+    keep_video(s.page, request.node.name, s.ctx._e2e_ready)
     if not failed:
         assert not errors, "the page reported errors:\n" + "\n".join(errors)
 
@@ -170,8 +186,9 @@ def dark_session(browser, site, request):
     s = Session(browser, site, "dark")
     yield s
     errors = list(s.errors)
+    dwell(s.page)
     s.ctx.close()
-    keep_video(s.page, request.node.name)
+    keep_video(s.page, request.node.name, s.ctx._e2e_ready)
     assert not errors, "the page reported errors:\n" + "\n".join(errors)
 
 
@@ -180,9 +197,17 @@ def raw_page(browser, request):
     """A bare page for tests that set up their own routing; recorded like the others."""
     ctx = new_context(browser)
     page = ctx.new_page()
+    page.once("load", lambda *_: setattr(ctx, "_e2e_ready", time.monotonic() - ctx._e2e_t0 + 0.4))
     yield page
+    if VIDEO:  # this page never waits for Tailwind itself: let it finish styling, then linger
+        try:
+            page.wait_for_function("() => [...document.querySelectorAll('style')].some(s => s.textContent.includes('--tw-'))",
+                                   timeout=15000)
+        except Exception:  # noqa: BLE001
+            pass
+    dwell(page)
     ctx.close()
-    keep_video(page, request.node.name)
+    keep_video(page, request.node.name, ctx._e2e_ready)
 
 
 @pytest.hookimpl(hookwrapper=True)

@@ -1,0 +1,177 @@
+1
+00:00:00,350 --> 00:00:07,384
+These are the browser tests for Synaps Optic. Each one opens
+a page in Chrome and checks it the way a person would.
+
+2
+00:00:08,034 --> 00:00:15,323
+In the editor, each button on the left rail opens its own
+panel, and only one button is highlighted at a time.
+
+3
+00:00:15,973 --> 00:00:23,169
+The Videos panel has three tabs: edit, effects and
+transitions. Exactly one is selected after each click.
+
+4
+00:00:23,819 --> 00:00:29,320
+The select and hand tools work like a switch. Choosing one
+turns the other off.
+
+5
+00:00:29,970 --> 00:00:33,916
+The inspector on the left can be collapsed to give the
+preview more room.
+
+6
+00:00:34,566 --> 00:00:41,170
+The timeline shows all three clips. The two scenes are video
+clips, and the voice-over is an audio clip.
+
+7
+00:00:41,820 --> 00:00:52,314
+Next, every page loads with the Synapspaces design system:
+the Geist font, a white page, and nothing spilling off the
+side. This is the projects page.
+
+8
+00:00:52,964 --> 00:00:54,518
+Now the editor.
+
+9
+00:00:55,168 --> 00:00:58,814
+Now the Recast page.
+
+10
+00:00:59,464 --> 00:01:02,002
+Now the take review page.
+
+11
+00:01:02,652 --> 00:01:04,763
+Now the references page.
+
+12
+00:01:05,413 --> 00:01:07,640
+Now the invites page.
+
+13
+00:01:08,290 --> 00:01:11,486
+Now the sign-in page.
+
+14
+00:01:12,136 --> 00:01:18,961
+Each page's top bar shows the Synapspaces logo and the light
+and dark switch. This is the projects page.
+
+15
+00:01:19,611 --> 00:01:23,163
+And the Recast page.
+
+16
+00:01:23,813 --> 00:01:25,808
+And the take review page.
+
+17
+00:01:26,458 --> 00:01:28,838
+And the references page.
+
+18
+00:01:29,488 --> 00:01:31,444
+And the invites page.
+
+19
+00:01:32,094 --> 00:01:36,086
+And the sign-in page.
+
+20
+00:01:36,736 --> 00:01:41,877
+The navigation moves between Projects and Recast, and the
+logo leads back home.
+
+21
+00:01:42,527 --> 00:01:45,962
+Clicking a project card opens that project in the editor.
+
+22
+00:01:46,612 --> 00:01:55,399
+On the sign-in page, buttons are rounded pills, fields are
+the standard height, and placeholder text uses the design
+system's grey.
+
+23
+00:01:56,049 --> 00:02:02,223
+The AI prompt on the home page accepts a description, and
+the aspect ratio can be changed.
+
+24
+00:02:02,873 --> 00:02:10,081
+On the take review page, the compare view loads frames from
+the source clip and the cat take, side by side.
+
+25
+00:02:10,731 --> 00:02:16,418
+All five shot tabs fit in their row. This test caught the
+last tab being cut off.
+
+26
+00:02:17,068 --> 00:02:22,128
+Selecting a shot opens its review panel and moves the frame
+slider to that shot.
+
+27
+00:02:22,778 --> 00:02:30,462
+The compare view switches between side by side and a wipe.
+The slider moves the wipe, and the W key switches back.
+
+28
+00:02:31,112 --> 00:02:36,962
+The arrow keys step one frame at a time. With shift held,
+they jump five frames.
+
+29
+00:02:37,612 --> 00:02:43,101
+If the backend cannot be reached, the loading screen still
+goes away instead of getting stuck.
+
+30
+00:02:43,751 --> 00:02:48,347
+Dark mode. With the computer set to light, the editor is
+light.
+
+31
+00:02:48,997 --> 00:02:55,044
+With the computer set to dark, the editor turns dark, and
+the main buttons flip to light.
+
+32
+00:02:55,694 --> 00:03:01,892
+The switch in the top bar changes the theme. The choice is
+remembered after a reload and carries into the editor.
+
+33
+00:03:02,542 --> 00:03:08,068
+The saved theme is applied before the page appears, so there
+is no white flash.
+
+34
+00:03:08,718 --> 00:03:13,848
+Video and images keep their black background in both themes.
+This is the editor.
+
+35
+00:03:14,498 --> 00:03:16,864
+And again on the take review page.
+
+36
+00:03:17,514 --> 00:03:19,834
+And again on the take review page.
+
+37
+00:03:20,484 --> 00:03:24,441
+Finally, the switch in the editor's own top bar works too.
+
+38
+00:03:25,091 --> 00:03:30,999
+36 tests passed. The tests run automatically on every push
+to the repository.
+
