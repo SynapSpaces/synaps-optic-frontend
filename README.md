@@ -50,7 +50,7 @@ The tests render the templates through the same Jinja2 setup the backend uses
 
 ## Releasing
 
-The backend pins this package by git tag (currently `v0.2.0`).
+The backend pins this package by git tag (currently `v0.2.1`).
 
 1. Bump `version` in `pyproject.toml` and `__version__` in `optic_frontend/__init__.py`.
 2. Commit, then tag: `git tag v0.1.1 && git push --tags`.

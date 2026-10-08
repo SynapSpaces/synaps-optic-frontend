@@ -1,0 +1,8 @@
+{#- The Synapspaces logo, copied from synapspaces.com (header .brand): the three-node mark and the
+    lowercase name, then the product. `size` is the mark in px (22 on the main site). -#}
+{%- macro mark(size=22, cls="") -%}
+<svg width="{{ size }}" height="{{ size }}" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" class="{{ cls }}"><circle cx="7" cy="7" r="3.2"/><circle cx="21" cy="7" r="3.2"/><circle cx="14" cy="21" r="3.2"/><path d="M9.6 9.2 12 18.2M18.4 9.2 16 18.2M10.2 7h7.6"/></svg>
+{%- endmacro -%}
+{%- macro wordmark(href="/projects", cls="") -%}
+<a href="{{ href }}" class="wordmark {{ cls }}" aria-label="Synaps Optic home">{{ mark() }}<span>synapspaces</span><span class="wordmark-product">Optic</span></a>
+{%- endmacro -%}

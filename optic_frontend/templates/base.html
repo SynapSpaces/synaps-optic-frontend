@@ -1,10 +1,11 @@
-<!doctype html>
+{% import "partials/brand.html" as brand %}<!doctype html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#ffffff">
     <title>{% block title %}Synaps Optic{% endblock %}</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28' fill='none' stroke='%230d0d0d' stroke-width='2'%3E%3Ccircle cx='7' cy='7' r='3.2'/%3E%3Ccircle cx='21' cy='7' r='3.2'/%3E%3Ccircle cx='14' cy='21' r='3.2'/%3E%3Cpath d='M9.6 9.2 12 18.2M18.4 9.2 16 18.2M10.2 7h7.6'/%3E%3C/svg%3E">
     {# Synapspaces design system (docs/DESIGN.md): tokens, Geist fonts and element defaults. #}
     <link rel="stylesheet" href="/static/ds/synapspaces.css">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -173,8 +174,12 @@
                     font: var(--type-body-strong); color: var(--fg-2); transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard); }
         .nav-link:hover { color: var(--fg-1); background: var(--gray-50); }
         .nav-link.active { color: var(--fg-1); background: var(--gray-50); }
-        .wordmark { font: var(--type-body-strong); letter-spacing: var(--tracking-tight); color: var(--fg-1); }
-        .wordmark:hover { color: var(--fg-2); }
+        /* Logo lockup as on synapspaces.com: mark + lowercase name, 18px semibold; the product name sits
+           after a hairline in the secondary gray. */
+        .wordmark { display: inline-flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 600;
+                    letter-spacing: -0.01em; line-height: 1; color: var(--fg-1); text-decoration: none; }
+        .wordmark:hover { color: var(--fg-1); opacity: .8; }
+        .wordmark-product { padding-left: 10px; border-left: 1px solid var(--border-default); font-weight: 500; color: var(--fg-2); }
 
         [hidden] { display: none !important; }
     </style>
@@ -183,7 +188,7 @@
 {% block body %}
     <header class="sticky top-0 z-30 panel border-b hairline">
         <nav class="mx-auto {% block nav_container %}max-w-wide{% endblock %} px-6 md:px-10 h-nav flex items-center justify-between">
-            <a href="/projects" class="wordmark">Synaps Optic</a>
+            {{ brand.wordmark() }}
             <ul class="flex items-center gap-1">
                 <li><a href="/projects" class="nav-link {% if request.url.path.startswith('/projects') %}active{% endif %}">Projects</a></li>
                 <li><a href="/recast" class="nav-link {% if request.url.path.startswith('/recast') %}active{% endif %}">Recast</a></li>

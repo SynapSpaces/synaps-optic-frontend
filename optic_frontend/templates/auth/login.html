@@ -1,12 +1,7 @@
 {% extends "base.html" %}
-{% block nav_container %}max-w-sm{% endblock %}
 {% block container_class %}mx-auto max-w-sm px-6 py-20{% endblock %}
 {% block content %}
 <div class="card p-8">
-    <div class="wordmark mb-6 text-center">
-        Synaps Optic
-    </div>
-
     {% if notice == "session_expired" %}
     <div class="mb-4 rounded-input status-warn text-sm px-3 py-2 text-center">
         Session expired. Signing you back in.
