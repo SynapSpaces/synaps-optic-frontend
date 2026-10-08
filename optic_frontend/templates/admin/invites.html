@@ -2,68 +2,68 @@
 {% block content %}
 
 <section class="mx-auto max-w-3xl">
-  <h1 class="text-2xl font-semibold text-white">Invites</h1>
-  <p class="mt-1 text-sm text-slate-400">Create a code, then copy its link to invite someone.</p>
+  <h1 class="ss-h2">Invites</h1>
+  <p class="mt-2 ss-body">Create a code, then copy its link to invite someone.</p>
 
-  <form method="post" action="/admin/invites" class="mt-6 flex items-end gap-3 rounded-xl border hairline panel-2 p-4">
+  <form method="post" action="/admin/invites" class="mt-8 flex items-end gap-3 card p-4">
     <div class="flex-1">
-      <label class="mono text-[10px] uppercase tracking-[0.18em] text-slate-500" for="invite-email">Reserve for email (optional)</label>
+      <label class="field-label" for="invite-email">Reserve for email (optional)</label>
       <input id="invite-email" type="email" name="email" placeholder="someone@example.com"
-             class="mt-1 block w-full rounded-lg border hairline bg-transparent px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-fuchsia-500/40">
+             class="input">
     </div>
     <div class="w-40">
-      <label class="mono text-[10px] uppercase tracking-[0.18em] text-slate-500" for="invite-expires">Expires in N days (optional)</label>
+      <label class="field-label" for="invite-expires">Expires in N days (optional)</label>
       <input id="invite-expires" type="number" name="expires_in_days" min="1" placeholder="never"
-             class="mt-1 block w-full rounded-lg border hairline bg-transparent px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-fuchsia-500/40">
+             class="input">
     </div>
     <button type="submit"
-            class="rounded-lg bg-gradient-to-br from-fuchsia-500 to-orange-500 px-4 py-2 text-sm font-medium text-white hover:brightness-110 transition">
+            class="btn btn-primary btn-lg">
       Create invite code
     </button>
   </form>
 
-  <div class="mt-6">
+  <div class="mt-8">
     {% if not invites %}
-    <div class="rounded-xl border border-dashed hairline panel-2 p-12 text-center">
-      <p class="text-sm text-slate-500">No invite codes yet. Create one above.</p>
+    <div class="card p-12 text-center">
+      <p class="ss-body">No invite codes yet. Create one above.</p>
     </div>
     {% else %}
-    <div class="rounded-xl border hairline panel-2 divide-y divide-white/5">
+    <div class="rule">
       {% for invite in invites %}
-      <div class="flex items-center gap-3 p-4">
+      <div class="flex items-center gap-3 py-4 border-b hairline">
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-2">
-            <span class="mono text-sm text-white">{{ invite.code }}</span>
+            <span class="mono text-sm text-fg-1">{{ invite.code }}</span>
             {% if invite.revoked_at %}
-            <span class="rounded-full bg-rose-500/15 px-2 py-0.5 text-[10px] uppercase tracking-wide text-rose-300">revoked</span>
+            <span class="chip chip-err">Revoked</span>
             {% elif invite.redeemed_by %}
-            <span class="rounded-full bg-slate-700/60 px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-300">redeemed</span>
+            <span class="chip">Redeemed</span>
             {% elif invite.expired %}
-            <span class="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] uppercase tracking-wide text-amber-300">expired</span>
+            <span class="chip chip-warn">Expired</span>
             {% else %}
-            <span class="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] uppercase tracking-wide text-emerald-300">unredeemed</span>
+            <span class="chip chip-ok">Unredeemed</span>
             {% endif %}
           </div>
           <div class="mt-1 flex items-center gap-2">
-            <code class="mono truncate text-[11px] text-slate-400">{{ app_url }}/invite/{{ invite.code }}</code>
+            <code class="mono truncate text-[11px] text-fg-2">{{ app_url }}/invite/{{ invite.code }}</code>
             <button type="button"
                     onclick="navigator.clipboard.writeText('{{ app_url }}/invite/{{ invite.code }}')"
-                    class="shrink-0 rounded-md border hairline px-2 py-0.5 text-[10px] text-slate-300 hover:bg-white/5 transition">
+                    class="btn btn-ghost btn-sm shrink-0">
               Copy
             </button>
           </div>
           {% if invite.email %}
-          <p class="mt-1 text-[11px] text-slate-500">Reserved for {{ invite.email }}</p>
+          <p class="mt-1 ss-meta">Reserved for {{ invite.email }}</p>
           {% endif %}
           {% if invite.redeemed_by %}
-          <p class="mt-1 text-[11px] text-slate-500">Redeemed by {{ invite.redeemed_by_email or invite.redeemed_by }} at {{ fmt(invite.redeemed_at) }}</p>
+          <p class="mt-1 ss-meta">Redeemed by {{ invite.redeemed_by_email or invite.redeemed_by }} · {{ fmt(invite.redeemed_at) }}</p>
           {% endif %}
         </div>
-        <span class="mono shrink-0 text-[10px] text-slate-500">{{ fmt(invite.created_at) }}</span>
+        <span class="mono shrink-0 text-[11px] text-fg-3">{{ fmt(invite.created_at) }}</span>
         {% if not invite.redeemed_by and not invite.revoked_at %}
         <form method="post" action="/admin/invites/{{ invite.code }}/revoke" class="shrink-0">
           <button type="submit"
-                  class="rounded-md border hairline px-2 py-1 text-[10px] text-rose-300 hover:bg-rose-500/10 transition">
+                  class="btn btn-secondary btn-sm">
             Revoke
           </button>
         </form>

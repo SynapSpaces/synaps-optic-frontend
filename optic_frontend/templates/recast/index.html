@@ -1,73 +1,72 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="mx-auto max-w-5xl">
-  <div class="flex flex-wrap items-end justify-between gap-4 mb-6">
+<section>
+  <div class="flex flex-wrap items-end justify-between gap-4 mb-8">
     <div>
-      <div class="mono text-[10px] uppercase tracking-[0.25em] text-slate-500">Recast</div>
-      <h1 class="text-2xl font-semibold text-white">Takes</h1>
-      <p class="mt-1 text-sm text-slate-400">Whole-character renders of the clip on the studio GPU: the cat first, then you painted over it.</p>
+      <h1 class="ss-h2">Takes</h1>
+      <p class="mt-2 ss-body">Whole-character renders of the clip on the studio GPU: the cat first, then you painted over it.</p>
     </div>
     {% include "partials/recast_gpu_pill.html" %}
   </div>
 
   <div class="grid gap-4 md:grid-cols-[1fr_320px]">
     <!-- new take -->
-    <form method="post" action="/api/recast/takes" class="rounded-xl border hairline panel-2 p-4 grid gap-3"
+    <form method="post" action="/api/recast/takes" class="card p-4 grid gap-3"
           onsubmit="this.querySelector('button[type=submit]').disabled=true">
-      <div class="mono text-[10px] uppercase tracking-wider text-slate-500">New take</div>
+      <div class="ss-body-strong">New take</div>
       <div class="grid gap-3 sm:grid-cols-3">
-        <label class="block text-sm">
-          <span class="mono text-[9px] uppercase tracking-wider text-slate-500">Side</span>
-          <select name="side" class="mt-1 w-full rounded-lg border hairline bg-[var(--bg)] px-3 py-2 text-sm"
+        <label class="block">
+          <span class="field-label">Side</span>
+          <select name="side" class="select"
                   onchange="document.getElementById('parent-row').hidden = this.value !== 'user'">
             <option value="cat">Cat (left performer)</option>
             <option value="user" {% if not cat_takes or not reference %}disabled{% endif %}>User (right performer)</option>
           </select>
         </label>
-        <label class="block text-sm">
-          <span class="mono text-[9px] uppercase tracking-wider text-slate-500">Mode</span>
-          <select name="mode" class="mt-1 w-full rounded-lg border hairline bg-[var(--bg)] px-3 py-2 text-sm">
+        <label class="block">
+          <span class="field-label">Mode</span>
+          <select name="mode" class="select">
             <option value="probe">Probe · first 33 frames (~15 min)</option>
             <option value="full" selected>Full · 181 frames (1.5–2 h)</option>
           </select>
         </label>
-        <label id="parent-row" class="block text-sm" hidden>
-          <span class="mono text-[9px] uppercase tracking-wider text-slate-500">Over cat take</span>
-          <select name="parent_take_id" class="mt-1 w-full rounded-lg border hairline bg-[var(--bg)] px-3 py-2 text-sm">
+        <label id="parent-row" class="block" hidden>
+          <span class="field-label">Over cat take</span>
+          <select name="parent_take_id" class="select">
             {% for t in cat_takes %}<option value="{{ t.id }}">{{ t.name }} · {{ fmt(t.finished_at) }}</option>{% endfor %}
           </select>
         </label>
       </div>
       <div class="flex items-center justify-between gap-3">
-        <p class="text-xs text-slate-500">
-          {% if not reference %}A user take needs a built, promoted <a href="/recast/references" class="text-blue-400 hover:underline">reference</a>.{% elif not cat_takes %}A user take needs a finished full cat take first.{% else %}Takes run one at a time on the studio GPU.{% endif %}
+        <p class="ss-body-sm">
+          {% if not reference %}A user take needs a built, promoted <a href="/recast/references" class="text-fg-1 hover:underline">reference</a>.{% elif not cat_takes %}A user take needs a finished full cat take first.{% else %}Takes run one at a time on the studio GPU.{% endif %}
         </p>
         <button type="submit" {% if active %}disabled title="a take is already queued or running"{% endif %}
-                class="rounded-lg bg-[var(--accent)] hover:bg-blue-500 px-4 py-2 text-sm font-semibold text-white transition disabled:opacity-40">Start take</button>
+                class="btn btn-primary">Start take</button>
       </div>
     </form>
 
     <!-- reference card -->
-    <div class="rounded-xl border hairline panel-2 p-4 flex gap-3">
+    <div class="card p-4 flex gap-3">
       {% if reference and reference.ref_key %}
-      <img src="/api/recast/references/{{ reference.id }}/image?which=ref" alt="" class="h-28 w-20 rounded-md object-cover bg-[#0e0e11] border hairline">
+      <img src="/api/recast/references/{{ reference.id }}/image?which=ref" alt="" class="h-28 w-20 rounded-widget object-cover bg-gray-100">
       {% else %}
-      <div class="h-28 w-20 rounded-md bg-[#0e0e11] border border-dashed hairline"></div>
+      <div class="h-28 w-20 rounded-widget bg-gray-100"></div>
       {% endif %}
       <div class="min-w-0">
-        <div class="mono text-[10px] uppercase tracking-wider text-slate-500">Reference</div>
+        <div class="ss-meta">Reference</div>
         {% if reference %}
-        <div class="text-sm text-white truncate">{{ reference.name or 'reference' }}</div>
-        {% if reference.ranking %}<div class="mono text-[10px] text-slate-500">face {{ reference.ranking[0].face_h }} px · score {{ reference.ranking[0].score }}</div>{% endif %}
+        <div class="ss-body-strong truncate">{{ reference.name or 'reference' }}</div>
+        {% if reference.ranking %}<div class="ss-numeral">face {{ reference.ranking[0].face_h }} px · score {{ reference.ranking[0].score }}</div>{% endif %}
         {% else %}
-        <div class="text-sm text-slate-400">none promoted yet</div>
+        <div class="ss-body-sm">None promoted yet.</div>
         {% endif %}
-        <a href="/recast/references" class="mt-2 inline-block rounded-lg border hairline px-3 py-1.5 text-xs text-slate-300 hover:bg-white/5 transition">Manage references</a>
+        <a href="/recast/references" class="btn btn-secondary btn-sm mt-3">Manage references</a>
       </div>
     </div>
   </div>
 
-  <h2 class="text-xl font-semibold text-white mt-10 mb-4">Recent takes</h2>
+  <h2 class="ss-title-lg mt-12 mb-4">Recent takes</h2>
   {% include "partials/recast_takes.html" %}
 </section>
 {% endblock %}

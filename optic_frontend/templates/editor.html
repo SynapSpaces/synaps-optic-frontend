@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block body_class %}h-screen overflow-hidden app-bg text-slate-200{% endblock %}
+{% block body_class %}h-screen overflow-hidden app-bg text-fg-1{% endblock %}
 
 {# ---------------- inline icon set (Lucide-style) ---------------- #}
 {% macro icon(name, cls="w-5 h-5") %}
-<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="{{ cls }}">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ cls }}">
 {%- if name == 'plus' -%}<path d="M12 5v14M5 12h14"/>
 {%- elif name == 'upload' -%}<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/>
 {%- elif name == 'canvas' -%}<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>
@@ -29,6 +29,8 @@
 {%- elif name == 'trash' -%}<path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M6 6l1 14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-14"/>
 {%- elif name == 'download' -%}<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
 {%- elif name == 'chevrons-left' -%}<path d="m11 17-5-5 5-5M18 17l-5-5 5-5"/>
+{%- elif name == 'rectangle' -%}<rect x="3" y="6" width="18" height="12" rx="1.5"/>
+{%- elif name == 'lower-third' -%}<rect x="3" y="4" width="18" height="16" rx="1.5"/><rect x="3" y="14" width="18" height="6" fill="currentColor" stroke="none"/>
 {%- endif -%}
 </svg>
 {% endmacro %}
@@ -44,35 +46,35 @@
     <!-- logo + project -->
     <div class="flex items-center gap-3 min-w-0">
       <a href="/projects" title="All projects"
-         class="grid place-items-center w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 text-white shrink-0">
+         class="grid place-items-center w-8 h-8 rounded-widget bg-ink text-fg-inverse shrink-0">
         {{ icon('play','w-4 h-4') }}
       </a>
       <div class="flex items-center gap-2 min-w-0">
-        <span class="text-sm text-slate-200 truncate max-w-[220px]" title="{{ project.name }}">{{ project.name }}</span>
-        <span class="mono text-[10px] text-slate-500 hidden md:inline">{{ project.width }}×{{ project.height }} · {{ project.fps }}fps</span>
+        <span class="text-sm font-medium text-fg-1 truncate max-w-[220px]" title="{{ project.name }}">{{ project.name }}</span>
+        <span class="mono text-[11px] text-fg-3 hidden md:inline">{{ project.width }}×{{ project.height }} · {{ project.fps }}fps</span>
       </div>
     </div>
 
     <!-- center tools -->
     <div class="flex-1 flex items-center justify-center gap-1">
-      <div class="flex items-center gap-0.5 rounded-lg panel-2 border hairline p-0.5">
-        <button id="tool-select" class="tool-btn grid place-items-center w-8 h-8 rounded-md text-white bg-white/10" title="Select">{{ icon('cursor','w-4 h-4') }}</button>
-        <button id="tool-hand" class="tool-btn grid place-items-center w-8 h-8 rounded-md text-slate-400 hover:text-white" title="Hand / Pan">{{ icon('hand','w-4 h-4') }}</button>
+      <div class="flex items-center gap-0.5 rounded-pill panel-2 p-0.5">
+        <button id="tool-select" class="tool-btn icon-btn active" title="Select">{{ icon('cursor','w-4 h-4') }}</button>
+        <button id="tool-hand" class="tool-btn icon-btn" title="Hand / pan">{{ icon('hand','w-4 h-4') }}</button>
       </div>
-      <div class="w-px h-6 bg-[var(--line)] mx-1"></div>
-      <button class="grid place-items-center w-8 h-8 rounded-md text-slate-500 hover:text-white hover:bg-white/5" title="Undo">{{ icon('undo','w-4 h-4') }}</button>
-      <button class="grid place-items-center w-8 h-8 rounded-md text-slate-500 hover:text-white hover:bg-white/5" title="Redo">{{ icon('redo','w-4 h-4') }}</button>
+      <div class="w-px h-6 bg-line-subtle mx-1"></div>
+      <button class="icon-btn" title="Undo">{{ icon('undo','w-4 h-4') }}</button>
+      <button class="icon-btn" title="Redo">{{ icon('redo','w-4 h-4') }}</button>
     </div>
 
     <!-- right -->
     <div class="flex items-center gap-3">
       <div class="flex -space-x-2">
-        <span class="grid place-items-center w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 text-[11px] font-semibold text-white ring-2 ring-[var(--panel)]">DW</span>
-        <span class="grid place-items-center w-8 h-8 rounded-full bg-gradient-to-br from-fuchsia-400 to-purple-600 text-[11px] font-semibold text-white ring-2 ring-[var(--panel)]">AI</span>
+        <span class="grid place-items-center w-8 h-8 rounded-full bg-ink text-[11px] font-medium text-fg-inverse ring-2 ring-white">DW</span>
+        <span class="grid place-items-center w-8 h-8 rounded-full bg-tint-sage text-[11px] font-medium text-fg-1 ring-2 ring-white">AI</span>
       </div>
       <form hx-post="/api/projects/{{ project.id }}/render" hx-target="#renders-card" hx-swap="outerHTML">
         <button onclick="VE.show('records')"
-                class="flex items-center gap-1.5 rounded-lg bg-[var(--accent)] hover:bg-blue-500 px-4 py-2 text-sm font-semibold text-white transition disabled:opacity-40"
+                class="btn btn-primary btn-sm"
                 {% if not clips %}disabled{% endif %}>
           {{ icon('download','w-4 h-4') }} Export
         </button>
@@ -85,7 +87,7 @@
 
     <!-- ---------- ICON RAIL ---------- -->
     <nav class="w-[78px] shrink-0 panel border-r hairline flex flex-col items-center py-3 gap-1 overflow-y-auto">
-      <label class="grid place-items-center w-11 h-11 rounded-full bg-[var(--accent)] hover:bg-blue-500 text-white cursor-pointer mb-2 shrink-0" title="Upload media">
+      <label class="grid place-items-center w-11 h-11 rounded-pill bg-ink hover:bg-gray-600 text-fg-inverse cursor-pointer transition mb-2 shrink-0" title="Upload media">
         {{ icon('plus','w-5 h-5') }}
         <input type="file" name="video" accept="video/*" class="hidden"
                hx-post="/api/projects/{{ project.id }}/assets" hx-encoding="multipart/form-data"
@@ -105,7 +107,7 @@
       ] %}
       {% for key, ic, label in rails %}
       <button data-rail="{{ key }}" onclick="VE.show('{{ key }}')"
-              class="rail-item relative grid place-items-center w-[62px] py-2 rounded-lg shrink-0">
+              class="rail-item relative grid place-items-center w-[62px] py-2 rounded-widget shrink-0">
         {{ icon(ic) }}
         <span class="mt-1 text-[10px] font-medium">{{ label }}</span>
       </button>
@@ -113,10 +115,10 @@
     </nav>
 
     <!-- ---------- INSPECTOR ---------- -->
-    <aside class="w-[330px] shrink-0 panel-2 border-r hairline flex flex-col min-h-0">
+    <aside class="w-[330px] shrink-0 panel border-r hairline flex flex-col min-h-0">
       <div class="h-12 shrink-0 flex items-center justify-between px-4 border-b hairline">
-        <h2 id="inspector-title" class="text-sm font-semibold text-white">Uploads</h2>
-        <button onclick="VE.toggleInspector()" class="text-slate-500 hover:text-white" title="Collapse">{{ icon('chevrons-left','w-4 h-4') }}</button>
+        <h2 id="inspector-title" class="text-sm font-medium text-fg-1">Uploads</h2>
+        <button onclick="VE.toggleInspector()" class="icon-btn" title="Collapse">{{ icon('chevrons-left','w-4 h-4') }}</button>
       </div>
       <div class="flex-1 overflow-y-auto">
 
@@ -127,15 +129,15 @@
 
         <!-- CANVAS -->
         <div data-panel="canvas" class="p-4" hidden>
-          <p class="mono text-[10px] uppercase tracking-wider text-slate-500 mb-2">Aspect ratio</p>
+          <p class="ss-meta mb-2">Aspect ratio</p>
           <form hx-post="/api/projects/{{ project.id }}/resize" hx-target="body" hx-swap="outerHTML">
             <div class="grid grid-cols-2 gap-2">
-              {% for val, lbl in [('16:9','16:9 Landscape'),('9:16','9:16 Vertical'),('1:1','1:1 Square'),('4:5','4:5 Portrait'),('21:9','21:9 Cinema'),('4:3','4:3 Classic')] %}
+              {% for val, lbl in [('16:9','16:9 landscape'),('9:16','9:16 vertical'),('1:1','1:1 square'),('4:5','4:5 portrait'),('21:9','21:9 cinema'),('4:3','4:3 classic')] %}
               {% set w,h = ({'16:9':(1920,1080),'9:16':(1080,1920),'1:1':(1080,1080),'4:5':(1080,1350),'21:9':(2560,1080),'4:3':(1440,1080)})[val] %}
               <button name="preset" value="{{ val }}"
-                      class="rounded-lg border hairline px-3 py-2.5 text-left transition hover:border-blue-500/60 hover:bg-white/5
-                             {% if project.width == w and project.height == h %}border-blue-500/70 bg-blue-500/10{% endif %}">
-                <span class="block text-xs font-medium text-slate-200">{{ lbl }}</span>
+                      class="rounded-widget px-3 py-2.5 text-left transition
+                             {% if project.width == w and project.height == h %}bg-tint-blue{% else %}panel-2 hover:bg-gray-100{% endif %}">
+                <span class="block text-xs font-medium text-fg-1">{{ lbl }}</span>
               </button>
               {% endfor %}
             </div>
@@ -151,54 +153,54 @@
         <div data-panel="videos" class="p-4" hidden>
           {% if has_clip %}
           {% set sel_dur = selected_clip.source_end - selected_clip.source_start %}
-          <div class="flex gap-1 mb-4 rounded-lg panel p-0.5 border hairline text-xs">
-            <button class="vsub-btn flex-1 rounded-md py-1.5 font-medium text-slate-400" data-vsub="edit">Edit</button>
-            <button class="vsub-btn flex-1 rounded-md py-1.5 font-medium text-slate-400" data-vsub="effects">Effects</button>
-            <button class="vsub-btn flex-1 rounded-md py-1.5 font-medium text-slate-400" data-vsub="transitions">Transitions</button>
+          <div class="flex gap-1 mb-4 rounded-pill panel-2 p-0.5 text-xs">
+            <button class="vsub-btn flex-1 rounded-pill py-1.5 font-medium text-fg-2 transition" data-vsub="edit">Edit</button>
+            <button class="vsub-btn flex-1 rounded-pill py-1.5 font-medium text-fg-2 transition" data-vsub="effects">Effects</button>
+            <button class="vsub-btn flex-1 rounded-pill py-1.5 font-medium text-fg-2 transition" data-vsub="transitions">Transitions</button>
           </div>
           <div data-vpanel="edit">
-            <p class="mono text-[10px] uppercase tracking-wider text-slate-500 mb-2">Selected clip</p>
+            <p class="ss-meta mb-2">Selected clip</p>
             <form hx-patch="/api/clips/{{ selected_clip.id }}" hx-target="body" hx-swap="outerHTML" class="space-y-3">
               <label class="block">
-                <span class="mono text-[10px] uppercase tracking-wider text-slate-500">Track</span>
-                <input type="number" name="track_index" min="0" max="9" value="{{ selected_clip.track_index }}" class="mt-1 w-full rounded-lg border hairline bg-[var(--bg)] px-3 py-2 text-sm">
+                <span class="field-label">Track</span>
+                <input type="number" name="track_index" min="0" max="9" value="{{ selected_clip.track_index }}" class="input input-sm on-page">
               </label>
               <div class="grid grid-cols-2 gap-3">
                 <label class="block">
-                  <span class="mono text-[10px] uppercase tracking-wider text-slate-500">Timeline start</span>
-                  <input type="number" name="timeline_start" min="0" step="0.1" value="{{ selected_clip.timeline_start }}" class="mt-1 w-full rounded-lg border hairline bg-[var(--bg)] px-3 py-2 text-sm">
+                  <span class="field-label">Timeline start</span>
+                  <input type="number" name="timeline_start" min="0" step="0.1" value="{{ selected_clip.timeline_start }}" class="input input-sm on-page">
                 </label>
                 <label class="block">
-                  <span class="mono text-[10px] uppercase tracking-wider text-slate-500">Source start</span>
-                  <input type="number" name="source_start" min="0" step="0.1" value="{{ selected_clip.source_start }}" class="mt-1 w-full rounded-lg border hairline bg-[var(--bg)] px-3 py-2 text-sm">
+                  <span class="field-label">Source start</span>
+                  <input type="number" name="source_start" min="0" step="0.1" value="{{ selected_clip.source_start }}" class="input input-sm on-page">
                 </label>
                 <label class="block">
-                  <span class="mono text-[10px] uppercase tracking-wider text-slate-500">Source end</span>
-                  <input type="number" name="source_end" min="0" step="0.1" value="{{ selected_clip.source_end }}" class="mt-1 w-full rounded-lg border hairline bg-[var(--bg)] px-3 py-2 text-sm">
+                  <span class="field-label">Source end</span>
+                  <input type="number" name="source_end" min="0" step="0.1" value="{{ selected_clip.source_end }}" class="input input-sm on-page">
                 </label>
                 <div class="flex items-end">
-                  <button class="w-full rounded-lg bg-[var(--accent)] hover:bg-blue-500 px-3 py-2 text-sm font-semibold text-white transition">Apply</button>
+                  <button class="btn btn-primary btn-sm w-full">Apply</button>
                 </div>
               </div>
             </form>
             <div class="mt-3 flex gap-2">
               <form hx-post="/api/clips/{{ selected_clip.id }}/split" hx-target="body" hx-swap="outerHTML" class="flex items-center gap-2 flex-1">
-                <input type="number" name="at_seconds" min="0.1" step="0.1" value="{{ (sel_dur / 2)|round(1) }}" class="w-16 rounded-lg border hairline bg-[var(--bg)] px-2 py-1.5 text-sm">
-                <button class="flex-1 flex items-center justify-center gap-1.5 rounded-lg border hairline px-3 py-1.5 text-xs text-slate-300 hover:bg-white/5 transition">{{ icon('scissors','w-3.5 h-3.5') }} Split</button>
+                <input type="number" name="at_seconds" min="0.1" step="0.1" value="{{ (sel_dur / 2)|round(1) }}" class="input input-sm on-page !w-16 shrink-0">
+                <button class="btn btn-secondary btn-sm flex-1">{{ icon('scissors','w-3.5 h-3.5') }} Split</button>
               </form>
               <form hx-post="/api/clips/{{ selected_clip.id }}/delete" hx-target="body" hx-swap="outerHTML" hx-confirm="Delete this clip?">
-                <button class="flex items-center justify-center gap-1.5 rounded-lg border border-rose-700/50 bg-rose-500/10 px-3 py-1.5 text-xs text-rose-300 hover:bg-rose-500/20 transition">{{ icon('trash','w-3.5 h-3.5') }}</button>
+                <button class="btn btn-sm status-err" title="Delete clip">{{ icon('trash','w-3.5 h-3.5') }}</button>
               </form>
             </div>
             <div class="mt-4 pt-4 border-t hairline">
-              <p class="mono text-[10px] uppercase tracking-wider text-slate-500 mb-1">Transform · overlay / PiP</p>
-              <p class="text-[10px] text-slate-500 mb-2">Applies when the clip sits on a track <span class="text-slate-300">above</span> the base. Scale &lt; 100% = picture-in-picture.</p>
+              <p class="ss-meta mb-1">Transform · overlay / PiP</p>
+              <p class="text-xs text-fg-2 mb-2">Applies when the clip sits on a track <span class="text-fg-1">above</span> the base. Scale below 100% gives picture-in-picture.</p>
               <form hx-patch="/api/clips/{{ selected_clip.id }}" hx-target="body" hx-swap="outerHTML" hx-trigger="change delay:300ms" class="space-y-2">
                 {% for nm, lbl, mn, mx in [('scale_pct','Scale %',5,100),('opacity','Opacity %',0,100),('x_pct','X %',0,100),('y_pct','Y %',0,100)] %}
                 <label class="block">
                   <div class="flex items-center justify-between">
-                    <span class="mono text-[9px] uppercase tracking-wider text-slate-500">{{ lbl }}</span>
-                    <span class="mono text-[10px] text-slate-300">{{ selected_clip[nm]|round(0)|int }}</span>
+                    <span class="text-xs text-fg-2">{{ lbl }}</span>
+                    <span class="mono text-[11px] text-fg-1">{{ selected_clip[nm]|round(0)|int }}</span>
                   </div>
                   <input type="range" name="{{ nm }}" min="{{ mn }}" max="{{ mx }}" step="1" value="{{ selected_clip[nm] }}" class="mt-1 block w-full">
                 </label>
@@ -214,7 +216,7 @@
             {% include "partials/transitions_panel.html" %}
           </div>
           {% else %}
-          <p class="text-xs text-slate-500">Select a clip on the timeline to trim, split, or apply effects to it.</p>
+          <p class="text-xs text-fg-2">Select a clip on the timeline to trim, split, or apply effects to it.</p>
           {% endif %}
         </div>
 
@@ -222,11 +224,11 @@
         <div data-panel="audios" class="p-4 space-y-5" hidden>
           <!-- Upload music / audio -->
           <div>
-            <p class="mono text-[10px] uppercase tracking-wider text-slate-500 mb-2">Music &amp; audio</p>
+            <p class="ss-meta mb-2">Music and audio</p>
             <form hx-post="/api/projects/{{ project.id }}/assets" hx-encoding="multipart/form-data"
                   hx-target="#asset-library" hx-swap="outerHTML" hx-on::after-request="VE.show('media')">
-              <label class="flex items-center justify-center gap-2 rounded-lg border border-dashed hairline px-3 py-5 text-xs text-slate-400 hover:text-white hover:border-blue-500/60 cursor-pointer transition">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" class="w-4 h-4"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+              <label class="flex items-center justify-center gap-2 rounded-widget border border-dashed border-line px-3 py-5 text-xs text-fg-2 hover:text-fg-1 hover:bg-gray-50 cursor-pointer transition">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
                 Upload audio file
                 <input type="file" name="video" accept="audio/*" class="hidden" onchange="this.form.requestSubmit()">
               </label>
@@ -235,47 +237,47 @@
 
           <!-- Voiceover / TTS -->
           <div>
-            <p class="mono text-[10px] uppercase tracking-wider text-slate-500 mb-2">Voiceover · Text-to-Speech</p>
+            <p class="ss-meta mb-2">Voiceover · text to speech</p>
             <form hx-post="/api/projects/{{ project.id }}/tts" hx-target="#asset-library" hx-swap="outerHTML"
                   hx-indicator="#audios-tts-spinner" hx-on::after-request="VE.show('media')"
-                  class="rounded-lg border hairline panel p-3">
-              <textarea name="text" rows="3" required placeholder="Type narration to speak…"
-                  class="block w-full rounded-lg border hairline bg-[var(--bg)] px-3 py-2 text-xs text-slate-200"></textarea>
+                  class="card p-3">
+              <textarea name="text" rows="3" required placeholder="Type narration to speak"
+                  class="textarea text-sm"></textarea>
               <div class="mt-2 flex items-center gap-2">
-                <label class="mono text-[9px] uppercase tracking-wider text-slate-500">Speed</label>
+                <label class="text-xs text-fg-2">Speed</label>
                 <input type="range" name="rate" min="-6" max="6" value="0" step="1" class="flex-1">
-                <button class="rounded-lg bg-[var(--accent)] hover:bg-blue-500 px-3 py-1.5 text-xs font-semibold text-white transition">Generate</button>
+                <button class="btn btn-primary btn-sm">Generate</button>
               </div>
-              <p id="audios-tts-spinner" class="mt-1 mono text-[10px] text-amber-300 htmx-indicator">Synthesizing voice…</p>
+              <p id="audios-tts-spinner" class="mt-2 chip chip-warn htmx-indicator">Synthesizing voice</p>
             </form>
-            <p class="mt-2 text-[11px] text-slate-500">Uploaded / generated audio appears in <button onclick="VE.show('media')" class="text-blue-400 hover:underline">Uploads</button> — add it to a track from there.</p>
+            <p class="mt-2 text-[11px] text-fg-2">Uploaded or generated audio appears in <button onclick="VE.show('media')" class="text-fg-1 underline hover:text-fg-2">Uploads</button>. Add it to a track from there.</p>
           </div>
 
           <!-- Per-clip audio adjustments -->
           <div class="border-t hairline pt-4">
-            <p class="mono text-[10px] uppercase tracking-wider text-slate-500 mb-2">Audio on selected clip</p>
+            <p class="ss-meta mb-2">Audio on selected clip</p>
             {% if has_clip %}
             <form hx-post="/api/clips/{{ selected_clip.id }}/effects" hx-target="#effects-panel" hx-swap="outerHTML"
                   hx-on::after-request="VE.show('videos')" class="mb-2">
               <input type="hidden" name="effect_type" value="volume">
               <div class="flex items-center justify-between">
-                <span class="mono text-[10px] uppercase tracking-wider text-slate-500">Volume</span>
-                <span class="mono text-[10px] text-slate-300" id="aud-gain-label">0 dB</span>
+                <span class="text-xs text-fg-2">Volume</span>
+                <span class="mono text-[11px] text-fg-1" id="aud-gain-label">0 dB</span>
               </div>
               <input type="range" name="gain_db" min="-30" max="12" value="0" step="1" class="mt-1 block w-full"
                      oninput="document.getElementById('aud-gain-label').textContent=this.value+' dB'">
-              <button class="mt-2 w-full rounded-lg bg-[var(--accent)] hover:bg-blue-500 px-3 py-1.5 text-xs font-semibold text-white transition">Apply volume</button>
+              <button class="btn btn-primary btn-sm w-full mt-2">Apply volume</button>
             </form>
             <div class="grid grid-cols-2 gap-2">
               {% for et, lbl in [('audio_fade_in','Fade in'),('audio_fade_out','Fade out'),('mute','Mute'),('normalize','Normalize')] %}
               <form hx-post="/api/clips/{{ selected_clip.id }}/effects" hx-target="#effects-panel" hx-swap="outerHTML" hx-on::after-request="VE.show('videos')">
                 <input type="hidden" name="effect_type" value="{{ et }}">
-                <button class="w-full rounded-lg border hairline panel px-3 py-1.5 text-xs text-slate-300 hover:border-blue-500/60 hover:bg-white/5 transition">{{ lbl }}</button>
+                <button class="btn btn-secondary btn-sm w-full">{{ lbl }}</button>
               </form>
               {% endfor %}
             </div>
             {% else %}
-            <p class="text-[11px] text-slate-500">Select a clip to adjust its volume, fades, mute, or normalize.</p>
+            <p class="text-[11px] text-fg-2">Select a clip to adjust its volume, fades, mute, or normalize.</p>
             {% endif %}
           </div>
         </div>
@@ -284,60 +286,60 @@
         <div data-panel="photos" class="p-4 space-y-5" hidden>
           <!-- Images on the timeline -->
           <div>
-            <p class="mono text-[10px] uppercase tracking-wider text-slate-500 mb-2">Images</p>
+            <p class="ss-meta mb-2">Images</p>
             <form hx-post="/api/projects/{{ project.id }}/assets" hx-encoding="multipart/form-data"
                   hx-target="#asset-library" hx-swap="outerHTML" hx-on::after-request="VE.show('media')">
-              <label class="flex items-center justify-center gap-2 rounded-lg border border-dashed hairline px-3 py-5 text-xs text-slate-400 hover:text-white hover:border-blue-500/60 cursor-pointer transition">
+              <label class="flex items-center justify-center gap-2 rounded-widget border border-dashed border-line px-3 py-5 text-xs text-fg-2 hover:text-fg-1 hover:bg-gray-50 cursor-pointer transition">
                 {{ icon('image','w-4 h-4') }} Upload image (adds to timeline)
                 <input type="file" name="video" accept="image/*" class="hidden" onchange="this.form.requestSubmit()">
               </label>
             </form>
-            <p class="mt-2 text-[11px] text-slate-500">Images become a 5s clip in <button onclick="VE.show('media')" class="text-blue-400 hover:underline">Uploads</button> — add &amp; trim on the timeline.</p>
+            <p class="mt-2 text-[11px] text-fg-2">Images become a 5s clip in <button onclick="VE.show('media')" class="text-fg-1 underline hover:text-fg-2">Uploads</button>. Add and trim them on the timeline.</p>
           </div>
 
           <!-- Logo / picture-in-picture overlay -->
           <div class="border-t hairline pt-4">
-            <p class="mono text-[10px] uppercase tracking-wider text-slate-500 mb-2">Logo / Picture-in-picture</p>
+            <p class="ss-meta mb-2">Logo · picture-in-picture</p>
             <form hx-post="/api/projects/{{ project.id }}/overlay" hx-target="#overlay-status" hx-swap="innerHTML" hx-encoding="multipart/form-data">
-              <label class="flex items-center justify-center gap-2 rounded-lg border border-dashed hairline px-3 py-5 text-xs text-slate-400 hover:text-white hover:border-blue-500/60 cursor-pointer transition">
+              <label class="flex items-center justify-center gap-2 rounded-widget border border-dashed border-line px-3 py-5 text-xs text-fg-2 hover:text-fg-1 hover:bg-gray-50 cursor-pointer transition">
                 {{ icon('image','w-4 h-4') }} Upload overlay image
                 <input type="file" name="image" accept="image/*" class="hidden" onchange="this.form.requestSubmit()">
               </label>
             </form>
-            <p id="overlay-status" class="mt-2 text-[11px] text-slate-500">
-              {% if project.overlay_path %}<span class="text-emerald-400">Logo set ✓</span>{% endif %}
+            <p id="overlay-status" class="mt-2 text-[11px] text-fg-2">
+              {% if project.overlay_path %}<span class="chip chip-ok">Logo set</span>{% endif %}
             </p>
             {% if has_clip %}
             <form hx-post="/api/clips/{{ selected_clip.id }}/effects" hx-target="#effects-panel" hx-swap="outerHTML"
                   hx-on::after-request="VE.show('videos')" class="mt-2">
               <input type="hidden" name="effect_type" value="image_overlay">
-              <button class="w-full rounded-lg bg-[var(--accent)] hover:bg-blue-500 px-3 py-1.5 text-xs font-semibold text-white transition">Add logo overlay to clip</button>
+              <button class="btn btn-primary btn-sm w-full">Add logo overlay to clip</button>
             </form>
             {% endif %}
           </div>
 
           <!-- Elements / shapes -->
           <div class="border-t hairline pt-4">
-            <p class="mono text-[10px] uppercase tracking-wider text-slate-500 mb-2">Elements / Shapes</p>
+            <p class="ss-meta mb-2">Elements and shapes</p>
             {% if has_clip %}
             <div class="grid grid-cols-2 gap-2">
               <form hx-post="/api/clips/{{ selected_clip.id }}/effects" hx-target="#effects-panel" hx-swap="outerHTML" hx-on::after-request="VE.show('videos')">
                 <input type="hidden" name="effect_type" value="shape">
                 <input type="hidden" name="x_pct" value="35"><input type="hidden" name="y_pct" value="40">
                 <input type="hidden" name="w_pct" value="30"><input type="hidden" name="h_pct" value="20">
-                <button class="w-full rounded-lg border hairline panel px-3 py-2 text-xs text-slate-300 hover:border-blue-500/60 hover:bg-white/5 transition">▭ Rectangle</button>
+                <button class="btn btn-secondary btn-sm w-full">{{ icon('rectangle','w-3.5 h-3.5') }} Rectangle</button>
               </form>
               <form hx-post="/api/clips/{{ selected_clip.id }}/effects" hx-target="#effects-panel" hx-swap="outerHTML" hx-on::after-request="VE.show('videos')">
                 <input type="hidden" name="effect_type" value="shape">
                 <input type="hidden" name="x_pct" value="0"><input type="hidden" name="y_pct" value="80">
                 <input type="hidden" name="w_pct" value="100"><input type="hidden" name="h_pct" value="16">
                 <input type="hidden" name="opacity" value="55"><input type="hidden" name="color" value="#000000">
-                <button class="w-full rounded-lg border hairline panel px-3 py-2 text-xs text-slate-300 hover:border-blue-500/60 hover:bg-white/5 transition">▬ Lower-third</button>
+                <button class="btn btn-secondary btn-sm w-full">{{ icon('lower-third','w-3.5 h-3.5') }} Lower third</button>
               </form>
             </div>
-            <p class="mt-2 text-[11px] text-slate-500">Tweak color, position &amp; size in the <button onclick="VE.show('videos')" class="text-blue-400 hover:underline">Effects</button> tab.</p>
+            <p class="mt-2 text-[11px] text-fg-2">Adjust color, position, and size in the <button onclick="VE.show('videos')" class="text-fg-1 underline hover:text-fg-2">Effects</button> tab.</p>
             {% else %}
-            <p class="text-[11px] text-slate-500">Select a clip to add shapes / elements.</p>
+            <p class="text-[11px] text-fg-2">Select a clip to add shapes or elements.</p>
             {% endif %}
           </div>
         </div>
@@ -346,23 +348,23 @@
         <div data-panel="records" class="p-3 space-y-3" hidden>
           <!-- Background music (GEN-06: bundled CC0/CC-BY tracks, auto-ducked under voice) -->
           <div class="border-b hairline pb-3">
-            <p class="mono text-[10px] uppercase tracking-wider text-slate-500 mb-2">Background music</p>
+            <p class="ss-meta mb-2">Background music</p>
             <form hx-post="/api/projects/{{ project.id }}/music" hx-target="#music-status" hx-swap="innerHTML">
               <select name="music_key" onchange="this.form.requestSubmit()"
-                      class="w-full rounded-lg border hairline panel px-3 py-2 text-xs text-slate-300">
+                      class="select select-sm on-page">
                 <option value="" {% if not project.background_music_key %}selected{% endif %}>No music</option>
                 {% for track in music_tracks %}
                 <option value="{{ track }}" {% if project.background_music_key == track %}selected{% endif %}>{{ track }}</option>
                 {% endfor %}
               </select>
             </form>
-            <p id="music-status" class="mt-2 text-[11px] text-slate-500">
+            <p id="music-status" class="mt-2 text-[11px] text-fg-2">
               {% if not music_tracks %}No bundled tracks available yet.{% endif %}
             </p>
           </div>
           <form hx-post="/api/projects/{{ project.id }}/render" hx-target="#renders-card" hx-swap="outerHTML">
-            <button class="w-full flex items-center justify-center gap-2 rounded-lg bg-[var(--accent)] hover:bg-blue-500 px-4 py-2.5 text-sm font-semibold text-white transition disabled:opacity-40" {% if not clips %}disabled{% endif %}>
-              {{ icon('download','w-4 h-4') }} Render &amp; export project
+            <button class="btn btn-primary w-full" {% if not clips %}disabled{% endif %}>
+              {{ icon('download','w-4 h-4') }} Render and export project
             </button>
           </form>
           {% include "partials/renders.html" %}
@@ -374,15 +376,15 @@
           <form hx-post="/api/clips/{{ selected_clip.id }}/effects" hx-target="#effects-panel" hx-swap="outerHTML"
                 hx-on::after-request="VE.show('videos')">
             <input type="hidden" name="effect_type" value="subtitles">
-            <button class="w-full flex items-center justify-center gap-2 rounded-lg bg-[var(--accent)] hover:bg-blue-500 px-4 py-2.5 text-sm font-semibold text-white transition">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" class="w-4 h-4"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 13a2 2 0 0 0 3 1.7M14 13a2 2 0 0 0 3 1.7"/></svg>
+            <button class="btn btn-primary w-full">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 13a2 2 0 0 0 3 1.7M14 13a2 2 0 0 0 3 1.7"/></svg>
               Burn captions into video
             </button>
           </form>
           {% include "partials/ai_tools.html" %}
           {% include "partials/interactive_recolor.html" %}
           {% else %}
-          <p class="text-xs text-slate-500">Select a clip on the timeline to auto-generate subtitles, auto-cut scenes, remove silences, or recolor.</p>
+          <p class="text-xs text-fg-2">Select a clip on the timeline to auto-generate subtitles, auto-cut scenes, remove silences, or recolor.</p>
           {% endif %}
         </div>
 
@@ -392,12 +394,12 @@
     <!-- ---------- CENTER (preview + timeline) ---------- -->
     <section id="stage-col" class="flex-1 flex flex-col min-h-0">
 
-      <!-- PREVIEW -->
-      <div class="flex-1 min-h-0 flex flex-col bg-[#08080a]">
+      <!-- PREVIEW (stays dark so footage reads correctly) -->
+      <div class="flex-1 min-h-0 flex flex-col bg-ink text-fg-inverse">
         <div id="stage" class="flex-1 min-h-0 grid place-items-center p-5 relative">
           {% if selected_clip and selected_asset %}
           <video id="preview-video" preload="auto" playsinline autoplay muted
-                 class="max-w-full max-h-full rounded-lg bg-black shadow-2xl shadow-black/60"
+                 class="max-w-full max-h-full rounded-widget bg-black"
                  data-tl-start="{{ selected_clip.timeline_start }}"
                  data-src-start="{{ selected_clip.source_start }}"
                  data-src-end="{{ selected_clip.source_end }}"
@@ -427,11 +429,11 @@
             {% endfor %}
           </div>
           {% else %}
-          <div class="w-full max-w-3xl aspect-video grid place-items-center rounded-lg bg-[#101013] border border-dashed hairline">
+          <div class="w-full max-w-3xl aspect-video grid place-items-center rounded-widget border border-dashed border-gray-600">
             <div class="text-center">
-              <div class="mx-auto mb-3 grid place-items-center w-12 h-12 rounded-full panel-2 text-slate-500">{{ icon('film','w-6 h-6') }}</div>
-              <p class="text-sm text-slate-400">Select a clip on the timeline to preview</p>
-              <p class="mt-1 text-xs text-slate-600">Upload media with the <span class="text-slate-400">+</span> button to get started</p>
+              <div class="mx-auto mb-3 grid place-items-center text-fg-inverse-2">{{ icon('film','w-7 h-7') }}</div>
+              <p class="text-sm text-fg-inverse">Select a clip on the timeline to preview</p>
+              <p class="mt-1 text-xs text-fg-inverse-2">Upload media with the <span class="text-fg-inverse">+</span> button to get started</p>
             </div>
           </div>
           {% endif %}
@@ -439,13 +441,13 @@
 
         <!-- transport -->
         <div class="h-12 shrink-0 flex items-center justify-center gap-3 px-4 relative">
-          <span id="time-readout" class="mono text-[11px] text-slate-500 absolute left-4">00:00.00 / {{ fmt_dur(timeline_duration) }}</span>
-          <button onclick="VE.seekStart()" class="grid place-items-center w-9 h-9 rounded-full text-slate-300 hover:text-white hover:bg-white/5 transition" title="Restart">{{ icon('skip-back','w-4 h-4') }}</button>
-          <button id="play-btn" onclick="VE.togglePlay()" class="grid place-items-center w-11 h-11 rounded-full bg-white text-black hover:bg-slate-200 transition shadow-lg" title="Play / Pause">
+          <span id="time-readout" class="mono text-[11px] text-fg-inverse-2 absolute left-4">00:00.00 / {{ fmt_dur(timeline_duration) }}</span>
+          <button onclick="VE.seekStart()" class="grid place-items-center w-9 h-9 rounded-full text-fg-inverse-2 hover:text-fg-inverse hover:bg-white/10 transition" title="Restart">{{ icon('skip-back','w-4 h-4') }}</button>
+          <button id="play-btn" onclick="VE.togglePlay()" class="grid place-items-center w-11 h-11 rounded-full bg-white text-ink hover:bg-gray-100 transition" title="Play / pause">
             <span id="play-icon">{{ icon('play','w-5 h-5') }}</span>
           </button>
-          <button onclick="VE.seekEnd()" class="grid place-items-center w-9 h-9 rounded-full text-slate-300 hover:text-white hover:bg-white/5 transition" title="To end">{{ icon('skip-fwd','w-4 h-4') }}</button>
-          <button onclick="VE.fullscreen()" class="grid place-items-center w-9 h-9 rounded-full text-slate-400 hover:text-white hover:bg-white/5 transition absolute right-4" title="Fullscreen">{{ icon('maximize','w-4 h-4') }}</button>
+          <button onclick="VE.seekEnd()" class="grid place-items-center w-9 h-9 rounded-full text-fg-inverse-2 hover:text-fg-inverse hover:bg-white/10 transition" title="To end">{{ icon('skip-fwd','w-4 h-4') }}</button>
+          <button onclick="VE.fullscreen()" class="grid place-items-center w-9 h-9 rounded-full text-fg-inverse-2 hover:text-fg-inverse hover:bg-white/10 transition absolute right-4" title="Fullscreen">{{ icon('maximize','w-4 h-4') }}</button>
         </div>
       </div>
 
@@ -473,7 +475,7 @@ window.VE = (function () {
   }
 
   function toggleInspector() {
-    const aside = document.querySelector("aside.panel-2");
+    const aside = document.querySelector("aside.panel");
     if (aside) aside.classList.toggle("hidden");
   }
 
@@ -518,9 +520,9 @@ window.VE = (function () {
     document.querySelectorAll("[data-vpanel]").forEach(p => p.hidden = (p.dataset.vpanel !== key));
     document.querySelectorAll(".vsub-btn").forEach(b => {
       const on = b.dataset.vsub === key;
-      b.classList.toggle("bg-white/10", on);
-      b.classList.toggle("text-white", on);
-      b.classList.toggle("text-slate-400", !on);
+      b.classList.toggle("bg-ink", on);
+      b.classList.toggle("text-fg-inverse", on);
+      b.classList.toggle("text-fg-2", !on);
     });
   }
   function wireSubtabs() {
@@ -597,11 +599,11 @@ window.VE = (function () {
     });
   }
 
-  // ---- tool toggle (visual) ----
+  // ---- tool toggle (visual): `.icon-btn.active` is the selected tool ----
   function wireTools() {
     document.querySelectorAll(".tool-btn").forEach(b => b.addEventListener("click", () => {
-      document.querySelectorAll(".tool-btn").forEach(x => { x.classList.remove("text-white","bg-white/10"); x.classList.add("text-slate-400"); });
-      b.classList.remove("text-slate-400"); b.classList.add("text-white","bg-white/10");
+      document.querySelectorAll(".tool-btn").forEach(x => { x.classList.remove("active"); });
+      b.classList.add("active");
     }));
   }
 

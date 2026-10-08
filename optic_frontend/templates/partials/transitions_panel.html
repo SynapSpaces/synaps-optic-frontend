@@ -3,15 +3,22 @@
 {% if selected_clip %}
 {% set tspec = effect_types['transition'] %}
 {% set styles = tspec.params[0].options %}
+{# Lucide-style path data per transition style, drawn inline below. #}
 {% set icons = {
-  'fade':'▢','dissolve':'▦','wipeleft':'◧','wiperight':'◨',
-  'slideup':'▲','slidedown':'▼','circleopen':'◯','radial':'◐'
+  'fade':'M6 4h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
+  'dissolve':'M5 5h.01M12 5h.01M19 5h.01M5 12h.01M12 12h.01M19 12h.01M5 19h.01M12 19h.01M19 19h.01',
+  'wipeleft':'M3 19V5M21 12H7M13 6l-6 6 6 6',
+  'wiperight':'M21 5v14M3 12h14M11 18l6-6-6-6',
+  'slideup':'M12 19V5M5 12l7-7 7 7',
+  'slidedown':'M12 5v14M19 12l-7 7-7-7',
+  'circleopen':'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z',
+  'radial':'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 3v9l6 6'
 } %}
 <div class="space-y-3">
   <label class="block">
     <div class="flex items-center justify-between mb-1">
-      <span class="mono text-[10px] uppercase tracking-wider text-slate-500">Duration</span>
-      <span class="mono text-[10px] text-slate-300" id="transition-dur-label">1.0s</span>
+      <span class="text-xs text-fg-2">Duration</span>
+      <span class="mono text-[10px] text-fg-1" id="transition-dur-label">1.0s</span>
     </div>
     <input id="transition-duration" name="duration" type="range" min="0.2" max="3.0" step="0.1" value="1.0"
            class="block w-full" oninput="document.getElementById('transition-dur-label').textContent=this.value+'s'">
@@ -22,15 +29,15 @@
           hx-target="#effects-panel" hx-swap="outerHTML">
       <input type="hidden" name="effect_type" value="transition">
       <input type="hidden" name="style" value="{{ style }}">
-      <button class="w-full flex items-center gap-2 rounded-lg border hairline panel px-3 py-2.5 hover:border-blue-500/60 hover:bg-white/5 transition">
-        <span class="text-base leading-none text-slate-300">{{ icons[style] if style in icons else '▢' }}</span>
-        <span class="text-[11px] font-medium text-slate-200 capitalize">{{ style }}</span>
+      <button class="btn btn-secondary btn-sm w-full justify-start gap-2">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0"><path d="{{ icons[style] if style in icons else icons['fade'] }}"/></svg>
+        <span class="text-[11px] font-medium capitalize">{{ style }}</span>
       </button>
     </form>
     {% endfor %}
   </div>
-  <p class="text-[11px] text-slate-500">Transitions blend from the <span class="text-slate-300">previous</span> clip on the timeline.</p>
+  <p class="text-xs text-fg-2">Transitions blend from the <span class="text-fg-1">previous</span> clip on the timeline.</p>
 </div>
 {% else %}
-<p class="text-xs text-slate-500">Select a clip to add a transition.</p>
+<p class="text-xs text-fg-2">Select a clip to add a transition.</p>
 {% endif %}

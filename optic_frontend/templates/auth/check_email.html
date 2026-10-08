@@ -2,13 +2,13 @@
 {% block nav_container %}max-w-sm{% endblock %}
 {% block container_class %}mx-auto max-w-sm px-6 py-20{% endblock %}
 {% block content %}
-<div class="panel border hairline rounded-2xl p-8 text-center">
-    <div class="mono text-xs uppercase tracking-[0.2em] text-slate-300 mb-6">Video Editor AI</div>
-    <h1 class="text-lg font-medium text-white mb-2">Check your inbox</h1>
-    <p class="text-sm text-slate-400 leading-relaxed">
-        We sent a magic link to <span class="text-slate-200">{{ email }}</span>.
-        Click it to sign in — locally, look for it in
-        <a href="http://127.0.0.1:54324" class="text-blue-400 hover:text-blue-300">Inbucket</a>.
+<div class="card p-8 text-center">
+    <div class="wordmark mb-6">Synaps Optic</div>
+    <h1 class="ss-title mb-2">Check your inbox</h1>
+    <p class="ss-body">
+        We sent a magic link to <span class="text-fg-1 font-medium">{{ email }}</span>.
+        Click it to sign in. Locally, look for it in
+        <a href="http://127.0.0.1:54324" class="text-fg-1 underline underline-offset-2 hover:text-fg-2">Inbucket</a>.
     </p>
 </div>
 {% endblock %}

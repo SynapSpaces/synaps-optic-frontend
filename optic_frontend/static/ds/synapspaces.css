@@ -1,0 +1,239 @@
+/* Synapspaces design tokens + element defaults, built from docs/DESIGN.md (design-system/ tokens + base).
+   Fonts: Geist and Geist Mono, SIL Open Font License (see fonts/LICENSE.md). Do not edit by hand: re-copy from the design system. */
+
+/* ---- tokens/fonts.css ---- */
+/* Geist + Geist Mono (SIL OFL) — self-hosted variable fonts, weights 100–900.
+   Identified from production screenshots; confirm with the brand team. */
+@font-face{font-family:'Geist';font-style:normal;font-weight:100 900;font-display:swap;src:url('fonts/Geist-Variable-latin-ext.woff2') format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;}
+@font-face{font-family:'Geist';font-style:normal;font-weight:100 900;font-display:swap;src:url('fonts/Geist-Variable-latin.woff2') format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;}
+@font-face{font-family:'Geist Mono';font-style:normal;font-weight:100 900;font-display:swap;src:url('fonts/GeistMono-Variable-latin-ext.woff2') format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;}
+@font-face{font-family:'Geist Mono';font-style:normal;font-weight:100 900;font-display:swap;src:url('fonts/GeistMono-Variable-latin.woff2') format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;}
+
+/* ---- tokens/colors.css ---- */
+/* Synapspaces color tokens. Values sampled from production screenshots
+   (1400px viewport). The palette is ink-on-white with four quiet pastel tints. */
+:root{
+/* Neutrals */
+--white:#ffffff;
+--gray-50:#f5f5f5;   /* tiles, secondary buttons, chips, form panel */
+--gray-100:#ededed;  /* section rules, dividers inside cards */
+--gray-200:#e5e5e5;  /* list rules (FAQ, audience rows), progress track */
+--gray-300:#d4d4d4;  /* placeholder bars inside illustrations */
+--gray-400:#b6b6b6;  /* secondary text on ink */
+--gray-500:#8a8a8a;  /* tertiary: tags, step numerals, placeholders */
+--gray-600:#5d5d5d;  /* secondary text */
+--ink:#0d0d0d;       /* primary text, primary buttons, inverse surfaces */
+
+/* Tints — one per product; flat fills only, never gradients */
+--tint-blue:#d8e3f1;
+--tint-sand:#eee4d5;
+--tint-sage:#e0ebda;
+--tint-lilac:#e8e0f2;
+
+/* Semantic — surfaces */
+--surface-page:var(--white);
+--surface-card:var(--gray-50);
+--surface-raised:var(--white);
+--surface-inverse:var(--ink);
+--surface-field:var(--white);
+
+/* Semantic — text */
+--fg-1:var(--ink);
+--fg-2:var(--gray-600);
+--fg-3:var(--gray-500);
+--fg-inverse-1:var(--white);
+--fg-inverse-2:var(--gray-400);
+--text-primary:var(--fg-1);
+--text-secondary:var(--fg-2);
+--text-tertiary:var(--fg-3);
+--text-body:var(--fg-2);
+--text-heading:var(--fg-1);
+
+/* Semantic — lines */
+--border-subtle:var(--gray-100);
+--border-default:var(--gray-200);
+
+/* Semantic — product + content tints */
+--product-cortex:var(--tint-blue);
+--product-plexus:var(--tint-sand);
+--product-optic:var(--tint-sage);
+--product-research:var(--tint-lilac);
+
+/* Semantic — controls (hover values are inferred, not observed) */
+--button-primary-bg:var(--ink);
+--button-primary-bg-hover:#2b2b2b;
+--button-primary-fg:var(--white);
+--button-secondary-bg:var(--gray-50);
+--button-secondary-bg-hover:#ebebeb;
+--button-secondary-fg:var(--ink);
+--button-inverse-bg:var(--white);
+--button-inverse-bg-hover:#ebebeb;
+--button-inverse-fg:var(--ink);
+--link:var(--ink);
+--link-hover:var(--gray-600);
+--input-placeholder:var(--gray-500);
+}
+
+/* ---- tokens/typography.css ---- */
+/* Synapspaces type tokens. One family (Geist) does everything; Geist Mono
+   only for step numerals. Sizes measured from production at 1400px. */
+:root{
+--font-sans:'Geist',ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;
+--font-mono:'Geist Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+
+--weight-regular:400;
+--weight-medium:500;
+--weight-semibold:600;
+
+/* Raw scale */
+--fs-10:10px;
+--fs-11:11px;
+--fs-12:12px;
+--fs-12-5:12.5px;
+--fs-13:13px;
+--fs-14:14px;
+--fs-15:15px;
+--fs-16:16px;
+--fs-17:17px;
+--fs-18:18px;
+--fs-22:22px;
+--fs-32:32px;
+--fs-36:36px;
+--fs-48:48px;
+--fs-60:60px;
+
+--lh-tight:1.1; /* @kind font */
+--lh-snug:1.25; /* @kind font */
+--lh-heading:1.35; /* @kind font */
+--lh-ui:1.4; /* @kind font */
+--lh-body:1.55; /* @kind font */
+--lh-relaxed:1.65; /* @kind font */
+
+--tracking-display:-0.02em;
+--tracking-tight:-0.01em;
+--tracking-normal:0;
+
+/* Roles (font shorthand) — pair with the matching --ls-* letter-spacing */
+--type-display-xl:500 60px/1.1 var(--font-sans);   /* hero h1 */
+--type-display-lg:500 48px/1.1 var(--font-sans);   /* closing CTA heading */
+--type-h2:500 36px/1.1 var(--font-sans);           /* section titles */
+--type-lead:500 32px/1.25 var(--font-sans);        /* mission statement */
+--type-title-lg:500 22px/1.25 var(--font-sans);    /* product + step card titles */
+--type-title:500 18px/1.35 var(--font-sans);       /* row titles, principle titles */
+--type-subtitle:400 17px/1.6 var(--font-sans);     /* hero subtitle */
+--type-intro:400 15px/1.65 var(--font-sans);       /* section intro paragraphs */
+--type-question:500 16px/1.4 var(--font-sans);     /* FAQ question, card header */
+--type-body:400 14px/1.55 var(--font-sans);
+--type-body-strong:500 14px/1.4 var(--font-sans);  /* buttons, item names */
+--type-body-sm:400 13px/1.6 var(--font-sans);     /* descriptions */
+--type-caption:400 12.5px/1.6 var(--font-sans);    /* card body, bullet lists */
+--type-meta:400 12px/1.4 var(--font-sans);         /* eyebrows, nav, footer */
+--type-label:500 12px/1.4 var(--font-sans);        /* form labels, footer heads */
+--type-micro:400 11px/1.4 var(--font-sans);        /* card kicker, chips, fine print */
+--type-tag:400 10px/1.2 var(--font-sans);          /* inline status tags */
+--type-numeral:400 11px/1.4 var(--font-mono);      /* 01 02 03 */
+
+--ls-display-xl:-0.01em;
+--ls-display-lg:-0.015em;
+--ls-h2:-0.02em;
+--ls-lead:-0.005em;
+--ls-title-lg:-0.02em;
+--ls-title:-0.01em;
+}
+
+/* ---- tokens/spacing.css ---- */
+/* Spacing, layout and radius tokens. Measured values are kept exact
+   (e.g. 100px section padding, 20px grid gap), not snapped to a grid. */
+:root{
+--space-1:4px;
+--space-2:8px;
+--space-3:12px;
+--space-4:16px;
+--space-5:20px;
+--space-6:24px;
+--space-7:28px;
+--space-8:32px;
+--space-10:40px;
+--space-12:48px;
+--space-16:64px;
+--space-20:80px;
+--space-25:100px;
+--space-30:120px;
+
+/* Layout */
+--container:1040px;        /* content column for every section */
+--container-wide:1200px;   /* nav row + hero panel */
+--page-gutter:40px;        /* side padding at desktop */
+--nav-height:56px;
+--section-y:100px;         /* vertical padding of a ruled section */
+--section-y-lg:120px;      /* hero top + mission statement */
+--grid-gap:20px;           /* card grids (2, 3, 4 up) */
+--label-col:340px;         /* left label column in split sections */
+--label-gap:24px;
+--split-gap:56px;          /* 2-up halves (section intro, form section, CTA panel) */
+--header-gap:40px;         /* section header → content */
+
+/* Radii */
+--radius-xs:6px;
+--radius-sm:8px;           /* illustration widgets (rows, video) */
+--radius-md:10px;          /* inputs, inner illustration cards */
+--radius-lg:16px;          /* cards, tiles, form panel, floating card */
+--radius-xl:20px;          /* hero panel, CTA panel */
+--radius-pill:999px;       /* every button and chip */
+
+/* Control heights */
+--control-sm:36px;         /* nav + in-card buttons */
+--control-md:40px;         /* hero / panel buttons */
+--control-lg:44px;         /* form submit, inputs */
+--chip-height:27px;
+}
+
+/* ---- tokens/effects.css ---- */
+/* Elevation, borders, motion. The system is almost entirely flat:
+   one soft float shadow, hairline rules, no gradients, no blur. */
+:root{
+--shadow-none:none;
+--shadow-float:0 20px 60px rgba(13,13,13,0.11);   /* the single floating product card */
+--shadow-focus:0 0 0 2px var(--white),0 0 0 4px var(--ink);
+
+--border-width:1px;
+--rule:1px solid var(--border-subtle);    /* full-bleed section rules */
+--rule-list:1px solid var(--border-default);
+
+/* Motion — inferred; static screenshots show no animation */
+--ease-standard:cubic-bezier(0.2,0,0,1); /* @kind other */
+--ease-out:cubic-bezier(0.16,1,0.3,1); /* @kind other */
+--duration-fast:120ms; /* @kind other */
+--duration-base:200ms; /* @kind other */
+--duration-slow:360ms; /* @kind other */
+}
+
+/* ---- base/elements.css ---- */
+/* Element defaults + type utility classes (ss- prefix). */
+html{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
+body{margin:0;font-family:var(--font-sans);font-size:var(--fs-14);line-height:var(--lh-body);color:var(--fg-1);background:var(--surface-page)}
+a{color:var(--link);text-decoration:none;transition:color var(--duration-fast) var(--ease-standard)}
+a:hover{color:var(--link-hover)}
+::selection{background:var(--tint-blue);color:var(--ink)}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+input::placeholder,textarea::placeholder{color:var(--input-placeholder);opacity:1}
+
+.ss-display-xl{font:var(--type-display-xl);letter-spacing:var(--ls-display-xl);color:var(--fg-1)}
+.ss-display-lg{font:var(--type-display-lg);letter-spacing:var(--ls-display-lg);color:var(--fg-1)}
+.ss-h2{font:var(--type-h2);letter-spacing:var(--ls-h2);color:var(--fg-1)}
+.ss-lead{font:var(--type-lead);letter-spacing:var(--ls-lead);color:var(--fg-1)}
+.ss-lead-muted{color:var(--fg-2)}
+.ss-title-lg{font:var(--type-title-lg);letter-spacing:var(--ls-title-lg);color:var(--fg-1)}
+.ss-title{font:var(--type-title);letter-spacing:var(--ls-title);color:var(--fg-1)}
+.ss-subtitle{font:var(--type-subtitle);color:var(--fg-2)}
+.ss-intro{font:var(--type-intro);color:var(--fg-2)}
+.ss-question{font:var(--type-question);color:var(--fg-1)}
+.ss-body{font:var(--type-body);color:var(--fg-2)}
+.ss-body-strong{font:var(--type-body-strong);color:var(--fg-1)}
+.ss-body-sm{font:var(--type-body-sm);color:var(--fg-2)}
+.ss-caption{font:var(--type-caption);color:var(--fg-2)}
+.ss-meta{font:var(--type-meta);color:var(--fg-2)}
+.ss-label{font:var(--type-label);color:var(--fg-1)}
+.ss-micro{font:var(--type-micro);color:var(--fg-2)}
+.ss-tag{font:var(--type-tag);color:var(--fg-3)}
+.ss-numeral{font:var(--type-numeral);color:var(--fg-3)}

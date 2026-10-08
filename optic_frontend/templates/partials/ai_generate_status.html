@@ -1,24 +1,25 @@
 {% if ai_generation and ai_generation.status in ('queued', 'running') %}
 <div id="ai-generate-status"
-     class="rounded-lg border border-violet-800/60 bg-violet-950/30 px-4 py-2 text-xs text-violet-200 flex items-center gap-3"
+     class="rounded-widget status-info px-4 py-2 text-xs flex items-center gap-3"
      hx-get="/partials/projects/{{ project_id }}/ai_generate"
      hx-trigger="every 3s" hx-swap="outerHTML">
-  <span class="h-2 w-2 rounded-full bg-violet-400 animate-pulse"></span>
+  <span class="dot dot-info pulse-dot shrink-0"></span>
   {% if ai_generation.status == 'queued' and not gpu_online %}
     <span>Generation is waking up — your job is queued and will run when the studio GPU is back.</span>
     {% if queue_position is defined and queue_position is not none %}
-      <span class="text-violet-300">You are #{{ queue_position + 1 }} in line.</span>
+      <span class="text-fg-2">You are #{{ queue_position + 1 }} in line.</span>
     {% endif %}
   {% elif ai_generation.status == 'queued' %}
     <span>Queued — generating on the studio GPU, jobs run one at a time.</span>
     {% if queue_position is defined and queue_position is not none %}
-      <span class="text-violet-300">You are #{{ queue_position + 1 }} in line.</span>
+      <span class="text-fg-2">You are #{{ queue_position + 1 }} in line.</span>
     {% endif %}
   {% elif scenes %}
     {% set status_labels = {'pending': 'queued', 'generating_image': 'generating image', 'animating': 'animating', 'done': 'done', 'failed': 'failed'} %}
     <div class="flex flex-col gap-1">
       {% for s in scenes %}
-      <div class="flex items-center gap-2 {% if s.status == 'done' %}text-emerald-300{% elif s.status == 'failed' %}text-rose-300{% else %}text-violet-300{% endif %}">
+      <div class="flex items-center gap-2 text-fg-1">
+        <span class="dot {% if s.status == 'done' %}dot-ok{% elif s.status == 'failed' %}dot-err{% else %}dot-info{% endif %} shrink-0"></span>
         <span>
         Scene {{ s.scene_index + 1 }} of {{ scenes|length }}: {{ status_labels.get(s.status, s.status) }}
         {% if s.status in ('generating_image', 'animating') %}
@@ -28,13 +29,13 @@
         {% if s.status == 'failed' %}
         <button type="button" hx-post="/api/generation_scenes/{{ s.id }}/retry"
                 hx-target="#ai-generate-status" hx-swap="outerHTML"
-                class="rounded border border-rose-700/60 px-2 py-0.5 text-[10px] text-rose-300 hover:bg-rose-900/30 transition">
+                class="btn btn-secondary btn-sm">
           Retry
         </button>
         {% elif s.status == 'done' %}
         <button type="button" hx-post="/api/generation_scenes/{{ s.id }}/regenerate"
                 hx-target="#ai-generate-status" hx-swap="outerHTML"
-                class="rounded border border-emerald-700/60 px-2 py-0.5 text-[10px] text-emerald-300 hover:bg-emerald-900/30 transition">
+                class="btn btn-ghost btn-sm">
           Regenerate
         </button>
         {% endif %}
@@ -42,7 +43,7 @@
       {% endfor %}
     </div>
   {% elif not gpu_online %}
-    <span>Generation stalled — waiting for the studio GPU… progress is saved, resumes automatically</span>
+    <span>Generation stalled — waiting for the studio GPU. Progress is saved and resumes automatically.</span>
   {% else %}
     <span>Generating your scenes… {{ ai_generation.progress or 0 }}%</span>
   {% endif %}
@@ -57,7 +58,7 @@
   <script>window.location.reload();</script>
 </div>
 {% elif ai_generation and ai_generation.status == 'failed' %}
-<div id="ai-generate-status" class="rounded-lg border border-rose-800/60 bg-rose-950/30 px-4 py-2 text-xs text-rose-300">
+<div id="ai-generate-status" class="rounded-widget status-err px-4 py-2 text-xs">
   Generation failed: {{ ai_generation.error or 'unknown error' }}
 </div>
 {% else %}

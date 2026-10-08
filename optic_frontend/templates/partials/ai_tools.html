@@ -1,48 +1,48 @@
 <div id="ai-tools-card"
-     class="rounded-xl border border-slate-800/80 bg-slate-900/40 backdrop-blur p-4"
+     class="card p-4"
      {% if (transcript and transcript.status in ('queued', 'running'))
           or (animation and animation.status in ('queued', 'running'))
           or active_animations %}
      hx-get="/partials/clips/{{ selected_clip.id }}/ai_tools"
      hx-trigger="every 3s" hx-swap="outerHTML"
      {% endif %}>
-    <h2 class="mb-3 mono text-[10px] uppercase tracking-[0.18em] text-slate-500">AI tools · selected clip</h2>
+    <h2 class="mb-3 text-xs text-fg-2">AI tools · selected clip</h2>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <!-- Auto captions -->
-        <div class="rounded-lg border border-slate-800/70 bg-slate-950/40 p-3">
+        <div class="rounded-card panel p-3">
             <div class="flex items-center justify-between">
-                <h3 class="text-sm font-semibold text-slate-200">Auto captions</h3>
+                <h3 class="text-sm font-medium text-fg-1">Auto captions</h3>
                 {% if transcript %}
-                <span class="mono text-[10px] uppercase tracking-wider
-                    {% if transcript.status == 'done' %}text-emerald-400
-                    {% elif transcript.status == 'failed' %}text-rose-400
-                    {% elif transcript.status == 'running' %}text-amber-300
-                    {% else %}text-slate-500{% endif %}">{{ transcript.status }}</span>
+                <span class="chip
+                    {% if transcript.status == 'done' %}chip-ok
+                    {% elif transcript.status == 'failed' %}chip-err
+                    {% elif transcript.status == 'running' %}chip-info
+                    {% else %}chip-warn{% endif %}">{{ transcript.status }}</span>
                 {% endif %}
             </div>
-            <p class="mt-1 text-[11px] text-slate-500">Whisper speech-to-text → SRT. Add the
-                <span class="text-slate-300">“Auto Captions / Subtitles”</span> effect to burn them in.</p>
+            <p class="mt-1 text-xs text-fg-2">Whisper speech-to-text → SRT. Add the
+                <span class="text-fg-1">“Auto Captions / Subtitles”</span> effect to burn them in.</p>
 
             {% if transcript and transcript.status == 'running' %}
-            <div class="mt-2 h-1 w-full overflow-hidden rounded-full bg-slate-800">
-                <div class="h-full bg-amber-400/80 transition-all" style="width: {{ transcript.progress }}%"></div>
+            <div class="mt-2 h-1 w-full overflow-hidden rounded-pill bg-gray-200">
+                <div class="h-full bg-ink transition-all" style="width: {{ transcript.progress }}%"></div>
             </div>
-            <p class="mt-1 mono text-[10px] text-slate-500">{{ transcript.progress }}%</p>
+            <p class="mt-1 mono text-[10px] text-fg-2">{{ transcript.progress }}%</p>
             {% elif transcript and transcript.status == 'failed' %}
-            <p class="mt-2 text-xs text-rose-400 break-words">{{ transcript.error or 'failed' }}</p>
+            <p class="mt-2 rounded-widget status-err px-2 py-1 text-xs break-words">{{ transcript.error or 'failed' }}</p>
             {% endif %}
 
             <div class="mt-3 flex items-center gap-2 flex-wrap">
                 <form hx-post="/api/clips/{{ selected_clip.id }}/transcribe" hx-target="#ai-tools-card" hx-swap="outerHTML">
-                    <button class="rounded-md bg-fuchsia-500/90 hover:bg-fuchsia-500 px-3 py-1.5 text-xs font-semibold text-white transition"
+                    <button class="btn btn-primary btn-sm"
                         {% if transcript and transcript.status in ('queued','running') %}disabled{% endif %}>
-                        {% if has_srt %}Re-generate{% else %}Generate captions{% endif %}
+                        {% if has_srt %}Regenerate{% else %}Generate captions{% endif %}
                     </button>
                 </form>
                 {% if has_srt %}
                 <a href="/api/assets/{{ selected_asset.id }}/subtitles.srt"
-                   class="rounded-md border border-slate-700 px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-800 transition">
+                   class="btn btn-secondary btn-sm">
                    Download SRT{% if transcript and transcript.segments %} ({{ transcript.segments }}){% endif %}
                 </a>
                 {% endif %}
@@ -50,111 +50,111 @@
         </div>
 
         <!-- Auto-cut -->
-        <div class="rounded-lg border border-slate-800/70 bg-slate-950/40 p-3">
-            <h3 class="text-sm font-semibold text-slate-200">Auto-cut into scenes</h3>
-            <p class="mt-1 text-[11px] text-slate-500">Detects shot changes inside this clip's range and
+        <div class="rounded-card panel p-3">
+            <h3 class="text-sm font-medium text-fg-1">Auto-cut into scenes</h3>
+            <p class="mt-1 text-xs text-fg-2">Detects shot changes inside this clip's range and
                 replaces it with one clip per scene on the same track.</p>
             <form class="mt-3 flex items-center gap-2"
                   hx-post="/api/clips/{{ selected_clip.id }}/autocut"
                   hx-target="#timeline-container" hx-swap="innerHTML">
-                <label class="mono text-[10px] uppercase tracking-wider text-slate-500">Sensitivity</label>
+                <label class="text-xs text-fg-2">Sensitivity</label>
                 <input type="number" name="threshold" min="5" max="60" step="1" value="27"
-                       class="w-16 rounded-md border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-sm">
-                <button class="rounded-md bg-sky-500/90 hover:bg-sky-500 px-3 py-1.5 text-xs font-semibold text-white transition">
-                    Auto-cut (scenes)
+                       class="input input-sm on-page !w-16 text-sm">
+                <button class="btn btn-primary btn-sm">
+                    Auto-cut scenes
                 </button>
             </form>
             <form class="mt-2"
                   hx-post="/api/clips/{{ selected_clip.id }}/smartcut"
                   hx-target="#timeline-container" hx-swap="innerHTML">
-                <button class="rounded-md bg-indigo-500/90 hover:bg-indigo-500 px-3 py-1.5 text-xs font-semibold text-white transition disabled:opacity-40"
+                <button class="btn btn-secondary btn-sm"
                         {% if not has_srt %}disabled title="Generate captions first"{% endif %}>
                     Smart-cut by transcript
                 </button>
-                <span class="ml-2 text-[10px] text-slate-600">{% if not has_srt %}needs captions{% else %}one clip per sentence{% endif %}</span>
+                <span class="ml-2 text-xs text-fg-3">{% if not has_srt %}needs captions{% else %}one clip per sentence{% endif %}</span>
             </form>
             <form class="mt-2 flex items-center gap-2"
                   hx-post="/api/clips/{{ selected_clip.id }}/desilence"
                   hx-target="#timeline-container" hx-swap="innerHTML">
-                <label class="mono text-[10px] uppercase tracking-wider text-slate-500">Silence dB</label>
+                <label class="text-xs text-fg-2">Silence dB</label>
                 <input type="number" name="noise_db" min="-60" max="-10" step="1" value="-30"
-                       class="w-16 rounded-md border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-sm">
-                <button class="rounded-md bg-teal-500/90 hover:bg-teal-500 px-3 py-1.5 text-xs font-semibold text-white transition">
+                       class="input input-sm on-page !w-16 text-sm">
+                <button class="btn btn-secondary btn-sm">
                     Remove silences
                 </button>
             </form>
-            <p class="mt-2 text-[11px] text-slate-600">
+            <p class="mt-2 text-xs text-fg-3">
                 Background blur/replace and auto-reframe are added from the
-                <span class="text-slate-400">Effects</span> panel after you
-                {% if selected_asset_analyzed %}<span class="text-emerald-400">✓ analyzed</span> this asset{% else %}analyze this asset (see the recolor panel){% endif %}.
+                <span class="text-fg-2">Effects</span> panel after you
+                {% if selected_asset_analyzed %}<span class="text-fg-1 inline-flex items-center gap-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3 h-3"><path d="M20 6 9 17l-5-5"/></svg>analyzed</span> this asset{% else %}analyze this asset (see the recolor panel){% endif %}.
             </p>
         </div>
 
         <!-- Animate → real video (Stable Video Diffusion on the Arc GPU) -->
-        <div class="rounded-lg border border-slate-800/70 bg-slate-950/40 p-3 md:col-span-2">
+        <div class="rounded-card panel p-3 md:col-span-2">
             <div class="flex items-center justify-between">
-                <h3 class="text-sm font-semibold text-slate-200">Animate → real video <span class="ml-1 text-[10px] text-violet-300">GPU</span></h3>
+                <h3 class="text-sm font-medium text-fg-1">Animate → real video <span class="ml-1 tag">GPU</span></h3>
                 {% if animation %}
-                <span class="mono text-[10px] uppercase tracking-wider
-                    {% if animation.status == 'done' %}text-emerald-400
-                    {% elif animation.status == 'failed' %}text-rose-400
-                    {% elif animation.status == 'running' %}text-amber-300
-                    {% else %}text-slate-500{% endif %}">{{ animation.status }}</span>
+                <span class="chip
+                    {% if animation.status == 'done' %}chip-ok
+                    {% elif animation.status == 'failed' %}chip-err
+                    {% elif animation.status == 'running' %}chip-info
+                    {% else %}chip-warn{% endif %}">{{ animation.status }}</span>
                 {% endif %}
             </div>
-            <p class="mt-1 text-[11px] text-slate-500">Generates genuine in-frame motion from this
+            <p class="mt-1 text-xs text-fg-2">Generates genuine in-frame motion from this
                 scene's image using Stable Video Diffusion on your Intel Arc GPU.
-                <span class="text-slate-400">Runs in the background, ~5&nbsp;min per clip.</span></p>
+                <span class="text-fg-3">Runs in the background, ~5&nbsp;min per clip.</span></p>
 
             {% if animation and animation.status in ('queued', 'running') %}
-            <div class="mt-2 h-1 w-full overflow-hidden rounded-full bg-slate-800">
-                <div class="h-full bg-violet-400/80 transition-all" style="width: {{ animation.progress or 3 }}%"></div>
+            <div class="mt-2 h-1 w-full overflow-hidden rounded-pill bg-gray-200">
+                <div class="h-full bg-ink transition-all" style="width: {{ animation.progress or 3 }}%"></div>
             </div>
-            <p class="mt-1 mono text-[10px] text-slate-500">
+            <p class="mt-1 mono text-[10px] text-fg-2">
                 {% if animation.status == 'queued' %}{% if not gpu_online %}generation is waking up — queued{% else %}queued…{% endif %}{% else %}{{ animation.progress or 0 }}% — generating on GPU, keep working{% endif %}</p>
             {% if animation.status == 'queued' and queue_position is defined and queue_position is not none %}
-            <p class="mt-1 mono text-[10px] text-violet-300">You are #{{ queue_position + 1 }} in line on the studio GPU.</p>
+            <p class="mt-1 mono text-[10px] text-fg-2">You are #{{ queue_position + 1 }} in line on the studio GPU.</p>
             {% endif %}
             {% elif animation and animation.status == 'failed' %}
-            <p class="mt-2 text-xs text-rose-400 break-words">{{ animation.error or 'failed' }}</p>
+            <p class="mt-2 rounded-widget status-err px-2 py-1 text-xs break-words">{{ animation.error or 'failed' }}</p>
             {% endif %}
 
             {% set own_active = 1 if (animation and animation.status in ('queued', 'running')) else 0 %}
             {% if active_animations and active_animations > own_active %}
-            <p class="mt-2 mono text-[10px] text-amber-300/80">
+            <p class="mt-2 mono text-[10px] text-fg-2">
                 {{ active_animations - own_active }} more scene animation{{ 's' if active_animations - own_active != 1 }} in the queue — jobs run one at a time</p>
             {% endif %}
 
             <form hx-post="/api/clips/{{ selected_clip.id }}/animate" hx-target="#ai-tools-card" hx-swap="outerHTML">
                 <div class="mt-3 flex items-center gap-3 flex-wrap">
-                    <label class="mono text-[10px] uppercase tracking-wider text-slate-500">Motion</label>
+                    <label class="text-xs text-fg-2">Motion</label>
                     <input type="range" name="motion" min="20" max="255" step="5" id="anim-motion" hx-preserve
                            value="{{ animation.motion if animation and animation.motion else 160 }}"
-                           class="w-32 accent-violet-500"
+                           class="w-32"
                            oninput="this.closest('div').querySelector('output').value = this.value">
-                    <output id="anim-motion-out" hx-preserve class="mono text-[10px] text-slate-400 w-7">{{ animation.motion if animation and animation.motion else 160 }}</output>
-                    <label class="mono text-[10px] uppercase tracking-wider text-slate-500">Seed</label>
+                    <output id="anim-motion-out" hx-preserve class="mono text-[10px] text-fg-2 w-7">{{ animation.motion if animation and animation.motion else 160 }}</output>
+                    <label class="text-xs text-fg-2">Seed</label>
                     <input type="number" name="seed" min="0" max="999999" step="1" id="anim-seed" hx-preserve
                            value="{{ animation.seed if animation and animation.seed is not none else 0 }}"
                            title="Same seed = same motion; change it to get a different take"
-                           class="w-20 rounded-md border border-slate-700 bg-slate-950/60 px-2 py-1 text-xs">
+                           class="input input-sm on-page !w-20 text-xs">
                 </div>
                 <div class="mt-3 flex items-center gap-2 flex-wrap">
-                    <button class="rounded-md bg-violet-500/90 hover:bg-violet-500 px-3 py-1.5 text-xs font-semibold text-white transition disabled:opacity-40"
+                    <button class="btn btn-primary btn-sm"
                         {% if animation and animation.status in ('queued','running') %}disabled{% endif %}>
-                        {% if animation and animation.status == 'done' %}Re-animate{% else %}Animate this scene{% endif %}
+                        {% if animation and animation.status == 'done' %}Animate again{% else %}Animate this scene{% endif %}
                     </button>
                     <button type="button"
                         hx-post="/api/clips/{{ selected_clip.id }}/animate_all"
                         hx-target="#ai-tools-card" hx-swap="outerHTML"
                         title="Queues every scene in this project that hasn't been animated yet; jobs run one after another"
-                        class="rounded-md border border-violet-700/60 px-3 py-1.5 text-xs text-violet-300 hover:bg-violet-900/30 transition">
+                        class="btn btn-secondary btn-sm">
                         Animate all scenes
                     </button>
                     {% if animation and animation.status == 'done' %}
                     <a href="/projects/{{ project_id }}?clip={{ selected_clip.id }}"
-                       class="rounded-md border border-emerald-700/60 px-3 py-1.5 text-xs text-emerald-300 hover:bg-emerald-900/30 transition">
-                       ▶ View result
+                       class="btn btn-secondary btn-sm">
+                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="m6 4 14 8-14 8V4z"/></svg> View result
                     </a>
                     {% endif %}
                 </div>

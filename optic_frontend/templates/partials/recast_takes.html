@@ -1,43 +1,39 @@
 <div id="recast-takes"
      {% if active %}hx-get="/partials/recast/takes" hx-trigger="every 3s" hx-swap="outerHTML"{% endif %}>
 {% if not takes %}
-  <div class="rounded-xl border border-dashed hairline panel-2 p-12 text-center">
-    <p class="text-sm text-slate-500">No takes yet. Start a probe above to check the look in 15 minutes.</p>
+  <div class="card p-12 text-center">
+    <p class="ss-body">No takes yet. Start a probe above to check the look in 15 minutes.</p>
   </div>
 {% else %}
-  <div class="rounded-xl border hairline panel-2 divide-y divide-white/5">
+  <div class="card overflow-hidden divide-y divide-line-subtle">
     {% for t in takes %}
-    <a href="/recast/takes/{{ t.id }}" class="flex items-center gap-4 p-4 hover:bg-white/[.03] transition">
-      <div class="h-2.5 w-2.5 shrink-0 rounded-full
-          {% if t.status == 'done' %}bg-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.6)]
-          {% elif t.status == 'running' %}bg-amber-400 pulse-dot
-          {% elif t.status == 'failed' %}bg-rose-500
-          {% else %}bg-slate-500{% endif %}"></div>
+    <a href="/recast/takes/{{ t.id }}" class="flex items-center gap-4 p-4 hover:bg-gray-100 transition">
       <div class="flex-1 min-w-0">
         <div class="flex items-center gap-3 flex-wrap">
-          <span class="text-sm font-medium text-white">{{ 'Cat' if t.side == 'cat' else 'User' }} · {{ t.mode }}</span>
-          <span class="mono text-xs text-slate-400">{{ t.name }}</span>
-          <span class="mono text-[10px] uppercase tracking-wider
-              {% if t.status == 'done' %}text-emerald-400{% elif t.status == 'failed' %}text-rose-400{% elif t.status == 'running' %}text-amber-300{% else %}text-slate-500{% endif %}">{{ t.status }}</span>
-          {% if t.stale %}<span class="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] uppercase tracking-wide text-amber-300">stale</span>{% endif %}
-          {% if t.project_id %}<span class="rounded-full bg-blue-500/15 px-2 py-0.5 text-[10px] uppercase tracking-wide text-blue-300">in a project</span>{% endif %}
+          <span class="text-sm font-medium text-fg-1">{{ 'Cat' if t.side == 'cat' else 'User' }} · {{ t.mode }}</span>
+          <span class="font-mono text-xs text-fg-2">{{ t.name }}</span>
+          <span class="chip
+              {% if t.status == 'done' %}chip-ok{% elif t.status == 'failed' %}chip-err{% elif t.status == 'running' %}chip-info{% else %}chip-warn{% endif %}">
+            <span class="dot {% if t.status == 'done' %}dot-ok{% elif t.status == 'failed' %}dot-err{% elif t.status == 'running' %}dot-info pulse-dot{% else %}dot-warn{% endif %}"></span>{{ t.status }}</span>
+          {% if t.stale %}<span class="chip chip-warn">stale</span>{% endif %}
+          {% if t.project_id %}<span class="chip">in a project</span>{% endif %}
         </div>
         {% if t.status in ('running', 'queued') %}
-        <div class="mt-2 h-1 w-full overflow-hidden rounded-full bg-slate-800">
-          <div class="h-full bg-amber-400/80 transition-all duration-300" style="width: {{ t.progress }}%"></div>
+        <div class="mt-2 h-1 w-full overflow-hidden rounded-pill bg-gray-200">
+          <div class="h-full bg-ink transition-all duration-300" style="width: {{ t.progress }}%"></div>
         </div>
-        <p class="mt-1 mono text-[10px] text-slate-500">
+        <p class="mt-1 ss-numeral">
           {% if t.status == 'queued' %}queued{% else %}{{ phase_labels.get(t.phase, t.phase or 'starting') }}{% endif %}
           {% if t.frames_total %} · {{ t.frames_done }} / {{ t.frames_total }} frames{% endif %} · {{ t.progress }}%
           {% if t.eta_s %} · ~{{ (t.eta_s // 60) }} min left{% endif %}
         </p>
         {% elif t.status == 'failed' %}
-        <p class="mt-1 text-xs text-rose-400 break-words">{{ t.error or 'failed' }}</p>
+        <p class="mt-1 text-xs text-fg-2 break-words">{{ t.error or 'failed' }}</p>
         {% else %}
-        <p class="mt-1 mono text-[10px] text-slate-500">{{ fmt(t.finished_at) }}{% if t.rev %} · rev {{ t.rev }}{% endif %}</p>
+        <p class="mt-1 ss-meta">{{ fmt(t.finished_at) }}{% if t.rev %} · rev {{ t.rev }}{% endif %}</p>
         {% endif %}
       </div>
-      {% if t.thumb_key %}<img src="/api/recast/takes/{{ t.id }}/image?which=thumb" alt="" class="h-12 w-7 rounded object-cover bg-black border hairline">{% endif %}
+      {% if t.thumb_key %}<img src="/api/recast/takes/{{ t.id }}/image?which=thumb" alt="" class="h-12 w-7 rounded object-cover bg-gray-100">{% endif %}
     </a>
     {% endfor %}
   </div>

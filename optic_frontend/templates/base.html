@@ -3,89 +3,197 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Video Editor AI</title>
+    <meta name="theme-color" content="#ffffff">
+    <title>{% block title %}Synaps Optic{% endblock %}</title>
+    {# Synapspaces design system (docs/DESIGN.md): tokens, Geist fonts and element defaults. #}
+    <link rel="stylesheet" href="/static/ds/synapspaces.css">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        /* Tailwind utilities read the same tokens, so templates can say bg-surface-card, text-fg-2,
+           border-line-subtle, rounded-card, shadow-float. Colour names mirror docs/DESIGN.md. */
+        tailwind.config = {
+            theme: {
+                fontFamily: {
+                    sans: ['Geist', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
+                    mono: ['Geist Mono', 'ui-monospace', 'SF Mono', 'Menlo', 'Consolas', 'monospace'],
+                },
+                extend: {
+                    colors: {
+                        ink: '#0d0d0d',
+                        fg: { 1: '#0d0d0d', 2: '#5d5d5d', 3: '#8a8a8a', inverse: '#ffffff', 'inverse-2': '#b6b6b6' },
+                        surface: { page: '#ffffff', card: '#f5f5f5', raised: '#ffffff', inverse: '#0d0d0d', field: '#ffffff' },
+                        line: { subtle: '#ededed', DEFAULT: '#e5e5e5' },
+                        gray: { 50: '#f5f5f5', 100: '#ededed', 200: '#e5e5e5', 300: '#d4d4d4', 400: '#b6b6b6', 500: '#8a8a8a', 600: '#5d5d5d' },
+                        tint: { blue: '#d8e3f1', sand: '#eee4d5', sage: '#e0ebda', lilac: '#e8e0f2' },
+                        /* App-only status fills (the brand has no success/error colours yet): the same pastel
+                           family as the product tints, always with ink text on top. */
+                        status: { ok: '#e0ebda', warn: '#eee4d5', err: '#f3dcd8', info: '#d8e3f1' },
+                    },
+                    borderRadius: { widget: '8px', input: '10px', card: '16px', panel: '20px', pill: '999px' },
+                    boxShadow: { float: '0 20px 60px rgba(13,13,13,.11)', focus: '0 0 0 2px #ffffff, 0 0 0 4px #0d0d0d' },
+                    transitionTimingFunction: { standard: 'cubic-bezier(.2,0,0,1)' },
+                    transitionDuration: { fast: '120ms', base: '200ms' },
+                    maxWidth: { container: '1040px', wide: '1200px' },
+                    spacing: { nav: '56px', gutter: '40px', section: '100px' },
+                },
+            },
+        };
+    </script>
     <script src="/static/htmx.min.js"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
-        .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+        /* ---- App chrome on top of the design tokens ---------------------------------------- */
+        :root {
+            --status-ok: #e0ebda;      /* sage: done, online, healthy */
+            --status-warn: #eee4d5;    /* sand: queued, pending, attention */
+            --status-err: #f3dcd8;     /* muted rose: failed, offline */
+            --status-info: #d8e3f1;    /* blue: running, selected range */
+            --track-video: #e0ebda;    /* timeline clip fills: one product tint per track kind */
+            --track-audio: #eee4d5;
+            --track-image: #d8e3f1;
+            --track-text: #e8e0f2;
+        }
+        .mono { font-family: var(--font-mono); }
+        .app-bg   { background: var(--surface-page); }
+        .panel    { background: var(--surface-page); }   /* rails and bars: white with hairline rules */
+        .panel-2  { background: var(--surface-card); }   /* raised tiles: the gray card fill */
+        .hairline { border-color: var(--border-subtle); }
+        .rule     { border-top: 1px solid var(--border-subtle); }
+
+        /* Buttons: pills, three variants, three heights (36 / 40 / 44). */
+        .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: var(--control-md);
+               padding: 0 20px; border: 0; border-radius: var(--radius-pill); font: var(--type-body-strong);
+               line-height: 1; white-space: nowrap; cursor: pointer; text-decoration: none;
+               transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard),
+                           transform var(--duration-fast) var(--ease-standard); }
+        .btn:active { transform: scale(.98); }
+        .btn:disabled, .btn[aria-disabled="true"] { opacity: .4; cursor: not-allowed; transform: none; }
+        .btn-sm { height: var(--control-sm); padding: 0 16px; font-size: 12px; gap: 4px; }
+        .btn-lg { height: var(--control-lg); padding: 0 24px; }
+        .btn-primary   { background: var(--button-primary-bg); color: var(--button-primary-fg); }
+        .btn-primary:hover:not(:disabled)   { background: var(--button-primary-bg-hover); color: var(--button-primary-fg); }
+        .btn-secondary { background: var(--button-secondary-bg); color: var(--button-secondary-fg); }
+        .btn-secondary:hover:not(:disabled) { background: var(--button-secondary-bg-hover); color: var(--button-secondary-fg); }
+        .btn-inverse   { background: var(--button-inverse-bg); color: var(--button-inverse-fg); }
+        .btn-inverse:hover:not(:disabled)   { background: var(--button-inverse-bg-hover); color: var(--button-inverse-fg); }
+        .btn-ghost     { background: transparent; color: var(--fg-2); }
+        .btn-ghost:hover:not(:disabled)     { background: var(--gray-50); color: var(--fg-1); }
+        /* Square icon buttons (toolbars, rails). `.active` is the one selected tool. */
+        .icon-btn { display: inline-grid; place-items: center; width: 36px; height: 36px; border: 0; border-radius: var(--radius-pill);
+                    background: transparent; color: var(--fg-2); cursor: pointer;
+                    transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard); }
+        .icon-btn:hover { background: var(--gray-50); color: var(--fg-1); }
+        .icon-btn.active, .icon-btn[aria-pressed="true"] { background: var(--ink); color: #fff; }
+        .icon-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+        /* Chips, tags, status pills: pills on the gray fill, ink text, never coloured text. */
+        .chip { display: inline-flex; align-items: center; gap: 6px; height: var(--chip-height); padding: 0 12px;
+                border-radius: var(--radius-pill); background: var(--gray-50); color: var(--fg-1); font: var(--type-micro); }
+        .chip-ok   { background: var(--status-ok); }
+        .chip-warn { background: var(--status-warn); }
+        .chip-err  { background: var(--status-err); }
+        .chip-info { background: var(--status-info); }
+        .tag { font: var(--type-tag); color: var(--fg-3); }
+
+        /* Fields: white, no border, 44px, radius 10. Add .on-page when the field sits on white. */
+        .input, .select, .textarea { width: 100%; box-sizing: border-box; border: 0; border-radius: var(--radius-md);
+            background: var(--surface-field); color: var(--fg-1); font: var(--type-body); padding: 0 14px; outline: 0;
+            transition: box-shadow var(--duration-fast) var(--ease-standard); }
+        .input, .select { height: var(--control-lg); }
+        .input-sm, .select-sm { height: var(--control-sm); font-size: 13px; padding: 0 12px; }
+        .textarea { padding: 12px 14px; line-height: var(--lh-body); resize: vertical; }
+        .on-page { box-shadow: inset 0 0 0 1px var(--border-default); }
+        .input:focus, .select:focus, .textarea:focus { box-shadow: inset 0 0 0 1px var(--ink); }
+        .select { -webkit-appearance: none; appearance: none; padding-right: 36px;
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%230d0d0d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>");
+            background-repeat: no-repeat; background-position: right 12px center; }
+        .field-label { display: block; font: var(--type-label); color: var(--fg-1); margin-bottom: 6px; }
+
+        /* Cards and panels: flat fills, no borders, no shadows. */
+        .card { background: var(--surface-card); border-radius: var(--radius-lg); }
+        .card-ink { background: var(--surface-inverse); color: #fff; border-radius: var(--radius-lg); }
+        .card-ink .muted { color: var(--fg-inverse-2); }
+        .card-float { background: var(--surface-raised); border-radius: var(--radius-lg); box-shadow: var(--shadow-float); }
+        .panel-xl { border-radius: var(--radius-xl); }
+
+        /* Status */
+        .status-ok   { background: var(--status-ok); color: var(--fg-1); }
+        .status-warn { background: var(--status-warn); color: var(--fg-1); }
+        .status-err  { background: var(--status-err); color: var(--fg-1); }
+        .status-info { background: var(--status-info); color: var(--fg-1); }
+        .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--gray-400); }
+        .dot-ok { background: #7fa872; } .dot-warn { background: #c9a56a; } .dot-err { background: #c97a72; } .dot-info { background: #7d9ac4; }
         @keyframes pulse-dot {
             0%, 100% { opacity: 1; transform: scale(1); }
             50%      { opacity: 0.55; transform: scale(0.8); }
         }
         .pulse-dot { animation: pulse-dot 2s ease-in-out infinite; }
-        .htmx-indicator { opacity: 0; transition: opacity 200ms ease-in; }
+        .htmx-indicator { opacity: 0; transition: opacity var(--duration-base) var(--ease-standard); }
         .htmx-request .htmx-indicator, .htmx-request.htmx-indicator { opacity: 1; }
 
-        /* ---- Pro-editor chrome ---- */
-        :root {
-            --bg: #0c0c0e;        /* app background */
-            --panel: #161619;     /* panels / rails */
-            --panel-2: #1d1d21;   /* raised surfaces */
-            --line: #2a2a30;      /* hairlines */
-            --accent: #3b82f6;    /* primary blue (Export) */
-        }
-        .app-bg     { background: var(--bg); }
-        .panel      { background: var(--panel); }
-        .panel-2    { background: var(--panel-2); }
-        .hairline   { border-color: var(--line); }
-
-        /* Custom scrollbars */
+        /* Scrollbars */
         ::-webkit-scrollbar { width: 9px; height: 9px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #34343c; border-radius: 9px; border: 2px solid transparent; background-clip: content-box; }
-        ::-webkit-scrollbar-thumb:hover { background: #44444e; background-clip: content-box; }
+        ::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 9px; border: 2px solid transparent; background-clip: content-box; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--gray-400); background-clip: content-box; }
 
         /* Range sliders */
-        input[type=range] { -webkit-appearance: none; appearance: none; height: 4px; border-radius: 4px; background: #34343c; }
-        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #e5e7eb; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,.5); }
+        input[type=range] { -webkit-appearance: none; appearance: none; height: 4px; border-radius: 4px; background: var(--gray-200); }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--ink); cursor: pointer; }
         input[type=range]:focus { outline: none; }
+        input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: var(--shadow-focus); }
 
-        /* Rail item */
-        .rail-item { color: #8a8a93; transition: color .12s, background .12s; }
-        .rail-item:hover { color: #e5e7eb; background: rgba(255,255,255,.04); }
-        .rail-item.active { color: #fff; background: rgba(59,130,246,.16); }
-        .rail-item.active::before { content:""; position:absolute; left:0; top:50%; transform:translateY(-50%); width:3px; height:26px; border-radius:0 3px 3px 0; background: var(--accent); }
+        /* Editor rail item (left tool rail) */
+        .rail-item { position: relative; color: var(--fg-2); border-radius: var(--radius-md);
+                     transition: color var(--duration-fast) var(--ease-standard), background var(--duration-fast) var(--ease-standard); }
+        .rail-item:hover { color: var(--fg-1); background: var(--gray-50); }
+        .rail-item.active { color: var(--fg-1); background: var(--gray-50); }
+        .rail-item.active::before { content: ""; position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 3px; height: 26px; border-radius: 0 3px 3px 0; background: var(--ink); }
 
-        /* Clip bars */
-        /* All clip children are decorative; the <a> handles drag/trim (edge by geometry). */
+        /* Timeline clip bars. All clip children are decorative; the <a> handles drag/trim (edge by geometry). */
         .tl-clip > * { pointer-events: none; }
         .tl-clip { touch-action: none; }
-        .clip-bar { transition: filter 120ms, box-shadow 120ms; cursor: pointer; }
-        .clip-bar:hover { filter: brightness(1.08); }
-        .clip-bar.selected { box-shadow: 0 0 0 2px #fff, 0 0 0 4px rgba(59,130,246,.6); z-index: 5; }
-
-        /* Ruler tick backdrop */
-        .ruler-grid { background-image: repeating-linear-gradient(90deg, rgba(255,255,255,.05) 0, rgba(255,255,255,.05) 1px, transparent 1px, transparent 50px); }
+        .clip-bar { color: var(--fg-1); border-radius: var(--radius-sm); transition: filter var(--duration-fast), box-shadow var(--duration-fast); cursor: pointer; }
+        .clip-bar:hover { filter: brightness(.96); }
+        .clip-bar.selected { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--ink); z-index: 5; }
+        .clip-video { background: var(--track-video); } .clip-audio { background: var(--track-audio); }
+        .clip-image { background: var(--track-image); } .clip-text  { background: var(--track-text); }
+        .ruler-grid { background-image: repeating-linear-gradient(90deg, rgba(13,13,13,.06) 0, rgba(13,13,13,.06) 1px, transparent 1px, transparent 50px); }
+        .playhead { background: var(--ink); }
 
         /* Canvas overlay (draggable text/shape on the preview) */
         #canvas-overlay { pointer-events: none; }
         .ovl-box { position: absolute; pointer-events: auto; cursor: move; box-sizing: border-box; }
         .ovl-text { display: flex; align-items: center; justify-content: center; white-space: nowrap; }
-        .ovl-box:hover { outline: 1px dashed rgba(255,255,255,.75); }
+        .ovl-box:hover { outline: 1px dashed rgba(255,255,255,.85); }
         .ovl-label { padding: 0 .15em; background: rgba(0,0,0,.4); line-height: 1.1; pointer-events: none; font-weight: 600; }
         .ovl-resize { position: absolute; right: -5px; bottom: -5px; width: 11px; height: 11px; background: #fff; border-radius: 2px; cursor: nwse-resize; pointer-events: auto; box-shadow: 0 0 0 1px rgba(0,0,0,.4); }
+
+        /* Site nav */
+        .nav-link { display: inline-flex; align-items: center; height: var(--control-sm); padding: 0 14px; border-radius: var(--radius-pill);
+                    font: var(--type-body-strong); color: var(--fg-2); transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard); }
+        .nav-link:hover { color: var(--fg-1); background: var(--gray-50); }
+        .nav-link.active { color: var(--fg-1); background: var(--gray-50); }
+        .wordmark { font: var(--type-body-strong); letter-spacing: var(--tracking-tight); color: var(--fg-1); }
+        .wordmark:hover { color: var(--fg-2); }
 
         [hidden] { display: none !important; }
     </style>
 </head>
-<body class="{% block body_class %}min-h-screen app-bg text-slate-200{% endblock %}">
+<body class="{% block body_class %}min-h-screen app-bg text-fg-1{% endblock %}">
 {% block body %}
-    <header class="sticky top-0 z-30 panel/95 backdrop-blur border-b hairline">
-        <nav class="mx-auto {% block nav_container %}max-w-5xl{% endblock %} px-6 py-3 flex items-center justify-between">
-            <a href="/projects" class="mono text-xs uppercase tracking-[0.2em] text-slate-300 hover:text-white transition">Video Editor AI</a>
-            <ul class="flex items-center gap-1 text-sm">
-                <li><a href="/projects" class="px-3 py-1.5 rounded-md {% if request.url.path.startswith('/projects') %}text-white bg-white/10{% else %}text-slate-400 hover:text-white hover:bg-white/5{% endif %} transition">Projects</a></li>
-                <li><a href="/recast" class="px-3 py-1.5 rounded-md {% if request.url.path.startswith('/recast') %}text-white bg-white/10{% else %}text-slate-400 hover:text-white hover:bg-white/5{% endif %} transition">Recast</a></li>
+    <header class="sticky top-0 z-30 panel border-b hairline">
+        <nav class="mx-auto {% block nav_container %}max-w-wide{% endblock %} px-6 md:px-10 h-nav flex items-center justify-between">
+            <a href="/projects" class="wordmark">Synaps Optic</a>
+            <ul class="flex items-center gap-1">
+                <li><a href="/projects" class="nav-link {% if request.url.path.startswith('/projects') %}active{% endif %}">Projects</a></li>
+                <li><a href="/recast" class="nav-link {% if request.url.path.startswith('/recast') %}active{% endif %}">Recast</a></li>
                 {% if is_owner %}
-                <li><a href="/admin/invites" class="px-3 py-1.5 rounded-md {% if request.url.path.startswith('/admin') %}text-white bg-white/10{% else %}text-slate-400 hover:text-white hover:bg-white/5{% endif %} transition">Invites</a></li>
+                <li><a href="/admin/invites" class="nav-link {% if request.url.path.startswith('/admin') %}active{% endif %}">Invites</a></li>
                 {% endif %}
             </ul>
         </nav>
     </header>
-    <main class="{% block container_class %}mx-auto max-w-5xl px-6 py-12{% endblock %}">
+    <main class="{% block container_class %}mx-auto max-w-container px-6 md:px-10 py-16{% endblock %}">
         {% block content %}{% endblock %}
     </main>
 {% endblock %}

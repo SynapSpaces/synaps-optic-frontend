@@ -2,44 +2,44 @@
      hx-get="/partials/projects/{{ project.id }}/renders"
      hx-trigger="every 2s"
      hx-swap="outerHTML"
-     class="rounded-xl border border-slate-800/80 bg-slate-900/40 backdrop-blur p-4">
+     class="card p-4">
     <div class="mb-3 flex items-center justify-between">
-        <h2 class="mono text-[10px] uppercase tracking-[0.18em] text-slate-500">Renders</h2>
-        <span class="mono text-[10px] text-slate-600">{{ renders|length }} recent</span>
+        <h2 class="text-xs text-fg-2">Renders</h2>
+        <span class="mono text-[10px] text-fg-3">{{ renders|length }} recent</span>
     </div>
 
     {% if not renders %}
-    <p class="text-xs text-slate-500">No renders yet. Click "Render project" above to generate your first composed video.</p>
+    <p class="text-xs text-fg-2">No renders yet. Click "Render project" above to generate your first composed video.</p>
     {% else %}
     <ul class="space-y-2">
         {% for r in renders %}
-        <li class="flex items-center gap-4 rounded-md border border-slate-800/60 bg-slate-950/40 p-3">
-            <span class="h-2.5 w-2.5 shrink-0 rounded-full
-                {% if r.status == 'done' %}bg-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.6)]
-                {% elif r.status == 'running' %}bg-amber-400 pulse-dot
-                {% elif r.status == 'failed' %}bg-rose-500
-                {% else %}bg-slate-500{% endif %}"></span>
+        <li class="flex items-center gap-4 rounded-card panel p-3">
+            <span class="dot shrink-0
+                {% if r.status == 'done' %}dot-ok
+                {% elif r.status == 'running' %}dot-warn pulse-dot
+                {% elif r.status == 'failed' %}dot-err
+                {% endif %}"></span>
             <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 flex-wrap">
-                    <span class="mono text-xs text-slate-300">{{ r.id[:8] }}</span>
-                    <span class="mono text-[10px] uppercase tracking-wider
-                        {% if r.status == 'done' %}text-emerald-400
-                        {% elif r.status == 'failed' %}text-rose-400
-                        {% elif r.status == 'running' %}text-amber-300
-                        {% else %}text-slate-500{% endif %}">{{ r.status }}</span>
-                    <span class="mono text-[10px] text-slate-500">{{ fmt(r.started_at or r.created_at) }}</span>
+                    <span class="mono text-xs text-fg-1">{{ r.id[:8] }}</span>
+                    <span class="chip
+                        {% if r.status == 'done' %}chip-ok
+                        {% elif r.status == 'failed' %}chip-err
+                        {% elif r.status == 'running' %}chip-warn
+                        {% endif %}">{{ r.status }}</span>
+                    <span class="mono text-[10px] text-fg-2">{{ fmt(r.started_at or r.created_at) }}</span>
                 </div>
                 {% if r.status in ('running', 'done') %}
-                <div class="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-slate-800">
-                    <div class="h-full {% if r.status == 'done' %}bg-emerald-400{% else %}bg-amber-400/80{% endif %} transition-all duration-300" style="width: {{ r.progress }}%"></div>
+                <div class="mt-1.5 h-1 w-full overflow-hidden rounded-pill bg-gray-200">
+                    <div class="h-full bg-ink transition-all duration-300" style="width: {{ r.progress }}%"></div>
                 </div>
                 {% elif r.status == 'failed' %}
-                <p class="mt-1 text-xs text-rose-400 break-words">{{ r.error or 'failed' }}</p>
+                <p class="mt-1 rounded-widget status-err px-2 py-1 text-xs break-words">{{ r.error or 'failed' }}</p>
                 {% endif %}
             </div>
             {% if r.status == 'done' %}
             <a href="/api/renders/{{ r.id }}/download"
-               class="shrink-0 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-300 hover:bg-emerald-500/20 transition">
+               class="btn btn-secondary btn-sm shrink-0">
                 Download
             </a>
             {% endif %}

@@ -2,37 +2,37 @@
 {% block nav_container %}max-w-sm{% endblock %}
 {% block container_class %}mx-auto max-w-sm px-6 py-20{% endblock %}
 {% block content %}
-<div class="panel border hairline rounded-2xl p-8">
-    <div class="mono text-xs uppercase tracking-[0.2em] text-slate-300 mb-6 text-center">
-        Video Editor AI
+<div class="card p-8">
+    <div class="wordmark mb-6 text-center">
+        Synaps Optic
     </div>
 
     {% if notice == "session_expired" %}
-    <div class="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-300 text-sm px-3 py-2 text-center">
-        Session expired — signing you back in
+    <div class="mb-4 rounded-input status-warn text-sm px-3 py-2 text-center">
+        Session expired. Signing you back in.
     </div>
     {% endif %}
 
     {% if error == "expired" %}
-    <div class="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 text-red-300 text-sm px-3 py-2 text-center">
-        That link expired or was already used — request a new one below.
+    <div class="mb-4 rounded-input status-err text-sm px-3 py-2 text-center">
+        That link expired or was already used. Request a new one below.
     </div>
     {% endif %}
 
     {% if error == "rate_limited" %}
-    <div class="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 text-red-300 text-sm px-3 py-2 text-center">
+    <div class="mb-4 rounded-input status-err text-sm px-3 py-2 text-center">
         Too many sign-in emails were sent recently. Check your inbox for an earlier link, or try again in about an hour.
     </div>
     {% endif %}
 
     {% if error == "send_failed" %}
-    <div class="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 text-red-300 text-sm px-3 py-2 text-center">
+    <div class="mb-4 rounded-input status-err text-sm px-3 py-2 text-center">
         The sign-in email could not be sent. Please try again in a moment.
     </div>
     {% endif %}
 
-    <h1 class="text-center text-lg font-medium text-white mb-1">Sign in</h1>
-    <p class="text-center text-sm text-slate-400 mb-6">We'll email you a magic link — no password.</p>
+    <h1 class="ss-title text-center mb-1">Sign in</h1>
+    <p class="ss-body text-center mb-6">We'll email you a magic link. No password.</p>
 
     <form method="post" action="/auth/login" class="space-y-4">
         <div style="position:absolute; left:-9999px; top:-9999px;" aria-hidden="true">
@@ -41,29 +41,27 @@
         </div>
         <input
             type="email" name="email" required autofocus placeholder="you@example.com"
-            class="w-full rounded-lg bg-[#0c0c0e] border hairline px-3 py-2.5 text-sm text-slate-200
-                   placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+            class="input"
         />
         {% if invite_code %}
         <input type="hidden" name="code" value="{{ invite_code }}" />
-        <p class="text-xs text-emerald-400 text-center">Invite code applied ✓</p>
+        <p class="text-center"><span class="chip chip-ok">Invite code applied</span></p>
         {% else %}
         <input
             type="text" name="code" placeholder="Invite code (optional)"
-            class="w-full rounded-lg bg-[#0c0c0e] border hairline px-3 py-2.5 text-sm text-slate-200
-                   placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+            class="input"
         />
         {% endif %}
         <button
             type="submit"
-            class="w-full rounded-lg bg-blue-600 hover:bg-blue-500 transition text-white text-sm font-medium py-2.5"
+            class="btn btn-primary btn-lg w-full"
         >
             Send magic link
         </button>
     </form>
 
-    <p class="mt-8 text-center text-xs text-slate-500 leading-relaxed">
-        your footage and prompts never touch a cloud GPU
+    <p class="mt-8 ss-caption text-center text-fg-3">
+        Your footage and prompts never touch a cloud GPU.
     </p>
 </div>
 {% endblock %}

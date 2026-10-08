@@ -1,30 +1,30 @@
-<div id="recolor-panel" class="rounded-xl border border-fuchsia-500/30 bg-gradient-to-br from-slate-900/60 via-fuchsia-950/15 to-slate-900/60 backdrop-blur p-5">
+<div id="recolor-panel" class="card p-5">
     {% if not selected_clip or not selected_asset %}
-    <p class="text-xs text-slate-500">Select a clip to use interactive hair recolor.</p>
+    <p class="text-xs text-fg-2">Select a clip to use interactive hair recolor.</p>
     {% else %}
 
     <header class="mb-4 flex items-baseline justify-between">
         <div>
-            <p class="mono text-[10px] uppercase tracking-[0.25em] text-fuchsia-400/80">AI</p>
-            <h2 class="mt-1 text-lg font-semibold text-white">Interactive Hair Recolor</h2>
+            <p class="text-xs text-fg-2">AI</p>
+            <h2 class="mt-1 ss-title text-fg-1">Interactive hair recolor</h2>
         </div>
-        <p class="mono text-[10px] text-slate-500">MediaPipe selfie-multiclass</p>
+        <p class="mono text-[10px] text-fg-3">MediaPipe selfie-multiclass</p>
     </header>
 
     {% if not selected_asset_analyzed and (not selected_analysis or selected_analysis.status in ('failed', None)) %}
     <!-- NOT ANALYZED -->
-    <div class="rounded-lg border border-slate-800/60 bg-slate-950/40 p-4 text-center">
-        <p class="text-sm text-slate-300">This asset hasn't been analyzed yet.</p>
-        <p class="mt-1 mono text-[11px] text-slate-500">Analysis runs the hair segmentation model on every frame.<br>
+    <div class="rounded-card panel p-4 text-center">
+        <p class="text-sm text-fg-1">This asset hasn't been analyzed yet.</p>
+        <p class="mt-1 text-xs text-fg-2">Analysis runs the hair segmentation model on every frame.<br>
             About 1 second per 5 frames on CPU. After it finishes, clicking is instant.</p>
         {% if selected_analysis and selected_analysis.status == 'failed' %}
-        <p class="mt-2 text-xs text-rose-400">Previous attempt failed: {{ selected_analysis.error }}</p>
+        <p class="mt-2 rounded-widget status-err px-2 py-1 text-xs break-words">Previous attempt failed: {{ selected_analysis.error }}</p>
         {% endif %}
         <form hx-post="/api/assets/{{ selected_asset.id }}/analyze"
               hx-target="#recolor-panel"
               hx-swap="outerHTML"
               class="mt-3">
-            <button class="rounded-md bg-fuchsia-500 hover:bg-fuchsia-400 px-4 py-2 text-sm font-semibold text-fuchsia-950 transition">
+            <button class="btn btn-primary btn-sm">
                 Analyze asset
             </button>
         </form>
@@ -37,60 +37,60 @@
          hx-trigger="every 1s"
          hx-swap="outerHTML"
          hx-target="#recolor-panel"
-         class="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
-        <p class="text-sm text-amber-200">
-            <span class="mono text-[10px] uppercase tracking-wider text-amber-400 mr-1">{{ selected_analysis.status }}</span>
+         class="rounded-card panel p-4">
+        <p class="text-sm text-fg-1 flex items-center gap-2">
+            <span class="chip chip-warn">{{ selected_analysis.status }}</span>
             Analyzing frames…
         </p>
-        <div class="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-800">
-            <div class="h-full bg-amber-400/80 transition-all duration-300" style="width: {{ selected_analysis.progress }}%"></div>
+        <div class="mt-3 h-2 w-full overflow-hidden rounded-pill bg-gray-200">
+            <div class="h-full bg-ink transition-all duration-300" style="width: {{ selected_analysis.progress }}%"></div>
         </div>
-        <p class="mt-1 mono text-[10px] text-amber-300/80">{{ selected_analysis.frames_done }} / {{ selected_analysis.frames_total or '?' }} frames · {{ selected_analysis.progress }}%</p>
+        <p class="mt-1 mono text-[10px] text-fg-2">{{ selected_analysis.frames_done }} / {{ selected_analysis.frames_total or '?' }} frames · {{ selected_analysis.progress }}%</p>
     </div>
 
     {% elif selected_asset_analyzed %}
     <!-- ANALYZED — interactive preview -->
     {% set clip_dur = selected_clip.source_end - selected_clip.source_start %}
     <div class="space-y-3">
-        <div class="relative rounded-lg overflow-hidden border border-slate-800 bg-black">
+        <div class="relative rounded-card overflow-hidden bg-ink">
             <canvas id="recolor-canvas" class="block w-full cursor-crosshair"></canvas>
-            <div id="recolor-loading" class="absolute inset-0 flex items-center justify-center bg-slate-950/60 mono text-xs text-slate-300">loading…</div>
+            <div id="recolor-loading" class="absolute inset-0 flex items-center justify-center bg-ink/60 mono text-xs text-fg-inverse">loading…</div>
         </div>
 
         <div class="flex items-center gap-3 flex-wrap">
             <label class="block flex-1 min-w-[220px]">
                 <div class="flex items-center justify-between">
-                    <span class="mono text-[10px] uppercase tracking-wider text-slate-500">Frame</span>
-                    <span id="recolor-frame-label" class="mono text-[10px] text-slate-400">0.00 / {{ "%.2f"|format(clip_dur) }} s</span>
+                    <span class="text-xs text-fg-2">Frame</span>
+                    <span id="recolor-frame-label" class="mono text-[10px] text-fg-2">0.00 / {{ "%.2f"|format(clip_dur) }} s</span>
                 </div>
-                <input id="recolor-frame-slider" type="range" min="0" max="{{ clip_dur }}" step="0.05" value="0" class="mt-1 block w-full accent-fuchsia-400">
+                <input id="recolor-frame-slider" type="range" min="0" max="{{ clip_dur }}" step="0.05" value="0" class="mt-1 block w-full">
             </label>
             <label class="block">
-                <span class="mono text-[10px] uppercase tracking-wider text-slate-500">Color</span>
-                <input id="recolor-color" type="color" value="#9333ea" class="mt-1 block h-9 w-20 rounded border border-slate-700 bg-slate-950 cursor-pointer">
+                <span class="text-xs text-fg-2">Color</span>
+                <input id="recolor-color" type="color" value="#9333ea" class="mt-1 block h-9 w-20 rounded-widget border-0 bg-surface-page p-1 cursor-pointer">
             </label>
             <label class="block flex-1 min-w-[140px]">
                 <div class="flex items-center justify-between">
-                    <span class="mono text-[10px] uppercase tracking-wider text-slate-500">Strength</span>
-                    <span id="recolor-strength-label" class="mono text-[10px] text-slate-400">60%</span>
+                    <span class="text-xs text-fg-2">Strength</span>
+                    <span id="recolor-strength-label" class="mono text-[10px] text-fg-2">60%</span>
                 </div>
-                <input id="recolor-strength" type="range" min="0" max="100" step="1" value="60" class="mt-1 block w-full accent-fuchsia-400">
+                <input id="recolor-strength" type="range" min="0" max="100" step="1" value="60" class="mt-1 block w-full">
             </label>
         </div>
 
-        <div id="recolor-status" class="mono text-[11px] text-slate-500 min-h-[1.2em]">
+        <div id="recolor-status" class="mono text-[11px] text-fg-2 min-h-[1.2em] rounded-widget px-2 py-1">
             Click on the hair in the preview to confirm the segmentation.
         </div>
 
         <form hx-post="/api/clips/{{ selected_clip.id }}/effects"
               hx-target="#effects-panel"
               hx-swap="outerHTML"
-              class="pt-2 border-t border-slate-800/60">
+              class="pt-2 border-t hairline">
             <input type="hidden" name="effect_type" value="hair_recolor_interactive">
-            <button class="w-full rounded-md bg-emerald-500 hover:bg-emerald-400 px-4 py-2 text-sm font-semibold text-emerald-950 transition">
+            <button class="btn btn-primary btn-sm w-full">
                 Apply hair recolor effect to clip
             </button>
-            <p class="mt-1 mono text-[10px] text-slate-500 text-center">Tweak color/strength in the Effects panel after applying.</p>
+            <p class="mt-1 text-xs text-fg-2 text-center">Tweak color and strength in the Effects panel after applying.</p>
         </form>
     </div>
 
@@ -153,7 +153,7 @@
                 redraw();
             } catch (e) {
                 statusEl.textContent = "failed to load frame/mask: " + e;
-                statusEl.classList.add("text-rose-400");
+                statusEl.classList.add("status-err");
             } finally {
                 if (myToken === loadToken) loading.style.display = "none";
             }
@@ -205,14 +205,14 @@
             const idx = (y * canvas.width + x) * 4;
             const m = maskImageData.data[idx];
             const isHair = m > 128;
-            statusEl.classList.remove("text-rose-400", "text-emerald-400");
-            statusEl.classList.add(isHair ? "text-emerald-400" : "text-rose-400");
+            statusEl.classList.remove("status-err", "status-ok");
+            statusEl.classList.add(isHair ? "status-ok" : "status-err");
             statusEl.textContent = isHair
                 ? `Hair detected at (${x}, ${y}) — mask=${m}/255. Recolor preview active.`
                 : `Not hair at (${x}, ${y}) — mask=${m}/255. Try clicking on hair.`;
             // Visual ping
             const ping = document.createElement("div");
-            ping.style.cssText = `position:fixed; left:${e.clientX - 6}px; top:${e.clientY - 6}px; width:12px; height:12px; border-radius:50%; background:${isHair ? "#10b981" : "#ef4444"}; pointer-events:none; box-shadow:0 0 0 0 ${isHair ? "rgba(16,185,129,0.6)" : "rgba(239,68,68,0.6)"}; animation:ping-out 600ms ease-out forwards; z-index:1000;`;
+            ping.style.cssText = `position:fixed; left:${e.clientX - 6}px; top:${e.clientY - 6}px; width:12px; height:12px; border-radius:50%; background:${isHair ? "#7fa872" : "#c97a72"}; pointer-events:none; box-shadow:0 0 0 0 ${isHair ? "rgba(127,168,114,0.6)" : "rgba(201,122,114,0.6)"}; animation:ping-out 600ms ease-out forwards; z-index:1000;`;
             document.body.appendChild(ping);
             setTimeout(() => ping.remove(), 600);
         });
@@ -221,7 +221,7 @@
         if (!document.getElementById("ping-style")) {
             const style = document.createElement("style");
             style.id = "ping-style";
-            style.textContent = `@keyframes ping-out { from { box-shadow: 0 0 0 0 rgba(16,185,129,0.6); opacity:1; } to { box-shadow: 0 0 0 28px rgba(16,185,129,0); opacity:0; } }`;
+            style.textContent = `@keyframes ping-out { from { box-shadow: 0 0 0 0 rgba(13,13,13,0.35); opacity:1; } to { box-shadow: 0 0 0 28px rgba(13,13,13,0); opacity:0; } }`;
             document.head.appendChild(style);
         }
 

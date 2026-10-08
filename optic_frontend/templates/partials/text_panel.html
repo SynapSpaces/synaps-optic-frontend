@@ -6,60 +6,60 @@
 
   <!-- Add a title -->
   <form hx-post="/api/clips/{{ selected_clip.id }}/effects" hx-target="body" hx-swap="outerHTML"
-        class="space-y-2 rounded-lg border hairline panel p-3">
+        class="space-y-2 card p-3">
     <input type="hidden" name="effect_type" value="text_overlay">
     <input type="hidden" name="_full" value="1">
     <textarea name="text" rows="2" required placeholder="Add a title…"
-        class="block w-full rounded-lg border hairline bg-[var(--bg)] px-3 py-2 text-sm text-slate-100"></textarea>
+        class="textarea text-sm"></textarea>
     <div class="grid grid-cols-2 gap-2">
       <label class="block">
-        <span class="mono text-[10px] uppercase tracking-wider text-slate-500">Size</span>
+        <span class="text-xs text-fg-2">Size</span>
         <input type="range" name="size" min="8" max="120" value="40" class="mt-1 block w-full">
       </label>
       <label class="block">
-        <span class="mono text-[10px] uppercase tracking-wider text-slate-500">Color</span>
-        <input type="color" name="color" value="#ffffff" class="mt-1 block h-8 w-full rounded border hairline bg-[var(--bg)] cursor-pointer">
+        <span class="text-xs text-fg-2">Color</span>
+        <input type="color" name="color" value="#ffffff" class="mt-1 block h-8 w-full rounded-widget border-0 bg-surface-page p-1 cursor-pointer">
       </label>
     </div>
-    <button class="w-full flex items-center justify-center gap-1.5 rounded-lg bg-[var(--accent)] hover:bg-blue-500 px-4 py-2 text-sm font-semibold text-white transition">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" class="w-4 h-4"><path d="M4 6V4h16v2M12 4v16M8 20h8"/></svg> Add title
+    <button class="btn btn-primary btn-sm w-full">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M4 6V4h16v2M12 4v16M8 20h8"/></svg> Add title
     </button>
   </form>
 
   <!-- Existing titles -->
   {% if titles %}
   <div class="space-y-2">
-    <p class="mono text-[10px] uppercase tracking-wider text-slate-500">Titles on this clip</p>
+    <p class="text-xs text-fg-2">Titles on this clip</p>
     {% for eff in titles %}
     {% set pp = eff.params_json|fromjson if eff.params_json is string else eff.params_json %}
-    <div class="rounded-lg border hairline panel p-3 space-y-2">
+    <div class="card p-3 space-y-2">
       <div class="flex items-center justify-between">
-        <span class="text-xs font-semibold text-slate-200 truncate">{{ pp.text or "Title" }}</span>
+        <span class="text-xs font-medium text-fg-1 truncate">{{ pp.text or "Title" }}</span>
         <form hx-post="/api/effects/{{ eff.id }}/delete" hx-target="body" hx-swap="outerHTML">
           <input type="hidden" name="_full" value="1">
-          <button class="rounded border border-rose-700/40 bg-rose-500/10 px-1.5 py-0.5 text-[10px] text-rose-300 hover:bg-rose-500/20 transition">×</button>
+          <button class="icon-btn" title="Remove title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
         </form>
       </div>
       <form hx-post="/api/effects/{{ eff.id }}/update" hx-target="body" hx-swap="outerHTML"
             hx-trigger="change delay:400ms" class="space-y-2">
         <input type="hidden" name="_full" value="1">
         <input type="text" name="text" value="{{ pp.text }}" maxlength="120"
-               class="block w-full rounded-lg border hairline bg-[var(--bg)] px-2 py-1.5 text-sm text-slate-100">
+               class="input input-sm">
         <div class="grid grid-cols-2 gap-2">
           {% for nm, lbl, mn, mx, st in [('size','Size',8,120,1),('fade','Fade',0,3,0.1),('x_pct','X %',0,100,1),('y_pct','Y %',0,100,1)] %}
           <label class="block">
             <div class="flex items-center justify-between">
-              <span class="mono text-[9px] uppercase tracking-wider text-slate-500">{{ lbl }}</span>
-              <span class="mono text-[10px] text-slate-300">{{ pp.get(nm, {'size':40,'fade':0.5,'x_pct':50,'y_pct':85}[nm]) }}</span>
+              <span class="text-xs text-fg-2">{{ lbl }}</span>
+              <span class="mono text-[10px] text-fg-1">{{ pp.get(nm, {'size':40,'fade':0.5,'x_pct':50,'y_pct':85}[nm]) }}</span>
             </div>
             <input type="range" name="{{ nm }}" min="{{ mn }}" max="{{ mx }}" step="{{ st }}"
                    value="{{ pp.get(nm, {'size':40,'fade':0.5,'x_pct':50,'y_pct':85}[nm]) }}" class="mt-1 block w-full">
           </label>
           {% endfor %}
           <label class="block col-span-2">
-            <span class="mono text-[9px] uppercase tracking-wider text-slate-500">Color</span>
+            <span class="text-xs text-fg-2">Color</span>
             <input type="color" name="color" value="{{ pp.color or '#ffffff' }}"
-                   class="mt-1 block h-8 w-full rounded border hairline bg-[var(--bg)] cursor-pointer">
+                   class="mt-1 block h-8 w-full rounded-widget border-0 bg-surface-page p-1 cursor-pointer">
           </label>
         </div>
       </form>
@@ -68,8 +68,8 @@
   </div>
   {% endif %}
 
-  <p class="text-[11px] text-slate-500">Titles are burned in at render time. Position with X/Y; preview shows the source clip.</p>
+  <p class="text-xs text-fg-2">Titles are burned in at render time. Position with X/Y; the preview shows the source clip.</p>
 </div>
 {% else %}
-<p class="text-xs text-slate-500">Select a clip on the timeline to add text &amp; titles.</p>
+<p class="text-xs text-fg-2">Select a clip on the timeline to add text and titles.</p>
 {% endif %}

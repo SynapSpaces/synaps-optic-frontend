@@ -1,47 +1,47 @@
 <div id="recast-references"
      {% if active %}hx-get="/partials/recast/references" hx-trigger="every 3s" hx-swap="outerHTML"{% endif %}>
 {% if not references %}
-  <div class="rounded-xl border border-dashed hairline panel-2 p-12 text-center">
-    <p class="text-sm text-slate-500">No references yet. Upload close-ups above.</p>
+  <div class="card p-12 text-center">
+    <p class="ss-body">No references yet. Upload close-ups above.</p>
   </div>
 {% else %}
   <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
     {% for r in references %}
-    <article class="rounded-xl border {% if r.promoted %}border-blue-500/50{% else %}hairline{% endif %} panel-2 p-4 flex gap-4">
+    <article class="card {% if r.promoted %}bg-tint-sage{% else %}{% endif %} p-4 flex gap-4">
       <div class="shrink-0">
         {% if r.ref_key %}
-        <img src="/api/recast/references/{{ r.id }}/image?which=ref" alt="" class="h-40 w-28 rounded-md object-cover bg-[#0e0e11] border hairline">
+        <img src="/api/recast/references/{{ r.id }}/image?which=ref" alt="" class="h-40 w-28 rounded-widget object-cover bg-gray-100">
         {% else %}
-        <div class="h-40 w-28 rounded-md bg-[#0e0e11] border border-dashed hairline grid place-items-center text-[10px] text-slate-600">{{ r.status }}</div>
+        <div class="h-40 w-28 rounded-widget bg-gray-100 grid place-items-center ss-micro">{{ r.status }}</div>
         {% endif %}
       </div>
       <div class="flex-1 min-w-0">
         <div class="flex items-center gap-2 flex-wrap">
-          <div class="h-2.5 w-2.5 rounded-full
-              {% if r.status == 'done' %}bg-emerald-400{% elif r.status == 'running' %}bg-amber-400 pulse-dot{% elif r.status == 'failed' %}bg-rose-500{% else %}bg-slate-500{% endif %}"></div>
-          <span class="text-sm font-semibold text-white truncate">{{ r.name or 'reference' }}</span>
-          <span class="mono text-[10px] uppercase tracking-wider text-slate-500">{{ r.status }}</span>
-          {% if r.promoted %}<span class="rounded-full bg-blue-500/15 px-2 py-0.5 text-[10px] uppercase tracking-wide text-blue-300">promoted</span>{% endif %}
+          <span class="ss-body-strong truncate">{{ r.name or 'reference' }}</span>
+          <span class="chip
+              {% if r.status == 'done' %}chip-ok{% elif r.status == 'running' %}chip-info{% elif r.status == 'failed' %}chip-err{% else %}chip-warn{% endif %}">
+            <span class="dot {% if r.status == 'done' %}dot-ok{% elif r.status == 'running' %}dot-info pulse-dot{% elif r.status == 'failed' %}dot-err{% else %}dot-warn{% endif %}"></span>{{ r.status }}</span>
+          {% if r.promoted %}<span class="chip">promoted</span>{% endif %}
         </div>
-        <p class="mt-1 mono text-[10px] text-slate-500">{{ (r.photo_keys or [])|length }} photo(s) · {{ fmt(r.created_at) }}</p>
+        <p class="mt-1 ss-meta">{{ (r.photo_keys or [])|length }} photo(s) · {{ fmt(r.created_at) }}</p>
         {% if r.status in ('queued', 'running') %}
-        <div class="mt-2 h-1 w-full overflow-hidden rounded-full bg-slate-800"><div class="h-full bg-amber-400/80 transition-all duration-300" style="width: {{ r.progress }}%"></div></div>
+        <div class="mt-2 h-1 w-full overflow-hidden rounded-pill bg-gray-200"><div class="h-full bg-ink transition-all duration-300" style="width: {{ r.progress }}%"></div></div>
         {% elif r.status == 'failed' %}
-        <p class="mt-2 text-xs text-rose-400 break-words">{{ r.error }}</p>
+        <p class="mt-2 rounded-input status-err px-3 py-2 text-xs break-words">{{ r.error }}</p>
         {% elif r.ranking %}
         {% set best = r.ranking[0] %}
-        <p class="mt-2 text-xs {% if best.face_h >= 300 %}text-emerald-300{% elif best.face_h >= 150 %}text-amber-300{% else %}text-rose-300{% endif %}">
+        <p class="mt-2 rounded-input px-3 py-2 text-xs {% if best.face_h >= 300 %}status-ok{% elif best.face_h >= 150 %}status-warn{% else %}status-err{% endif %}">
           Face {{ best.face_h }} px tall in the best photo{% if best.face_h >= 300 %}: good identity detail.{% elif best.face_h >= 150 %}: usable, a closer photo would be better.{% else %}: identity will drift; use a closer photo.{% endif %}
         </p>
-        <p class="mono text-[10px] text-slate-500">{{ best.photo }} · score {{ best.score }} · yaw {{ best.yaw }}°</p>
+        <p class="mt-1 ss-numeral">{{ best.photo }} · score {{ best.score }} · yaw {{ best.yaw }}°</p>
         {% endif %}
         <div class="mt-3 flex gap-2">
           {% if r.status == 'done' and not r.promoted %}
           <button type="button" hx-post="/api/recast/references/{{ r.id }}/promote" hx-target="#recast-references" hx-swap="outerHTML"
                   hx-confirm="Use this as the reference for new user takes?"
-                  class="rounded-lg bg-[var(--accent)] hover:bg-blue-500 px-3 py-1.5 text-xs font-semibold text-white transition">Use as reference</button>
+                  class="btn btn-primary btn-sm">Use as reference</button>
           {% endif %}
-          {% if r.sheet_key %}<a href="/api/recast/references/{{ r.id }}/image?which=sheet" target="_blank" rel="noopener" class="rounded-lg border hairline px-3 py-1.5 text-xs text-slate-300 hover:bg-white/5 transition">Ranking sheet</a>{% endif %}
+          {% if r.sheet_key %}<a href="/api/recast/references/{{ r.id }}/image?which=sheet" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">Ranking sheet</a>{% endif %}
         </div>
       </div>
     </article>
