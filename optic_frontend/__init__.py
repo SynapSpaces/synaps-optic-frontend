@@ -9,7 +9,7 @@ registering a ``fromjson`` filter (``json.loads``) that the templates rely on.
 from importlib.resources import files
 from pathlib import Path
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 
 _ROOT = Path(str(files("optic_frontend")))
 

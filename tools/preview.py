@@ -70,6 +70,9 @@ CLIPS = [
     {"id": "c3", "name": "Voiceover", "opacity": 0, "asset": {"filename": "voiceover.mp3"}, "effects": [],
      "source_start": 0.0, "source_end": 8.0, "timeline_start": 0.0, "track_index": 1, "asset_id": "a3"},
 ]
+ASSETS = [{"id": "a1", "filename": "Scene 1.mp4", "width": 1080, "height": 1920, "duration": 4.0},
+          {"id": "a2", "filename": "Scene 2.mp4", "width": 1080, "height": 1920, "duration": 4.0},
+          {"id": "a3", "filename": "voiceover.mp3", "width": 0, "height": 0, "duration": 8.0}]
 TAKES = [
     {"id": "t1", "name": "take_ab12cd34_cat", "side": "cat", "mode": "full", "status": "done", "progress": 100,
      "frames": 181, "error": None, "finished_at": "x", "created_at": "x"},
@@ -78,6 +81,15 @@ TAKES = [
     {"id": "t3", "name": "take_0011aabb_user", "side": "user", "mode": "full", "status": "failed", "progress": 10,
      "frames": 0, "error": "Out of GPU memory in window 3.", "finished_at": "x", "created_at": "x"},
 ]
+# a finished full take with two compare lanes and five camera shots (the take page's compare view)
+SHOT_TABLE = [{"start": 0, "end": 52}, {"start": 52, "end": 92}, {"start": 92, "end": 138}, {"start": 138, "end": 173},
+              {"start": 173, "end": 181}]
+FULL_TAKE = dict(TAKES[0], frames_total=181, frames_done=181, spf=17.4, lanes=2, preview_key="k", final_key="k",
+                 log_tail=["[01:02] window 5: 33 frames in 571 s = 17.3 s/frame", "[01:12] total 181 frames in 54.6 min"])
+LANES = [{"key": "source", "take": "t1", "label": "Source clip"}, {"key": "final", "take": "t1", "label": "Cat take"}]
+SHOTS = [{"id": f"s{i}", "shot_index": i, "start_frame": r["start"], "end_frame": r["end"], "note": "",
+          "status": "done", "decision": ("approve" if i < 3 else ("reroll" if i == 3 else None)), "fix_count": int(i == 2)}
+         for i, r in enumerate(SHOT_TABLE, start=1)]
 COMMON = {"is_owner": True, "fmt": _fmt, "fmt_dur": _fmt_dur, "gpu_online": True}
 
 # (output file, template, request path, context)
@@ -85,14 +97,15 @@ PAGES = [
     ("projects.html", "projects.html", "/projects",
      {"projects": [PROJECT, dict(PROJECT, id="p2", name="Product walkthrough", width=1920, height=1080)]}),
     ("editor.html", "editor.html", "/projects/p1",
-     {"project": PROJECT, "clips": CLIPS, "selected_clip": CLIPS[0], "tracks": [0, 1], "assets": [], "jobs": [],
-      "renders": [], "ai_generation": None, "scenes": [], "queue_position": None, "oob_timeline": False,
+     {"project": PROJECT, "clips": CLIPS, "selected_clip": CLIPS[0], "tracks": [0, 1], "jobs": [],
+      "assets": ASSETS, "renders": [], "ai_generation": None, "scenes": [], "queue_position": None, "oob_timeline": False,
       "music_tracks": ["calm.mp3"], "project_id": "p1"}),
     ("recast.html", "recast/index.html", "/recast",
      {"takes": TAKES, "cat_takes": TAKES[:1], "active": False, "gpu": {"online": True, "busy": False},
       "reference": {"id": "r1", "name": "Close-up set", "ref_key": None, "ranking": [{"face_h": 212, "score": 0.91}]},
       "phase_labels": {"render": "Rendering", "setup": "Setting up"}}),
-    ("take.html", "recast/take.html", "/recast/takes/t1", {"take": TAKES[0], "shots": []}),
+    ("take.html", "recast/take.html", "/recast/takes/t1",
+     {"take": FULL_TAKE, "lanes": LANES, "shots": SHOTS, "shot_table": SHOT_TABLE, "fps": 24, "stride": 2}),
     ("references.html", "recast/references.html", "/recast/references", {"references": [], "candidates": []}),
     ("invites.html", "admin/invites.html", "/admin/invites",
      {"invites": [{"code": "STUDIO-ALPHA-01", "email": "a@example.com", "redeemed_by": None, "revoked": False,

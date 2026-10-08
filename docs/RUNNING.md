@@ -40,6 +40,21 @@ Before you open a pull request, run the tests. They compile every template and c
 .venv/Scripts/python -m pytest
 ```
 
+### Browser tests (Playwright)
+
+`tests/e2e/` opens the preview pages in Chromium and checks what a person would: every page loads
+with the design system and no script errors, the nav and project cards link up, dark mode follows
+the system and remembers the toggle, video stays dark, the editor's rail, tabs and tools respond, and
+the Recast compare view loads frames (the backend calls are answered by a stub). CI runs it on every push.
+
+```sh
+.venv/Scripts/python -m pip install -e .[e2e]
+.venv/Scripts/python -m playwright install chromium
+.venv/Scripts/python -m pytest -m e2e                 # set E2E_HEADED=1 to watch it run
+```
+
+A failing test saves a screenshot to `e2e-artifacts/`. Plain `pytest` skips these tests.
+
 To refresh the GIF above after a visual change:
 
 ```sh

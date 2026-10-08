@@ -14,3 +14,20 @@ jobs:
           python-version: "3.11"
       - run: pip install -e .[test]
       - run: pytest
+
+  e2e:
+    # Playwright: the preview pages in Chromium (tests/e2e)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e .[e2e]
+      - run: python -m playwright install --with-deps chromium
+      - run: pytest -m e2e
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-screenshots
+          path: e2e-artifacts/

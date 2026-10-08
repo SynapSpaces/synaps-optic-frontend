@@ -48,9 +48,12 @@ python -m venv .venv
 The tests render the templates through the same Jinja2 setup the backend uses
 (see `tests/conftest.py`) and check that the packaged data is complete.
 
+Browser tests (Playwright, `tests/e2e/`) open the pages in Chromium: `pip install -e .[e2e]`,
+`python -m playwright install chromium`, then `pytest -m e2e`. See [docs/RUNNING.md](docs/RUNNING.md).
+
 ## Releasing
 
-The backend pins this package by git tag (currently `v0.3.0`).
+The backend pins this package by git tag (currently `v0.3.1`).
 
 1. Bump `version` in `pyproject.toml` and `__version__` in `optic_frontend/__init__.py`.
 2. Commit, then tag: `git tag v0.1.1 && git push --tags`.

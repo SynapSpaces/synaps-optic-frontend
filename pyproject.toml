@@ -4,17 +4,19 @@ build-backend = "hatchling.build"
 
 [project]
 name = "synaps-optic-frontend"
-version = "0.3.0"
+version = "0.3.1"
 description = "Synaps Optic Frontend: HTMX/Jinja2 templates and static assets for the Synaps Optic video editor"
 requires-python = ">=3.11"
 dependencies = []
 
 [project.optional-dependencies]
 test = ["pytest", "jinja2>=3.1"]
+e2e = ["pytest", "jinja2>=3.1", "playwright>=1.45", "pillow"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["optic_frontend"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q"
+addopts = "-q -m 'not e2e'"   # the Playwright suite runs with: pytest -m e2e
+markers = ["e2e: Playwright browser tests (tests/e2e; needs the e2e extra and Chromium)"]

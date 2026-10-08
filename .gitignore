@@ -8,3 +8,4 @@ build/
 
 # tools/preview.py output
 preview/
+e2e-artifacts/

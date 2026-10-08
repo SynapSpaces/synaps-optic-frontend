@@ -1,12 +1,14 @@
-<div id="recast-shots" class="grid gap-3">
+<div id="recast-shots" class="grid grid-cols-1 gap-3 min-w-0">
   {% if shots %}
   <div class="flex gap-1 h-14" role="tablist">
     {% for s in shots %}
     <button type="button" data-shot="{{ s.shot_index }}" onclick="RC.select({{ s.shot_index }})"
             class="rc-shot relative rounded-widget bg-surface-card ring-inset ring-ink px-2 text-left overflow-hidden hover:bg-gray-100 transition"
-            style="flex: {{ s.end_frame - s.start_frame }} 1 0">
-      <div class="text-sm font-medium text-fg-1">Shot {{ s.shot_index }}</div>
-      <div class="ss-numeral">{{ '%02d:%02d'|format((s.start_frame * 2 // 24) // 60, (s.start_frame * 2 // 24) % 60) }}–{{ '%02d:%02d'|format((s.end_frame * 2 // 24) // 60, (s.end_frame * 2 // 24) % 60) }}</div>
+            title="Shot {{ s.shot_index }}" aria-label="Shot {{ s.shot_index }}"
+            style="flex: {{ s.end_frame - s.start_frame }} 1 0; min-width: 44px">
+      {#- tabs are as wide as their shot, so a short shot only fits its number -#}
+      <div class="text-sm font-medium text-fg-1 truncate">{{ s.shot_index }}</div>
+      <div class="ss-numeral truncate">{{ '%02d:%02d'|format((s.start_frame * 2 // 24) // 60, (s.start_frame * 2 // 24) % 60) }}–{{ '%02d:%02d'|format((s.end_frame * 2 // 24) // 60, (s.end_frame * 2 // 24) % 60) }}</div>
       {% if s.status in ('queued', 'rendering') %}<span class="absolute top-1.5 right-1.5 dot dot-info pulse-dot"></span>
       {% elif s.decision == 'approve' %}<span class="absolute top-1.5 right-1.5 dot dot-ok"></span>
       {% elif s.decision == 'reroll' %}<span class="absolute top-1.5 right-1.5 dot dot-warn"></span>

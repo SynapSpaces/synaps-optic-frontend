@@ -41,8 +41,8 @@
           <select id="rc-lane-b" class="select select-sm w-auto">
             {% for l in lanes %}<option value="{{ loop.index0 }}" {% if loop.index0 == 1 %}selected{% endif %}>{{ l.label }}</option>{% endfor %}</select></label>
         <div class="ml-auto flex gap-1 rounded-pill bg-surface-page p-0.5 text-xs">
-          <button type="button" data-mode="side" class="rc-mode flex-1 rounded-pill px-3 py-1.5 font-medium transition bg-ink text-fg-inverse">Side by side</button>
-          <button type="button" data-mode="wipe" class="rc-mode flex-1 rounded-pill px-3 py-1.5 font-medium transition text-fg-2">Wipe</button>
+          <button type="button" data-mode="side" class="rc-mode flex-1 whitespace-nowrap rounded-pill px-3 py-1.5 font-medium transition bg-ink text-fg-inverse">Side by side</button>
+          <button type="button" data-mode="wipe" class="rc-mode flex-1 whitespace-nowrap rounded-pill px-3 py-1.5 font-medium transition text-fg-2">Wipe</button>
         </div>
       </div>
       <div id="rc-stage" class="relative select-none">
@@ -73,7 +73,7 @@
       {% endif %}
     </div>
     <!-- decision rail -->
-    <div>{% include "partials/recast_shots.html" %}</div>
+    <div class="min-w-0">{% include "partials/recast_shots.html" %}</div>  {#- min-w-0: a grid track never shrinks below its content otherwise -#}
   </div>
 
   <script>
@@ -94,9 +94,12 @@
       const key = `${laneIdx}:${shot}`, now = Date.now();
       if (cache[key] && cache[key].expires > now) return cache[key].urls;
       const l = LANES[laneIdx];
-      const r = await fetch(`/api/recast/takes/${TAKE}/lane_urls?lane=${encodeURIComponent(l.key)}&shot=${shot}&source_take=${l.take}`);
-      if (!r.ok) return {};
-      const d = await r.json();
+      let d;
+      try {  // a network error must not leave the loading veil up
+        const r = await fetch(`/api/recast/takes/${TAKE}/lane_urls?lane=${encodeURIComponent(l.key)}&shot=${shot}&source_take=${l.take}`);
+        if (!r.ok) return {};
+        d = await r.json();
+      } catch (e) { return {}; }
       cache[key] = { urls: d.urls, expires: now + (d.ttl - 20) * 1000 };
       return d.urls;
     }
