@@ -1,0 +1,20 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "synaps-optic-frontend"
+version = "0.1.0"
+description = "Synaps Optic Frontend: HTMX/Jinja2 templates and static assets for the Synaps Optic video editor"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+test = ["pytest", "jinja2>=3.1"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["optic_frontend"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
