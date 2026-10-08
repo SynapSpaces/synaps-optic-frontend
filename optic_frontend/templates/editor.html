@@ -69,9 +69,10 @@
 
     <!-- right -->
     <div class="flex items-center gap-3">
+      {{ brand.theme_toggle() }}
       <div class="flex -space-x-2">
-        <span class="grid place-items-center w-8 h-8 rounded-full bg-ink text-[11px] font-medium text-fg-inverse ring-2 ring-white">DW</span>
-        <span class="grid place-items-center w-8 h-8 rounded-full bg-tint-sage text-[11px] font-medium text-fg-1 ring-2 ring-white">AI</span>
+        <span class="grid place-items-center w-8 h-8 rounded-full bg-ink text-[11px] font-medium text-fg-inverse ring-2 ring-surface-page">DW</span>
+        <span class="grid place-items-center w-8 h-8 rounded-full bg-tint-sage text-[11px] font-medium text-fg-1 ring-2 ring-surface-page">AI</span>
       </div>
       <form hx-post="/api/projects/{{ project.id }}/render" hx-target="#renders-card" hx-swap="outerHTML">
         <button onclick="VE.show('records')"
@@ -396,7 +397,7 @@
     <section id="stage-col" class="flex-1 flex flex-col min-h-0">
 
       <!-- PREVIEW (stays dark so footage reads correctly) -->
-      <div class="flex-1 min-h-0 flex flex-col bg-ink text-fg-inverse">
+      <div class="tone-light flex-1 min-h-0 flex flex-col bg-ink text-fg-inverse">
         <div id="stage" class="flex-1 min-h-0 grid place-items-center p-5 relative">
           {% if selected_clip and selected_asset %}
           <video id="preview-video" preload="auto" playsinline autoplay muted

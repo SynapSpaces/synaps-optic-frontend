@@ -4,6 +4,28 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#ffffff">
+    <script>
+        /* Theme: an explicit choice (localStorage "optic-theme") wins, otherwise the system setting.
+           Set before the stylesheets load so a dark page never flashes white. */
+        (function () {
+            var KEY = "optic-theme", mq = window.matchMedia("(prefers-color-scheme: dark)");
+            function stored() { try { return localStorage.getItem(KEY); } catch (e) { return null; } }
+            function apply(t) {
+                document.documentElement.dataset.theme = t;
+                var m = document.querySelector('meta[name="theme-color"]');
+                if (m) m.content = t === "dark" ? "#0e0e0e" : "#ffffff";
+            }
+            apply(stored() || (mq.matches ? "dark" : "light"));
+            mq.addEventListener("change", function (e) { if (!stored()) apply(e.matches ? "dark" : "light"); });
+            window.opticTheme = {
+                toggle: function () {
+                    var t = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+                    try { localStorage.setItem(KEY, t); } catch (e) {}
+                    apply(t);
+                },
+            };
+        })();
+    </script>
     <title>{% block title %}Synaps Optic{% endblock %}</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28' fill='none' stroke='%230d0d0d' stroke-width='2'%3E%3Ccircle cx='7' cy='7' r='3.2'/%3E%3Ccircle cx='21' cy='7' r='3.2'/%3E%3Ccircle cx='14' cy='21' r='3.2'/%3E%3Cpath d='M9.6 9.2 12 18.2M18.4 9.2 16 18.2M10.2 7h7.6'/%3E%3C/svg%3E">
     {# Synapspaces design system (docs/DESIGN.md): tokens, Geist fonts and element defaults. #}
@@ -12,6 +34,9 @@
     <script>
         /* Tailwind utilities read the same tokens, so templates can say bg-surface-card, text-fg-2,
            border-line-subtle, rounded-card, shadow-float. Colour names mirror docs/DESIGN.md. */
+        /* Every colour is a token (light values in static/ds, dark values in the <style> below), mixed
+           with transparency so opacity modifiers like bg-ink/60 keep working. */
+        const v = (name) => "color-mix(in srgb, var(" + name + ") calc(<alpha-value> * 100%), transparent)";
         tailwind.config = {
             theme: {
                 fontFamily: {
@@ -20,18 +45,20 @@
                 },
                 extend: {
                     colors: {
-                        ink: '#0d0d0d',
-                        fg: { 1: '#0d0d0d', 2: '#5d5d5d', 3: '#8a8a8a', inverse: '#ffffff', 'inverse-2': '#b6b6b6' },
-                        surface: { page: '#ffffff', card: '#f5f5f5', raised: '#ffffff', inverse: '#0d0d0d', field: '#ffffff' },
-                        line: { subtle: '#ededed', DEFAULT: '#e5e5e5' },
-                        gray: { 50: '#f5f5f5', 100: '#ededed', 200: '#e5e5e5', 300: '#d4d4d4', 400: '#b6b6b6', 500: '#8a8a8a', 600: '#5d5d5d' },
-                        tint: { blue: '#d8e3f1', sand: '#eee4d5', sage: '#e0ebda', lilac: '#e8e0f2' },
+                        ink: v('--ink'),
+                        fg: { 1: v('--fg-1'), 2: v('--fg-2'), 3: v('--fg-3'), inverse: v('--fg-inverse-1'), 'inverse-2': v('--fg-inverse-2') },
+                        surface: { page: v('--surface-page'), card: v('--surface-card'), raised: v('--surface-raised'),
+                                   inverse: v('--surface-inverse'), field: v('--surface-field') },
+                        line: { subtle: v('--border-subtle'), DEFAULT: v('--border-default') },
+                        gray: { 50: v('--gray-50'), 100: v('--gray-100'), 200: v('--gray-200'), 300: v('--gray-300'),
+                                400: v('--gray-400'), 500: v('--gray-500'), 600: v('--gray-600') },
+                        tint: { blue: v('--tint-blue'), sand: v('--tint-sand'), sage: v('--tint-sage'), lilac: v('--tint-lilac') },
                         /* App-only status fills (the brand has no success/error colours yet): the same pastel
                            family as the product tints, always with ink text on top. */
-                        status: { ok: '#e0ebda', warn: '#eee4d5', err: '#f3dcd8', info: '#d8e3f1' },
+                        status: { ok: v('--status-ok'), warn: v('--status-warn'), err: v('--status-err'), info: v('--status-info') },
                     },
                     borderRadius: { widget: '8px', input: '10px', card: '16px', panel: '20px', pill: '999px' },
-                    boxShadow: { float: '0 20px 60px rgba(13,13,13,.11)', focus: '0 0 0 2px #ffffff, 0 0 0 4px #0d0d0d' },
+                    boxShadow: { float: 'var(--shadow-float)', focus: 'var(--shadow-focus)' },
                     transitionTimingFunction: { standard: 'cubic-bezier(.2,0,0,1)' },
                     transitionDuration: { fast: '120ms', base: '200ms' },
                     maxWidth: { container: '1040px', wide: '1200px' },
@@ -52,6 +79,36 @@
             --track-audio: #eee4d5;
             --track-image: #d8e3f1;
             --track-text: #e8e0f2;
+        }
+        /* ---- Dark mode (an app extension: the brand defines only the light theme) ----------------
+           The same tokens with the neutral scale reversed: "white" becomes the page black and "ink"
+           the near-white, so primary buttons, inverse panels and text all flip together. Tints become
+           deep versions of the same hues. */
+        :root[data-theme="dark"] {
+            color-scheme: dark;
+            --white: #0e0e0e;  --gray-50: #181818;  --gray-100: #222222;  --gray-200: #2b2b2b;
+            --gray-300: #3a3a3a;  --gray-400: #5c5c5c;  --gray-500: #7d7d7d;  --gray-600: #a8a8a8;  --ink: #f2f2f2;
+            --tint-blue: #1d2633;  --tint-sand: #2d2820;  --tint-sage: #1f291d;  --tint-lilac: #28223a;
+            --button-primary-bg-hover: #d6d6d6;  --button-secondary-bg-hover: #262626;  --button-inverse-bg-hover: #262626;
+            --shadow-float: 0 20px 60px rgba(0,0,0,.55);
+            --status-ok: #1f291d;  --status-warn: #2d2820;  --status-err: #3a2321;  --status-info: #1d2633;
+            --track-video: #25331f;  --track-audio: #3a3024;  --track-image: #212c3b;  --track-text: #2e2643;
+        }
+        :root[data-theme="dark"] .select {
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23f2f2f2' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>");
+        }
+        /* Media (the video stage, image wells, thumbnails) keeps the light-theme tokens in both themes:
+           footage reads best on black, and its controls stay white on black. Custom properties that
+           reference others resolve where they are declared, so the scope restates the semantic ones. */
+        .tone-light {
+            color-scheme: light;
+            --white: #ffffff;  --gray-50: #f5f5f5;  --gray-100: #ededed;  --gray-200: #e5e5e5;  --gray-300: #d4d4d4;
+            --gray-400: #b6b6b6;  --gray-500: #8a8a8a;  --gray-600: #5d5d5d;  --ink: #0d0d0d;
+            --surface-page: var(--white);  --surface-card: var(--gray-50);  --surface-raised: var(--white);
+            --surface-inverse: var(--ink);  --surface-field: var(--white);
+            --fg-1: var(--ink);  --fg-2: var(--gray-600);  --fg-3: var(--gray-500);
+            --fg-inverse-1: var(--white);  --fg-inverse-2: var(--gray-400);
+            --border-subtle: var(--gray-100);  --border-default: var(--gray-200);
         }
         .mono { font-family: var(--font-mono); }
         .app-bg   { background: var(--surface-page); }
@@ -83,7 +140,7 @@
                     background: transparent; color: var(--fg-2); cursor: pointer;
                     transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard); }
         .icon-btn:hover { background: var(--gray-50); color: var(--fg-1); }
-        .icon-btn.active, .icon-btn[aria-pressed="true"] { background: var(--ink); color: #fff; }
+        .icon-btn.active, .icon-btn[aria-pressed="true"] { background: var(--ink); color: var(--fg-inverse-1); }
         .icon-btn:disabled { opacity: .4; cursor: not-allowed; }
 
         /* Chips, tags, status pills: pills on the gray fill, ink text, never coloured text. */
@@ -107,11 +164,14 @@
         .select { -webkit-appearance: none; appearance: none; padding-right: 36px;
             background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%230d0d0d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>");
             background-repeat: no-repeat; background-position: right 12px center; }
+        /* Tailwind's preflight paints placeholders blue-gray (#9ca3af) after the design system's rule;
+           the extra "html" wins the specificity tie in both themes. */
+        html input::placeholder, html textarea::placeholder { color: var(--input-placeholder); opacity: 1; }
         .field-label { display: block; font: var(--type-label); color: var(--fg-1); margin-bottom: 6px; }
 
         /* Cards and panels: flat fills, no borders, no shadows. */
         .card { background: var(--surface-card); border-radius: var(--radius-lg); }
-        .card-ink { background: var(--surface-inverse); color: #fff; border-radius: var(--radius-lg); }
+        .card-ink { background: var(--surface-inverse); color: var(--fg-inverse-1); border-radius: var(--radius-lg); }
         .card-ink .muted { color: var(--fg-inverse-2); }
         .card-float { background: var(--surface-raised); border-radius: var(--radius-lg); box-shadow: var(--shadow-float); }
         .panel-xl { border-radius: var(--radius-xl); }
@@ -155,10 +215,10 @@
         .tl-clip { touch-action: none; }
         .clip-bar { color: var(--fg-1); border-radius: var(--radius-sm); transition: filter var(--duration-fast), box-shadow var(--duration-fast); cursor: pointer; }
         .clip-bar:hover { filter: brightness(.96); }
-        .clip-bar.selected { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--ink); z-index: 5; }
+        .clip-bar.selected { box-shadow: 0 0 0 2px var(--surface-page), 0 0 0 4px var(--ink); z-index: 5; }
         .clip-video { background: var(--track-video); } .clip-audio { background: var(--track-audio); }
         .clip-image { background: var(--track-image); } .clip-text  { background: var(--track-text); }
-        .ruler-grid { background-image: repeating-linear-gradient(90deg, rgba(13,13,13,.06) 0, rgba(13,13,13,.06) 1px, transparent 1px, transparent 50px); }
+        .ruler-grid { background-image: repeating-linear-gradient(90deg, color-mix(in srgb, var(--ink) 6%, transparent) 0, color-mix(in srgb, var(--ink) 6%, transparent) 1px, transparent 1px, transparent 50px); }
         .playhead { background: var(--ink); }
 
         /* Canvas overlay (draggable text/shape on the preview) */
@@ -181,6 +241,10 @@
         .wordmark:hover { color: var(--fg-1); opacity: .8; }
         .wordmark-product { padding-left: 10px; border-left: 1px solid var(--border-default); font-weight: 500; color: var(--fg-2); }
 
+        .theme-sun { display: none; }
+        :root[data-theme="dark"] .theme-sun { display: block; }
+        :root[data-theme="dark"] .theme-moon { display: none; }
+
         [hidden] { display: none !important; }
     </style>
 </head>
@@ -195,6 +259,7 @@
                 {% if is_owner %}
                 <li><a href="/admin/invites" class="nav-link {% if request.url.path.startswith('/admin') %}active{% endif %}">Invites</a></li>
                 {% endif %}
+                <li class="ml-1">{{ brand.theme_toggle() }}</li>
             </ul>
         </nav>
     </header>

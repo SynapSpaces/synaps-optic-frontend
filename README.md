@@ -4,9 +4,9 @@ The HTMX/Jinja2 templates and static assets of the **Synaps Optic** video
 editor, packaged as an installable Python distribution (`synaps-optic-frontend`,
 import name `optic_frontend`). It contains no application code: only the
 template tree, `htmx.min.js`, the Synapspaces design-system stylesheet and fonts
-(`static/ds/`), and the bundled music library.
+(`static/ds/`), a dark mode built on the same tokens, and the bundled music library.
 
-![A tour of the preview: the home prompt, the editor and the Recast page](docs/preview.gif)
+![A tour of the preview: the home prompt, the editor, the Recast page and dark mode](docs/preview.gif)
 
 **To run it**, see [docs/RUNNING.md](docs/RUNNING.md): a one-minute preview of every page with sample
 data (`python tools/preview.py --serve`), or the full editor with the backend and a local database.
@@ -50,7 +50,7 @@ The tests render the templates through the same Jinja2 setup the backend uses
 
 ## Releasing
 
-The backend pins this package by git tag (currently `v0.2.1`).
+The backend pins this package by git tag (currently `v0.3.0`).
 
 1. Bump `version` in `pyproject.toml` and `__version__` in `optic_frontend/__init__.py`.
 2. Commit, then tag: `git tag v0.1.1 && git push --tags`.

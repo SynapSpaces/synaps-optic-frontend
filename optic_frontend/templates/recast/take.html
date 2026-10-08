@@ -47,16 +47,16 @@
       </div>
       <div id="rc-stage" class="relative select-none">
         <div id="rc-side" class="grid md:grid-cols-2 gap-2">
-          <div class="relative"><img id="rc-img-a" alt="lane A" class="w-full rounded-widget bg-ink aspect-[4/3] object-contain"><span class="absolute top-2 left-2 rounded-pill bg-ink/70 px-2 py-0.5 text-[10px] text-fg-inverse" id="rc-cap-a"></span></div>
-          <div class="relative"><img id="rc-img-b" alt="lane B" class="w-full rounded-widget bg-ink aspect-[4/3] object-contain"><span class="absolute top-2 left-2 rounded-pill bg-ink/70 px-2 py-0.5 text-[10px] text-fg-inverse" id="rc-cap-b"></span></div>
+          <div class="relative"><img id="rc-img-a" alt="lane A" class="tone-light w-full rounded-widget bg-ink aspect-[4/3] object-contain"><span class="tone-light absolute top-2 left-2 rounded-pill bg-ink/70 px-2 py-0.5 text-[10px] text-fg-inverse" id="rc-cap-a"></span></div>
+          <div class="relative"><img id="rc-img-b" alt="lane B" class="tone-light w-full rounded-widget bg-ink aspect-[4/3] object-contain"><span class="tone-light absolute top-2 left-2 rounded-pill bg-ink/70 px-2 py-0.5 text-[10px] text-fg-inverse" id="rc-cap-b"></span></div>
         </div>
         <div id="rc-wipe" class="relative" hidden>
-          <img id="rc-wipe-b" alt="lane B" class="w-full rounded-widget bg-ink aspect-[4/3] object-contain">
-          <img id="rc-wipe-a" alt="lane A" class="absolute inset-0 w-full h-full rounded-widget object-contain bg-ink" style="clip-path: inset(0 50% 0 0)">
+          <img id="rc-wipe-b" alt="lane B" class="tone-light w-full rounded-widget bg-ink aspect-[4/3] object-contain">
+          <img id="rc-wipe-a" alt="lane A" class="tone-light absolute inset-0 w-full h-full rounded-widget object-contain bg-ink" style="clip-path: inset(0 50% 0 0)">
           <div id="rc-wipe-line" class="absolute inset-y-0 w-0.5 bg-white" style="left:50%"></div>
           <input id="rc-wipe-pos" type="range" min="0" max="100" value="50" class="absolute inset-x-0 bottom-2 w-full" aria-label="wipe position">
         </div>
-        <div id="rc-loading" class="absolute inset-0 hidden items-center justify-center bg-ink/50 rounded-widget font-mono text-xs text-fg-inverse">loading…</div>
+        <div id="rc-loading" class="tone-light absolute inset-0 hidden items-center justify-center bg-ink/50 rounded-widget font-mono text-xs text-fg-inverse">loading…</div>
       </div>
       <div class="flex items-center gap-3">
         <button type="button" onclick="RC.step(-1)" class="icon-btn" title="previous frame (←)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="m15 18-6-6 6-6"/></svg></button>
@@ -68,7 +68,7 @@
       <div class="grid gap-2">
         <div class="flex items-center gap-3"><span class="ss-label">Preview</span>
           <button type="button" onclick="RC.jump()" class="btn btn-secondary btn-sm">Jump to shot</button></div>
-        <video id="rc-video" src="/api/recast/takes/{{ take.id }}/preview" controls preload="metadata" class="w-full max-h-[420px] rounded-widget bg-ink"></video>
+        <video id="rc-video" src="/api/recast/takes/{{ take.id }}/preview" controls preload="metadata" class="tone-light w-full max-h-[420px] rounded-widget bg-ink"></video>
       </div>
       {% endif %}
     </div>

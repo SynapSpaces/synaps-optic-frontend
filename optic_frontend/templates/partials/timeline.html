@@ -100,8 +100,8 @@
               <span class="text-[10px] font-medium text-fg-1 truncate">{{ a.filename if a else 'audio' }}</span>
             </span>
             {% elif a and a.thumbnail_path %}
-            <div class="absolute inset-0 bg-ink" style="background-image:url('/api/assets/{{ a.id }}/thumbnail');background-size:auto 100%;background-repeat:repeat-x;"></div>
-            <div class="absolute inset-x-0 bottom-0 h-4 bg-ink/60"></div>
+            <div class="tone-light absolute inset-0 bg-ink" style="background-image:url('/api/assets/{{ a.id }}/thumbnail');background-size:auto 100%;background-repeat:repeat-x;"></div>
+            <div class="tone-light absolute inset-x-0 bottom-0 h-4 bg-ink/60"></div>
             <span class="relative z-10 px-2 text-[10px] font-medium text-fg-inverse truncate">{{ a.filename if a else 'clip' }}</span>
             {% else %}
             <span class="relative z-10 px-2 mono text-[10px] font-medium text-fg-1 truncate">{{ fmt_dur(dur) }}</span>

@@ -1,6 +1,6 @@
 # Running the Synaps Optic editor
 
-![A tour of the preview: the home prompt, the editor and the Recast page](preview.gif)
+![A tour of the preview: the home prompt, the editor, the Recast page and dark mode](preview.gif)
 
 There are two ways to run the editor's front end. Pick the first one to work on the look of the
 pages. Pick the second one to use the real editor with your own projects.
@@ -27,9 +27,12 @@ python -m venv .venv
 .venv/Scripts/python tools/preview.py --serve
 ```
 
-Open http://127.0.0.1:8765/projects.html. Edit a template under `optic_frontend/templates/`, run the
+Open http://127.0.0.1:8765/projects.html. The moon or sun button in the top bar switches light and
+dark mode; the page starts in your system's setting and remembers your choice. Edit a template under `optic_frontend/templates/`, run the
 last command again and reload the page. The design rules are in [DESIGN.md](DESIGN.md), and the
-tokens and fonts ship in `optic_frontend/static/ds/`.
+tokens and fonts ship in `optic_frontend/static/ds/`. Dark mode is an app extension of those
+tokens, defined in `base.html`: use the token classes (`text-fg-2`, `bg-surface-card`, `bg-ink`) and
+both themes work; put `tone-light` on video and image wells so they stay dark in both.
 
 Before you open a pull request, run the tests. They compile every template and check the package data.
 

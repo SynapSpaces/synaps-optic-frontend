@@ -1,4 +1,4 @@
-"""Record docs/preview.gif: a short tour of the preview pages (projects, editor, recast).
+"""Record docs/preview.gif: a short tour of the preview pages (projects, editor, recast, dark mode).
 
 Needs Playwright with Chromium (`pip install playwright pillow && python -m playwright install chromium`).
 Renders the pages with tools/preview.py into a temp folder and drives a headless browser over them
@@ -69,6 +69,12 @@ def main() -> None:
             frames.append((shoot(page), 1600))
             visit("recast.html", 1800)                        # recast takes
             scroll(420, hold=1800)
+            page.mouse.wheel(0, -2000)
+            page.wait_for_timeout(200)
+            page.click("header .theme-toggle")                # dark mode
+            page.wait_for_timeout(350)
+            frames.append((shoot(page), 2000))
+            visit("editor.html", 2200)                        # the choice carries over
             browser.close()
 
     size = (int(WIDTH * a.scale), int(HEIGHT * a.scale))
