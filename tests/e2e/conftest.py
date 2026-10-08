@@ -6,12 +6,14 @@ no backend: every /api and /partials request is answered by `api_stub`, so the s
 
     pip install -e .[e2e] && python -m playwright install chromium
     pytest -m e2e                     # E2E_HEADED=1 to watch, E2E_SLOWMO=250 to slow it down
-Screenshots of failing tests land in e2e-artifacts/.
+Screenshots of failing tests land in e2e-artifacts/. E2E_VIDEO=1 records every test to
+e2e-artifacts/videos/ (numbered in run order); tools/e2e_video.py joins them into one MP4.
 """
 from __future__ import annotations
 
 import functools
 import http.server
+import itertools
 import importlib.util
 import json
 import os
@@ -23,6 +25,29 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 ARTIFACTS = ROOT / "e2e-artifacts"
+VIDEO = os.environ.get("E2E_VIDEO") == "1"
+VIDEO_DIR = ARTIFACTS / "videos"
+VIEWPORT = {"width": 1280, "height": 800}
+_order = itertools.count(1)
+
+
+def new_context(browser, **kw):
+    """A browser context; with E2E_VIDEO=1 it records a video of every page it opens."""
+    if VIDEO:
+        kw.update(record_video_dir=str(VIDEO_DIR / "_raw"), record_video_size=VIEWPORT)
+    return browser.new_context(viewport=VIEWPORT, **kw)
+
+
+def keep_video(page, test_name: str) -> None:
+    """After the context is closed: file the test's video under its run-order number and name."""
+    if not VIDEO or page.video is None:
+        return
+    safe = "".join(c if c.isalnum() or c in "-_[]." else "_" for c in test_name)
+    try:
+        page.video.save_as(str(VIDEO_DIR / f"{next(_order):03d}_{safe}.webm"))
+        page.video.delete()
+    except Exception:  # noqa: BLE001
+        pass
 
 playwright_sync = pytest.importorskip("playwright.sync_api", reason="pip install -e .[e2e] to run the e2e tests")
 
@@ -91,7 +116,7 @@ class Session:
 
     def __init__(self, browser, site, scheme: str):
         self.site = site
-        self.ctx = browser.new_context(viewport={"width": 1280, "height": 800}, color_scheme=scheme)
+        self.ctx = new_context(browser, color_scheme=scheme)
         self.ctx.route("**/api/**", api_stub)
         self.ctx.route("**/partials/**", api_stub)
         self.page = self.ctx.new_page()
@@ -135,6 +160,7 @@ def session(browser, site, request):
             pass
     errors = list(s.errors)
     s.ctx.close()
+    keep_video(s.page, request.node.name)
     if not failed:
         assert not errors, "the page reported errors:\n" + "\n".join(errors)
 
@@ -145,7 +171,18 @@ def dark_session(browser, site, request):
     yield s
     errors = list(s.errors)
     s.ctx.close()
+    keep_video(s.page, request.node.name)
     assert not errors, "the page reported errors:\n" + "\n".join(errors)
+
+
+@pytest.fixture
+def raw_page(browser, request):
+    """A bare page for tests that set up their own routing; recorded like the others."""
+    ctx = new_context(browser)
+    page = ctx.new_page()
+    yield page
+    ctx.close()
+    keep_video(page, request.node.name)
 
 
 @pytest.hookimpl(hookwrapper=True)

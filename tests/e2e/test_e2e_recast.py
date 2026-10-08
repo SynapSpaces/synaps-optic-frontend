@@ -61,14 +61,12 @@ def test_arrow_keys_step_frames(session):
     assert page.locator("#rc-frame").input_value() == "6"
 
 
-def test_a_failing_backend_does_not_leave_the_veil_up(browser, site):
+def test_a_failing_backend_does_not_leave_the_veil_up(raw_page, site):
     """Network errors on lane_urls used to throw and keep 'loading…' on screen."""
-    ctx = browser.new_context()
-    ctx.route("**/api/**", lambda route: route.abort())
-    page = ctx.new_page()
+    page = raw_page
+    page.context.route("**/api/**", lambda route: route.abort())
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
     page.goto(f"{site}/take.html", wait_until="load")
     page.wait_for_function("() => document.getElementById('rc-loading').classList.contains('hidden')", timeout=10000)
-    ctx.close()
     assert not errors, errors

@@ -55,6 +55,14 @@ the Recast compare view loads frames (the backend calls are answered by a stub).
 
 A failing test saves a screenshot to `e2e-artifacts/`. Plain `pytest` skips these tests.
 
+To make a video of a run, like [e2e-run.mp4](e2e-run.mp4), record every test and join the clips with
+captions (needs ffmpeg on `PATH`):
+
+```sh
+.venv/Scripts/python tools/e2e_video.py                  # writes e2e-artifacts/e2e-run.mp4
+.venv/Scripts/python tools/e2e_video.py --slowmo 600 -k theme   # slower, dark-mode tests only
+```
+
 To refresh the GIF above after a visual change:
 
 ```sh
