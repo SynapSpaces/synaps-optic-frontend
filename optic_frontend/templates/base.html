@@ -234,12 +234,12 @@
                     font: var(--type-body-strong); color: var(--fg-2); transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard); }
         .nav-link:hover { color: var(--fg-1); background: var(--gray-50); }
         .nav-link.active { color: var(--fg-1); background: var(--gray-50); }
-        /* Logo lockup as on synapspaces.com: mark + lowercase name, 18px semibold; the product name sits
-           after a hairline in the secondary gray. */
+        /* Logo lockup: mark + lowercase name, 18px semibold; the product name follows at a word space
+           in the secondary gray, no divider. */
         .wordmark { display: inline-flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 600;
                     letter-spacing: -0.01em; line-height: 1; color: var(--fg-1); text-decoration: none; }
         .wordmark:hover { color: var(--fg-1); opacity: .8; }
-        .wordmark-product { padding-left: 10px; border-left: 1px solid var(--border-default); font-weight: 500; color: var(--fg-2); }
+        .wordmark-product { margin-left: -4px; font-weight: 500; color: var(--fg-2); }
 
         .theme-sun { display: none; }
         :root[data-theme="dark"] .theme-sun { display: block; }
