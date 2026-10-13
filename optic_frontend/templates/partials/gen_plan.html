@@ -48,7 +48,7 @@
   {% elif stage == 'voicing' %}
   <div class="rounded-widget status-info px-4 py-2 text-xs">Voicing the narration… {{ (plan.progress or 0)|int }}%</div>
   {% elif stage == 'keyframing' %}
-  <div class="rounded-widget status-info px-4 py-2 text-xs">Painting keyframes on the studio GPU…{% if stage_counts %} {{ stage_counts.ready }} of {{ stage_counts.total }} shots ready{% endif %}</div>
+  <div class="rounded-widget status-info px-4 py-2 text-xs">Painting keyframes on Kaggle…{% if stage_counts %} {{ stage_counts.ready }} of {{ stage_counts.total }} shots ready{% endif %}</div>
   {% elif stage == 'rendering' %}
   <div class="rounded-widget status-info px-4 py-2 text-xs">Rendering shots…{% if stage_counts %} {{ stage_counts.ready }} of {{ stage_counts.total }} clips ready{% endif %}</div>
   {% elif stage == 'assembling' %}
