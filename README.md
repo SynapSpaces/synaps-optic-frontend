@@ -53,6 +53,7 @@ python tools/make_music.py --check          # 3-5 tracks, LICENSE pair per track
 The `License:` line of each provenance file starts as `PENDING OWNER REVIEW`; the owner decides the
 terms the tracks ship under and stamps them (`--license "CC0 1.0 Universal"` or edit the files).
 `--check` fails until that is done. Regenerating with the same `--seed` reproduces the same audio.
+The shipped tracks are stamped **CC0 1.0 Universal** (owner decision, 2026-10-13).
 
 ## Tests
 
@@ -70,7 +71,7 @@ Browser tests (Playwright, `tests/e2e/`) open the pages in Chromium: `pip instal
 
 ## Releasing
 
-The backend pins this package by git tag (currently `v0.3.5`).
+The backend pins this package by git tag (currently `v0.3.6`).
 
 1. Bump `version` in `pyproject.toml` and `__version__` in `optic_frontend/__init__.py`.
 2. Commit, then tag: `git tag v0.1.1 && git push --tags`.
