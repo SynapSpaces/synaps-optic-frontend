@@ -76,6 +76,46 @@
   </form>
   <p class="mt-3 ss-caption text-fg-3">Optic plans your project with a locally hosted model and narrates it offline. It can make mistakes, so verify important information.</p>
 
+  <!-- Narrated video: prompt -> reviewed shot list -> keyframes -> clips -> final cut (/gen/plans/{id}) -->
+  <form method="post" action="/api/gen/plans"
+        onsubmit="this.querySelector('button[type=submit]').disabled=true; document.getElementById('ai-overlay')?.classList.remove('hidden');"
+        class="mt-6 card p-4 text-left grid gap-3">
+    <div class="ss-body-strong">Generate a narrated video</div>
+    <textarea name="prompt" rows="3" required
+        placeholder="What should the video explain or show?"
+        class="textarea block w-full resize-none text-[15px]"></textarea>
+    <div class="flex flex-wrap items-center gap-3 text-xs text-fg-2">
+      <label class="flex items-center gap-1.5">
+        Aspect
+        <select name="aspect" class="select select-sm w-auto">
+          <option value="16:9" selected>16:9 (widescreen)</option>
+          <option value="9:16">9:16 (vertical)</option>
+          <option value="1:1">1:1 (square)</option>
+        </select>
+      </label>
+      <label class="flex items-center gap-1.5">
+        Mode
+        <select name="mode" class="select select-sm w-auto">
+          <option value="mixed" selected>Mixed (animation + footage)</option>
+          <option value="explainer">Explainer (animation)</option>
+          <option value="ai_video">Footage (generated video)</option>
+        </select>
+      </label>
+      <label class="flex items-center gap-1.5">
+        Length
+        <input type="number" name="target_duration_s" min="5" max="180" step="1" value="60" class="input input-sm w-20">
+        s
+      </label>
+      <label class="flex items-center gap-1.5">
+        <input type="checkbox" name="captions" value="on" checked>
+        Captions
+      </label>
+      <input type="hidden" name="quality" value="draft">
+      <button type="submit" class="ml-auto btn btn-primary btn-sm">Plan the video</button>
+    </div>
+    <p class="ss-caption text-fg-3">Writes a shot list with the studio model; you review it before anything renders.</p>
+  </form>
+
   <!-- Action tiles -->
   <div class="mt-10 grid grid-cols-4 sm:grid-cols-8 gap-3">
     {% set tiles = [
