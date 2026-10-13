@@ -1,27 +1,80 @@
-{# Plan review: stage, look bible, shots, edit box, approve. Polls every 3 s while the planner runs. #}
+{# Generated-video plan: one view per stage (backend docs/CONTRACTS.md section 3).
+   planning -> plan_review -> voicing -> keyframing -> keyframe_review -> rendering -> assembling -> done | failed.
+   Polls every 3 s while a handler owns the stage (`polling`); the owner closes plan_review (Approve plan)
+   and keyframe_review (Pick + Render shots) from here. Context variables: tests/test_gen_templates.py. #}
+{% set stage = plan.stage %}
+{% set keyframe_kinds = ('ai_video', 'still') %}
+{% set shot_status_labels = {'pending': 'pending', 'running': 'running', 'needs_review': 'waiting for Kaggle',
+                             'done': 'done', 'failed': 'failed', 'skipped': 'skipped'} %}
+
+{% macro reroll_form(row) -%}
+<form hx-post="/api/gen/shots/{{ row.id }}/reroll" hx-target="#gen-plan" hx-swap="outerHTML" hx-confirm="Re-roll this shot?">
+  <button type="submit" class="btn btn-secondary btn-sm">Re-roll</button>
+</form>
+{%- endmacro %}
+
+{% macro clip_view(clip) -%}
+<div class="grid gap-1">
+  {% if clip.url %}
+  <video controls preload="none" {% if clip.thumb_url %}poster="{{ clip.thumb_url }}"{% endif %} src="{{ clip.url }}"
+         class="tone-light w-full max-h-[240px] rounded-widget bg-ink"></video>
+  {% elif clip.thumb_url %}
+  <img src="{{ clip.thumb_url }}" alt="" loading="lazy" class="w-full max-h-[240px] object-cover rounded-widget">
+  {% endif %}
+  <div class="ss-meta">v{{ clip.version }} · {{ clip.engine }}{% if clip.duration_s %} · {{ '%.1f'|format(clip.duration_s) }} s{% endif %}</div>
+</div>
+{%- endmacro %}
+
 <div id="gen-plan" class="grid gap-4"
      {% if polling %}hx-get="/partials/gen/plans/{{ plan.id }}" hx-trigger="every 3s" hx-swap="outerHTML"{% endif %}>
 
   <div class="flex flex-wrap items-center gap-2">
-    <span class="chip {% if plan.stage == 'failed' %}chip-err{% elif plan.stage in ('plan_review', 'done') %}chip-ok{% else %}chip-info{% endif %}">
-      {% if polling %}<span class="dot dot-info pulse-dot"></span>{% endif %}stage · {{ plan.stage }}</span>
+    <span class="chip {% if stage == 'failed' %}chip-err{% elif stage in ('plan_review', 'keyframe_review', 'done') %}chip-ok{% else %}chip-info{% endif %}">
+      {% if polling %}<span class="dot dot-info pulse-dot"></span>{% endif %}stage · {{ stage }}</span>
     <span class="chip">status · {{ plan.status }}</span>
     <span class="chip">{{ plan.quality }}</span>
+    {% if render %}<span class="chip chip-ok">final v{{ render.version }}</span>{% endif %}
     {% if plan.model %}<span class="ss-meta">model {{ plan.model }}</span>{% endif %}
     {% if request_params.mode %}<span class="ss-meta">{{ request_params.mode }} · {{ request_params.aspect }} · {{ request_params.target_duration_s|int }} s</span>{% endif %}
     {% if plan.parent_plan_id %}<a class="ss-meta hover:underline" href="/gen/plans/{{ plan.parent_plan_id }}">edited from v{{ plan.version - 1 }}</a>{% endif %}
     {% for c in children %}<a class="ss-meta hover:underline" href="/gen/plans/{{ c.id }}">superseded by v{{ c.version }}</a>{% endfor %}
   </div>
 
-  {% if plan.stage == 'failed' %}
-  <div class="rounded-input status-err px-3 py-2 text-xs">Planning failed: {{ plan.error }}</div>
-  {% elif polling %}
+  {# ---- stage banner ------------------------------------------------------------------------ #}
+  {% if stage == 'failed' %}
+  <div class="rounded-input status-err px-3 py-2 text-xs">{{ 'Generation failed' if doc else 'Planning failed' }}: {{ plan.error }}</div>
+  {% elif stage == 'planning' %}
   <div class="rounded-widget status-info px-4 py-2 text-xs">Writing the shot list on the studio GPU… this takes about a minute.</div>
+  {% elif stage == 'voicing' %}
+  <div class="rounded-widget status-info px-4 py-2 text-xs">Voicing the narration… {{ (plan.progress or 0)|int }}%</div>
+  {% elif stage == 'keyframing' %}
+  <div class="rounded-widget status-info px-4 py-2 text-xs">Painting keyframes on Kaggle…{% if stage_counts %} {{ stage_counts.ready }} of {{ stage_counts.total }} shots ready{% endif %}</div>
+  {% elif stage == 'rendering' %}
+  <div class="rounded-widget status-info px-4 py-2 text-xs">Rendering shots…{% if stage_counts %} {{ stage_counts.ready }} of {{ stage_counts.total }} clips ready{% endif %}</div>
+  {% elif stage == 'assembling' %}
+  <div class="rounded-widget status-info px-4 py-2 text-xs">Assembling the final cut…</div>
+  {% endif %}
+  {% if plan.error and stage != 'failed' %}
+  <div class="rounded-input status-err px-3 py-2 text-xs">{{ plan.error }}</div>
   {% endif %}
 
   {% if doc %}
   <div class="grid gap-4 md:grid-cols-[1fr_300px]">
     <div class="grid gap-3">
+
+      {# ---- final cut (done) ------------------------------------------------------------------ #}
+      {% if stage == 'done' and render %}
+      <div class="card p-4 grid gap-2">
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="ss-body-strong">Final cut</div>
+          <span class="chip chip-ok">final v{{ render.version }}</span>
+          <span class="chip">{{ plan.quality }}</span>
+          <span class="ss-numeral ml-auto">{% if render.duration_s %}{{ '%.1f'|format(render.duration_s) }} s{% endif %}{% if render.bytes %} · {{ (render.bytes / 1048576)|round(1) }} MB{% endif %}</span>
+        </div>
+        <video controls preload="metadata" src="{{ render.url }}" class="tone-light w-full max-h-[420px] rounded-widget bg-ink"></video>
+      </div>
+      {% endif %}
+
       <div class="card p-4">
         <div class="flex items-center justify-between gap-3">
           <div class="ss-body-strong">{{ doc.title }}</div>
@@ -31,17 +84,33 @@
 
       <div id="gen-shots" class="grid gap-2">
         {% for item in shots %}{% set s = item.spec %}{% set row = item.row %}
+        {% set picked = (item.keyframes or [])|selectattr('selected')|list %}
         <div class="card p-4 grid gap-2">
           <div class="flex flex-wrap items-center gap-2">
             <span class="ss-body-strong">{{ s.id }}</span>
             <span class="chip">{{ s.kind }}</span>
             <span class="ss-numeral">{{ s.duration_s }} s{% if row and row.timed_duration_s %} → {{ '%.1f'|format(row.timed_duration_s) }} s{% endif %}</span>
             {% if s.caption %}<span class="ss-meta">“{{ s.caption }}”</span>{% endif %}
+
             {% if row %}
-            <span class="chip {% if row.decision == 'approve' %}chip-ok{% elif row.decision == 'reroll' %}chip-warn{% endif %}">
-              {{ 'approved' if row.decision == 'approve' else ('re-roll' if row.decision == 'reroll' else row.status) }}</span>
-            {% if row.reroll_count %}<span class="ss-meta">re-rolled {{ row.reroll_count }}×</span>{% endif %}
+              {% if stage in ('planning', 'plan_review', 'voicing', 'failed') %}
+              <span class="chip {% if row.decision == 'approve' %}chip-ok{% elif row.decision == 'reroll' %}chip-warn{% elif row.status == 'failed' %}chip-err{% endif %}">
+                {{ 'approved' if row.decision == 'approve' else ('re-roll' if row.decision == 'reroll' else row.status) }}</span>
+              {% elif stage in ('keyframing', 'keyframe_review') and s.kind in keyframe_kinds %}
+                {% if row.status == 'failed' %}<span class="chip chip-err">failed</span>
+                {% elif row.status in ('pending', 'running') %}<span class="chip chip-info"><span class="dot dot-info pulse-dot"></span>{{ 'painting' if row.status == 'running' else 'queued' }}</span>
+                {% elif picked %}<span class="chip chip-ok">picked</span>
+                {% elif row.status == 'needs_review' %}<span class="chip chip-warn">pick a keyframe</span>
+                {% else %}<span class="chip">{{ row.status }}</span>{% endif %}
+              {% elif stage in ('keyframing', 'keyframe_review') %}
+              <span class="chip">renders after review</span>
+              {% else %}
+              <span class="chip {% if row.status == 'done' %}chip-ok{% elif row.status == 'failed' %}chip-err{% elif row.status == 'running' %}chip-info{% elif row.status in ('pending', 'needs_review') %}chip-warn{% endif %}">
+                {% if row.status in ('running', 'needs_review') %}<span class="dot dot-info pulse-dot"></span>{% endif %}{{ shot_status_labels.get(row.status, row.status) }}</span>
+              {% endif %}
+              {% if row.reroll_count %}<span class="ss-meta">re-rolled {{ row.reroll_count }}×</span>{% endif %}
             {% endif %}
+
             {% if row and can_review %}
             <div class="ml-auto flex gap-2">
               <form hx-post="/api/gen/shots/{{ row.id }}/decision" hx-target="#gen-plan" hx-swap="outerHTML" hx-include="#note-{{ row.id }}">
@@ -53,8 +122,15 @@
                 <button type="submit" class="btn btn-sm {% if row.decision == 'reroll' %}btn-primary{% else %}btn-secondary{% endif %}">Re-roll</button>
               </form>
             </div>
+            {% elif row and stage == 'keyframe_review' and s.kind in keyframe_kinds and row.status != 'running' %}
+            <div class="ml-auto flex gap-2">{{ reroll_form(row) }}</div>
+            {% elif row and stage == 'rendering' and row.status == 'failed' %}
+            <div class="ml-auto flex gap-2">{{ reroll_form(row) }}</div>
+            {% elif row and stage == 'done' and can_reroll %}
+            <div class="ml-auto flex gap-2">{{ reroll_form(row) }}</div>
             {% endif %}
           </div>
+
           {% if s.narration %}<p class="ss-body-sm">{{ s.narration }}</p>{% else %}<p class="ss-meta">silent</p>{% endif %}
           {% if s.kind == 'animation' %}
           <div class="ss-meta">template <span class="ss-numeral">{{ s.animation.template }}</span> · {{ s.animation.params|tojson }}</div>
@@ -65,6 +141,50 @@
           <div class="ss-meta">{{ s.still.prompt }}</div>
           <div class="ss-meta">move {{ s.still.move or 'none' }}{% if s.still.negative %} · negative: {{ s.still.negative }}{% endif %}</div>
           {% endif %}
+
+          {% if row and row.error and stage not in ('planning', 'plan_review') %}
+          <div class="rounded-input status-err px-3 py-2 text-xs">{{ row.error }}</div>
+          {% endif %}
+
+          {# ---- keyframe candidates (keyframe_review) ------------------------------------------ #}
+          {% if stage == 'keyframe_review' and s.kind in keyframe_kinds %}
+            {% if item.keyframes %}
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {% for k in item.keyframes %}
+              <div class="grid gap-1 content-start">
+                <img src="{{ k.url }}" alt="{{ s.id }} candidate {{ k.candidate_index }}" loading="lazy"
+                     class="tone-light w-full max-h-40 object-cover rounded-widget bg-ink {% if k.selected %}ring-2 ring-ink ring-offset-2 ring-offset-surface-card{% endif %}">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="ss-meta">#{{ k.candidate_index }}{% if k.chosen %} · judge's pick{% endif %}{% if k.score is defined and k.score is not none %} · {{ '%.2f'|format(k.score) }}{% endif %}</span>
+                  {% if can_pick and row and row.status == 'needs_review' %}
+                  <form hx-post="/api/gen/shots/{{ row.id }}/pick" hx-target="#gen-plan" hx-swap="outerHTML" class="ml-auto">
+                    <input type="hidden" name="keyframe_id" value="{{ k.id }}">
+                    <button type="submit" class="btn btn-sm {% if k.selected %}btn-primary{% else %}btn-secondary{% endif %}">{{ 'Picked' if k.selected else 'Pick' }}</button>
+                  </form>
+                  {% elif k.selected %}
+                  <span class="chip chip-ok ml-auto">picked</span>
+                  {% endif %}
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+            {% elif row and row.status in ('pending', 'running') %}
+            <p class="ss-meta">New candidates are on the way.</p>
+            {% elif row and row.status != 'failed' %}
+            <p class="ss-meta">No candidates yet.</p>
+            {% endif %}
+          {% elif stage == 'keyframe_review' %}
+          <p class="ss-meta">Renders after review.</p>
+          {% endif %}
+
+          {# ---- clip (rendering / assembling / done) ------------------------------------------- #}
+          {% if stage in ('rendering', 'assembling', 'done') and item.clip %}
+          {{ clip_view(item.clip) }}
+          {% if item.clip_versions and item.clip_versions|length > 1 %}
+          <div class="ss-meta">{{ item.clip_versions|length }} takes</div>
+          {% endif %}
+          {% endif %}
+
           {% if row and can_review %}
           <input id="note-{{ row.id }}" name="note" value="{{ row.note or '' }}" placeholder="note for this shot (saved with the decision)" class="input text-xs">
           {% endif %}
@@ -86,6 +206,7 @@
       {% endif %}
     </div>
 
+    {# ---- right column ---------------------------------------------------------------------- #}
     <div class="grid gap-3 content-start">
       <div class="card p-4 grid gap-2">
         <div class="ss-meta">Look bible</div>
@@ -120,8 +241,35 @@
             hx-confirm="Approve this shot list? Narration is voiced next, then the shots are rendered.">
         <button type="submit" class="btn btn-primary w-full">Approve plan</button>
       </form>
+      {% elif stage == 'keyframe_review' %}
+      <div class="card p-4 grid gap-2">
+        <div class="ss-meta">Render</div>
+        <p class="ss-body-sm">Pick one keyframe per ai_video and still shot, then render every shot at once.</p>
+        <form hx-post="/api/gen/plans/{{ plan.id }}/render" hx-target="#gen-plan" hx-swap="outerHTML"
+              hx-confirm="Render every shot now? This starts the Kaggle run.">
+          <button type="submit" class="btn btn-primary w-full" {% if not can_render %}disabled{% endif %}>Render shots</button>
+        </form>
+        {% if not can_render %}
+        <p class="ss-meta">{% if blocking %}Waiting on {{ blocking|join(', ') }}.{% else %}Nothing to render yet.{% endif %}</p>
+        {% endif %}
+      </div>
+      {% elif stage == 'done' %}
+      <div class="card p-4 grid gap-2">
+        <div class="ss-meta">Quality</div>
+        {% if plan.quality == 'final' %}
+        <p class="ss-body-sm">Rendered at final quality.</p>
+        {% elif can_final %}
+        <p class="ss-body-sm">This is the {{ plan.quality }} cut. Re-render every shot at the final size and re-assemble.</p>
+        <form hx-post="/api/gen/plans/{{ plan.id }}/final" hx-target="#gen-plan" hx-swap="outerHTML"
+              hx-confirm="Re-render every shot at final size and re-assemble?">
+          <button type="submit" class="btn btn-primary w-full">Render final quality</button>
+        </form>
+        {% else %}
+        <p class="ss-body-sm">This is the {{ plan.quality }} cut.</p>
+        {% endif %}
+      </div>
       {% elif plan.status == 'approved' %}
-      <div class="rounded-widget status-info px-4 py-2 text-xs">Approved {{ fmt(plan.approved_at) }} · now at stage {{ plan.stage }}.</div>
+      <div class="rounded-widget status-info px-4 py-2 text-xs">Approved {{ fmt(plan.approved_at) }} · now at stage {{ stage }}.</div>
       {% endif %}
     </div>
   </div>
