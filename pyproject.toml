@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "synaps-optic-frontend"
-version = "0.3.4"
+version = "0.3.5"
 description = "Synaps Optic Frontend: HTMX/Jinja2 templates and static assets for the Synaps Optic video editor"
 requires-python = ">=3.11"
 dependencies = []
@@ -13,6 +13,7 @@ dependencies = []
 test = ["pytest", "jinja2>=3.1"]
 e2e = ["pytest", "jinja2>=3.1", "playwright>=1.45", "pillow"]
 video = ["pytest", "jinja2>=3.1", "playwright>=1.45", "pillow", "piper-tts>=1.3"]   # tools/e2e_video.py voice-over
+music = ["numpy>=1.26"]   # tools/make_music.py: regenerate the bundled background-music library
 
 [tool.hatch.build.targets.wheel]
 packages = ["optic_frontend"]

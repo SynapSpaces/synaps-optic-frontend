@@ -37,6 +37,23 @@ Rendering a page passes `request` (the templates read `request.url.path` and
 `request.headers`) plus the per-page context the backend supplies. Changing a
 path in a template is a contract change for the backend and needs a version bump.
 
+## Bundled music library
+
+`optic_frontend/static/music/` holds the background-music beds the editor's music picker lists and
+the renderer ducks under the voiceover. They are **generated, not downloaded**: `tools/make_music.py`
+synthesizes every sample from seeded oscillators and noise (no recordings, samples or models), and
+writes a `<slug>.LICENSE.txt` provenance record next to each track.
+
+```bash
+pip install -e .[music]                     # numpy; ffmpeg must be on PATH for mp3 output
+python tools/make_music.py                  # 4 tracks x 90 s (ambient, cinematic, lofi, uplift)
+python tools/make_music.py --check          # 3-5 tracks, LICENSE pair per track, ffprobe-valid
+```
+
+The `License:` line of each provenance file starts as `PENDING OWNER REVIEW`; the owner decides the
+terms the tracks ship under and stamps them (`--license "CC0 1.0 Universal"` or edit the files).
+`--check` fails until that is done. Regenerating with the same `--seed` reproduces the same audio.
+
 ## Tests
 
 ```sh
@@ -53,7 +70,7 @@ Browser tests (Playwright, `tests/e2e/`) open the pages in Chromium: `pip instal
 
 ## Releasing
 
-The backend pins this package by git tag (currently `v0.3.1`).
+The backend pins this package by git tag (currently `v0.3.5`).
 
 1. Bump `version` in `pyproject.toml` and `__version__` in `optic_frontend/__init__.py`.
 2. Commit, then tag: `git tag v0.1.1 && git push --tags`.

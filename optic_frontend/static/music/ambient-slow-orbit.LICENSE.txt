@@ -1,0 +1,8 @@
+Title: Slow Orbit
+File: ambient-slow-orbit.mp3
+Generated: 2026-10-12
+Source: generated locally by tools/make_music.py v1 (style=ambient, seed=20261013, length=90s, bpm=57, mode=dorian, tonic=MIDI 49)
+Generator: https://github.com/SynapSpaces/synaps-optic-frontend/blob/main/tools/make_music.py
+Method: procedural synthesis -- slow evolving pads, sparse bell plucks, no drums; additive oscillators, synthesized drums and a synthetic noise-impulse reverb. No recordings, samples, third-party audio or generative models were used.
+Rights: original work created for Synaps Optic; the owner confirms the terms before commercial distribution.
+License: PENDING OWNER REVIEW

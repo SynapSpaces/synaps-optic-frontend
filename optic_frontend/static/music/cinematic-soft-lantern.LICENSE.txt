@@ -1,0 +1,8 @@
+Title: Soft Lantern
+File: cinematic-soft-lantern.mp3
+Generated: 2026-10-12
+Source: generated locally by tools/make_music.py v1 (style=cinematic, seed=20261014, length=90s, bpm=67, mode=aeolian, tonic=MIDI 41)
+Generator: https://github.com/SynapSpaces/synaps-optic-frontend/blob/main/tools/make_music.py
+Method: procedural synthesis -- low drone, dark pads, a slow pulse; additive oscillators, synthesized drums and a synthetic noise-impulse reverb. No recordings, samples, third-party audio or generative models were used.
+Rights: original work created for Synaps Optic; the owner confirms the terms before commercial distribution.
+License: PENDING OWNER REVIEW
