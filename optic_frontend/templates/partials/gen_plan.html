@@ -1,0 +1,129 @@
+{# Plan review: stage, look bible, shots, edit box, approve. Polls every 3 s while the planner runs. #}
+<div id="gen-plan" class="grid gap-4"
+     {% if polling %}hx-get="/partials/gen/plans/{{ plan.id }}" hx-trigger="every 3s" hx-swap="outerHTML"{% endif %}>
+
+  <div class="flex flex-wrap items-center gap-2">
+    <span class="chip {% if plan.stage == 'failed' %}chip-err{% elif plan.stage in ('plan_review', 'done') %}chip-ok{% else %}chip-info{% endif %}">
+      {% if polling %}<span class="dot dot-info pulse-dot"></span>{% endif %}stage · {{ plan.stage }}</span>
+    <span class="chip">status · {{ plan.status }}</span>
+    <span class="chip">{{ plan.quality }}</span>
+    {% if plan.model %}<span class="ss-meta">model {{ plan.model }}</span>{% endif %}
+    {% if request_params.mode %}<span class="ss-meta">{{ request_params.mode }} · {{ request_params.aspect }} · {{ request_params.target_duration_s|int }} s</span>{% endif %}
+    {% if plan.parent_plan_id %}<a class="ss-meta hover:underline" href="/gen/plans/{{ plan.parent_plan_id }}">edited from v{{ plan.version - 1 }}</a>{% endif %}
+    {% for c in children %}<a class="ss-meta hover:underline" href="/gen/plans/{{ c.id }}">superseded by v{{ c.version }}</a>{% endfor %}
+  </div>
+
+  {% if plan.stage == 'failed' %}
+  <div class="rounded-input status-err px-3 py-2 text-xs">Planning failed: {{ plan.error }}</div>
+  {% elif polling %}
+  <div class="rounded-widget status-info px-4 py-2 text-xs">Writing the shot list on the studio GPU… this takes about a minute.</div>
+  {% endif %}
+
+  {% if doc %}
+  <div class="grid gap-4 md:grid-cols-[1fr_300px]">
+    <div class="grid gap-3">
+      <div class="card p-4">
+        <div class="flex items-center justify-between gap-3">
+          <div class="ss-body-strong">{{ doc.title }}</div>
+          <div class="ss-numeral">{{ doc.shots|length }} shots · {{ '%.0f'|format(planned_s) }} s{% if doc.target_duration_s %} of {{ doc.target_duration_s|int }} s{% endif %} · {{ doc.aspect }}</div>
+        </div>
+      </div>
+
+      <div id="gen-shots" class="grid gap-2">
+        {% for item in shots %}{% set s = item.spec %}{% set row = item.row %}
+        <div class="card p-4 grid gap-2">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="ss-body-strong">{{ s.id }}</span>
+            <span class="chip">{{ s.kind }}</span>
+            <span class="ss-numeral">{{ s.duration_s }} s{% if row and row.timed_duration_s %} → {{ '%.1f'|format(row.timed_duration_s) }} s{% endif %}</span>
+            {% if s.caption %}<span class="ss-meta">“{{ s.caption }}”</span>{% endif %}
+            {% if row %}
+            <span class="chip {% if row.decision == 'approve' %}chip-ok{% elif row.decision == 'reroll' %}chip-warn{% endif %}">
+              {{ 'approved' if row.decision == 'approve' else ('re-roll' if row.decision == 'reroll' else row.status) }}</span>
+            {% if row.reroll_count %}<span class="ss-meta">re-rolled {{ row.reroll_count }}×</span>{% endif %}
+            {% endif %}
+            {% if row and can_review %}
+            <div class="ml-auto flex gap-2">
+              <form hx-post="/api/gen/shots/{{ row.id }}/decision" hx-target="#gen-plan" hx-swap="outerHTML" hx-include="#note-{{ row.id }}">
+                <input type="hidden" name="decision" value="{{ 'clear' if row.decision == 'approve' else 'approve' }}">
+                <button type="submit" class="btn btn-sm {% if row.decision == 'approve' %}btn-primary{% else %}btn-secondary{% endif %}">Approve</button>
+              </form>
+              <form hx-post="/api/gen/shots/{{ row.id }}/decision" hx-target="#gen-plan" hx-swap="outerHTML" hx-include="#note-{{ row.id }}">
+                <input type="hidden" name="decision" value="{{ 'clear' if row.decision == 'reroll' else 'reroll' }}">
+                <button type="submit" class="btn btn-sm {% if row.decision == 'reroll' %}btn-primary{% else %}btn-secondary{% endif %}">Re-roll</button>
+              </form>
+            </div>
+            {% endif %}
+          </div>
+          {% if s.narration %}<p class="ss-body-sm">{{ s.narration }}</p>{% else %}<p class="ss-meta">silent</p>{% endif %}
+          {% if s.kind == 'animation' %}
+          <div class="ss-meta">template <span class="ss-numeral">{{ s.animation.template }}</span> · {{ s.animation.params|tojson }}</div>
+          {% elif s.kind == 'ai_video' %}
+          <div class="ss-meta">{{ s.ai_video.prompt }}</div>
+          <div class="ss-meta">camera {{ s.ai_video.camera or 'static' }} · motion {{ s.ai_video.motion or 'low' }}{% if s.ai_video.negative %} · negative: {{ s.ai_video.negative }}{% endif %}</div>
+          {% else %}
+          <div class="ss-meta">{{ s.still.prompt }}</div>
+          <div class="ss-meta">move {{ s.still.move or 'none' }}{% if s.still.negative %} · negative: {{ s.still.negative }}{% endif %}</div>
+          {% endif %}
+          {% if row and can_review %}
+          <input id="note-{{ row.id }}" name="note" value="{{ row.note or '' }}" placeholder="note for this shot (saved with the decision)" class="input text-xs">
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+
+      {% if can_review %}
+      <details class="card p-4">
+        <summary class="ss-body-strong cursor-pointer">Edit the shot list (JSON)</summary>
+        <form method="post" action="/api/gen/plans/{{ plan.id }}/edit" class="grid gap-2 mt-3">
+          <textarea name="plan_json" rows="24" class="input font-mono text-xs" spellcheck="false">{{ plan_json_text }}</textarea>
+          <div class="flex items-center justify-between gap-3">
+            <p class="ss-body-sm">Saved as version {{ plan.version + 1 }}; this version stays as the model's original.</p>
+            <button type="submit" class="btn btn-secondary btn-sm">Save edit</button>
+          </div>
+        </form>
+      </details>
+      {% endif %}
+    </div>
+
+    <div class="grid gap-3 content-start">
+      <div class="card p-4 grid gap-2">
+        <div class="ss-meta">Look bible</div>
+        <p class="ss-body-sm">{{ doc.look_bible.style }}</p>
+        {% if doc.look_bible.character %}<p class="ss-body-sm"><span class="ss-meta">character</span> {{ doc.look_bible.character }}</p>{% endif %}
+        {% if doc.look_bible.lighting %}<p class="ss-body-sm"><span class="ss-meta">light</span> {{ doc.look_bible.lighting }}</p>{% endif %}
+        {% if doc.look_bible.lens %}<p class="ss-body-sm"><span class="ss-meta">lens</span> {{ doc.look_bible.lens }}</p>{% endif %}
+        {% if doc.look_bible.palette %}
+        <div class="flex gap-1">{% for c in doc.look_bible.palette %}<span class="h-5 w-8 rounded-input ring-inset ring-ink" style="background:{{ c }}" title="{{ c }}"></span>{% endfor %}</div>
+        {% endif %}
+        {% if doc.look_bible.negative %}<p class="ss-meta">avoid: {{ doc.look_bible.negative }}</p>{% endif %}
+        {% if doc.look_bible.seed_family is defined %}<p class="ss-meta">seed family {{ doc.look_bible.seed_family }}</p>{% endif %}
+      </div>
+
+      <div class="card p-4 grid gap-2">
+        <div class="ss-meta">Your verdict on this plan</div>
+        <div class="flex gap-2">
+          <form hx-post="/api/gen/plans/{{ plan.id }}/feedback" hx-target="#gen-plan" hx-swap="outerHTML">
+            <input type="hidden" name="target_kind" value="plan"><input type="hidden" name="value" value="1">
+            <button type="submit" class="btn btn-secondary btn-sm">Thumbs up</button>
+          </form>
+          <form hx-post="/api/gen/plans/{{ plan.id }}/feedback" hx-target="#gen-plan" hx-swap="outerHTML">
+            <input type="hidden" name="target_kind" value="plan"><input type="hidden" name="value" value="-1">
+            <button type="submit" class="btn btn-secondary btn-sm">Thumbs down</button>
+          </form>
+        </div>
+        {% if feedback %}<p class="ss-meta">{{ feedback|length }} rating{{ 's' if feedback|length != 1 }} recorded</p>{% endif %}
+      </div>
+
+      {% if can_review %}
+      <form hx-post="/api/gen/plans/{{ plan.id }}/approve" hx-target="#gen-plan" hx-swap="outerHTML"
+            hx-confirm="Approve this shot list? Narration is voiced next, then the shots are rendered.">
+        <button type="submit" class="btn btn-primary w-full">Approve plan</button>
+      </form>
+      {% elif plan.status == 'approved' %}
+      <div class="rounded-widget status-info px-4 py-2 text-xs">Approved {{ fmt(plan.approved_at) }} · now at stage {{ plan.stage }}.</div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>

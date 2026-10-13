@@ -71,7 +71,7 @@ Browser tests (Playwright, `tests/e2e/`) open the pages in Chromium: `pip instal
 
 ## Releasing
 
-The backend pins this package by git tag (currently `v0.3.6`).
+The backend pins this package by git tag (currently `v0.3.7`).
 
 1. Bump `version` in `pyproject.toml` and `__version__` in `optic_frontend/__init__.py`.
 2. Commit, then tag: `git tag v0.1.1 && git push --tags`.
