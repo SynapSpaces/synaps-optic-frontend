@@ -40,12 +40,22 @@ def _row(shot_id, status, **over):
     return base
 
 
-def _keyframes(shot_id, selected_index=None):
+def _keyframes(shot_id, selected_index=None, thumbs=True):
     return [
         {"id": f"kf-{shot_id}-{i}", "candidate_index": i, "url": f"/kf/{shot_id}/{i}.png",
+         "thumb_url": f"/kf/{shot_id}/{i}.thumb.jpg" if thumbs else None,
          "score": [0.42, 0.91, None][i], "chosen": i == 1, "selected": i == selected_index}
         for i in range(3)
     ]
+
+
+def _confirm(html, url):
+    """The inline confirm block posting to `url` (its question and buttons), or None."""
+    for block in html.split('<details class="confirm">')[1:]:
+        block = block.split("</details>")[0]
+        if f'hx-post="{url}"' in block:
+            return block
+    return None
 
 
 def _clip(shot_id, version=1):
@@ -84,6 +94,8 @@ def test_plan_review_keeps_decisions_edit_and_approve(render):
     html = render(_ctx("plan_review", shots, plan=_plan("plan_review", status="draft"), can_review=True))
     assert 'hx-trigger="every 3s"' not in html
     assert "Approve plan" in html and "/api/gen/plans/plan1/edit" in html
+    appr = _confirm(html, "/api/gen/plans/plan1/approve")
+    assert appr and "Approve this shot list?" in appr and ">Approve</button>" in appr and "hx-confirm" not in html
     assert html.count("/api/gen/shots/row-s01/decision") == 2 and "approved" in html
     assert 'id="note-row-s02"' in html
     assert "Render shots" not in html and "/pick" not in html and "/reroll" not in html
@@ -122,18 +134,31 @@ def test_keyframe_review_candidate_grid_pick_reroll_and_render(render):
     # six candidates, one pick form each
     assert html.count("/api/gen/shots/row-s01/pick") == 3 and html.count("/api/gen/shots/row-s02/pick") == 3
     assert 'name="keyframe_id" value="kf-s01-1"' in html
-    assert html.count('loading="lazy"') == 6 and "/kf/s02/2.png" in html
+    # the grid loads the 240 px thumbs; the full still only goes to the lightbox trigger
+    assert html.count('loading="lazy"') == 6 and 'src="/kf/s02/2.thumb.jpg"' in html and 'src="/kf/s02/2.png"' not in html
+    assert html.count('class="lightbox-open') == 6 and 'data-full="/kf/s02/2.png"' in html
     assert "judge's pick" in html and "0.91" in html and "0.42" in html
     assert "ring-2 ring-ink" in html and "Picked" in html and "pick a keyframe" in html
     # re-roll on the two keyframe shots only; the animation shot waits
     assert html.count("/api/gen/shots/row-s01/reroll") == 1 and html.count("/api/gen/shots/row-s02/reroll") == 1
     assert "/api/gen/shots/row-s03/reroll" not in html and "renders after review" in html.lower()
-    assert 'hx-confirm="Re-roll this shot?"' in html
-    # render button present but blocked
+    reroll = _confirm(html, "/api/gen/shots/row-s01/reroll")
+    assert reroll and "Re-roll this shot?" in reroll and ">Yes, re-roll</button>" in reroll and ">Cancel</button>" in reroll
+    assert "hx-confirm" not in html and "confirm(" not in html   # nothing modal: automation and the owner both get an inline step
+    # render button present but blocked, and a blocked render has no confirm step to open
     assert "/api/gen/plans/plan1/render" in html and "Render shots" in html
     assert "disabled" in html.split("Render shots")[0].rsplit("<button", 1)[1]
+    assert _confirm(html, "/api/gen/plans/plan1/render") is None
     assert "Waiting on s02" in html
     assert "Approve plan" not in html and "Render final quality" not in html
+
+
+def test_keyframe_grid_without_thumbs_falls_back_to_the_full_still(render):
+    """Plans published before the thumbs existed carry thumb_url=None: the grid shows the full still."""
+    shots = [{"spec": SHOT_SPECS[0], "row": _row("s01", "needs_review"), "keyframes": _keyframes("s01", thumbs=False),
+              "clip": None, "clip_versions": []}]
+    html = render(_ctx("keyframe_review", shots, can_pick=True))
+    assert 'src="/kf/s01/0.png"' in html and 'data-full="/kf/s01/0.png"' in html and ".thumb.jpg" not in html
 
 
 def test_keyframe_review_failed_shot_and_ready_render(render):
@@ -147,8 +172,12 @@ def test_keyframe_review_failed_shot_and_ready_render(render):
     html = render(_ctx("keyframe_review", shots, plan=plan, can_pick=True, can_render=True))
     assert "judge crashed" in html and "1 keyframe shot(s) failed: s02" in html and "status-err" in html
     assert "/api/gen/shots/row-s02/reroll" in html
-    button = html.split("Render shots")[0].rsplit("<button", 1)[1]
-    assert "disabled" not in button
+    # a ready render is the two-step button: no disabled button, the question and a confirm
+    assert "<button" not in html.split("Render shots")[0].rsplit("<summary", 1)[1]
+    assert '<summary class="btn btn-primary w-full" role="button">Render shots</summary>' in html
+    rend = _confirm(html, "/api/gen/plans/plan1/render")
+    assert rend and "Render every shot now? This starts the Kaggle run." in rend and ">Render</button>" in rend
+    assert "hx-confirm" not in html
 
 
 def test_rendering_shows_status_chips_clips_and_failed_reroll(render):
@@ -177,7 +206,22 @@ def test_done_shows_final_video_rerolls_and_final_button(render):
     assert "final v3" in html and "12.4 s" in html and "2.5 MB" in html
     assert html.count("/reroll") == 3 and "v2 · ltx" in html and "2 takes" in html
     assert "/api/gen/plans/plan1/final" in html and "Render final quality" in html
+    fin = _confirm(html, "/api/gen/plans/plan1/final")
+    assert fin and "Re-render every shot at final size and re-assemble?" in fin and ">Render final</button>" in fin
+    assert "hx-confirm" not in html
     assert "Render shots" not in html and "Approve plan" not in html
+
+
+def test_plan_page_carries_the_lightbox_outside_the_polled_partial(jinja_env):
+    """gen/plan.html owns the <dialog> and its script; #gen-plan is swapped every 3 s and must not contain them."""
+    shots = [{"spec": SHOT_SPECS[0], "row": _row("s01", "needs_review"), "keyframes": _keyframes("s01"),
+              "clip": None, "clip_versions": []}]
+    ctx = _ctx("keyframe_review", shots, can_pick=True)
+    ctx["request"] = _Req()
+    html = jinja_env.get_template("gen/plan.html").render(**ctx)
+    partial = html.split('id="gen-plan"')[1].rsplit("</section>", 1)[0]
+    assert '<dialog id="gen-lightbox"' in html and "showModal()" in html
+    assert "gen-lightbox" not in partial and 'data-full="/kf/s01/0.png"' in partial
 
 
 def test_done_at_final_quality_offers_no_rerender(render):
