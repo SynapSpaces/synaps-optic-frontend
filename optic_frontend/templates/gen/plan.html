@@ -15,4 +15,30 @@
   </div>
   {% include "partials/gen_plan.html" %}
 </section>
+{# Full-size keyframe viewer. The grid shows 240 px thumbs; a click swaps the full still into this one
+   <dialog>, which lives outside #gen-plan so the partial's polling swaps never remove it. Closes on
+   backdrop click, the x, or Escape (native). #}
+<dialog id="gen-lightbox" class="lightbox tone-light" aria-label="Keyframe at full size">
+  <button type="button" class="lightbox-close icon-btn" aria-label="Close" title="Close">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+  </button>
+  <img alt="" decoding="async">
+</dialog>
+<script>
+  (function () {
+    var box = document.getElementById("gen-lightbox"), img = box.querySelector("img");
+    function close() { box.close(); img.removeAttribute("src"); }
+    document.addEventListener("click", function (e) {
+      var open = e.target.closest(".lightbox-open");
+      if (open && open.dataset.full) {
+        img.src = open.dataset.full;
+        img.alt = open.title || "";
+        box.showModal();
+        return;
+      }
+      if (e.target.closest(".lightbox-close") || e.target === box) close();   // the x, or the backdrop
+    });
+    box.addEventListener("close", function () { img.removeAttribute("src"); });
+  })();
+</script>
 {% endblock %}

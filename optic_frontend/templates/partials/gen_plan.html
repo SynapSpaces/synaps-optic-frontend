@@ -1,16 +1,33 @@
 {# Generated-video plan: one view per stage (backend docs/CONTRACTS.md section 3).
    planning -> plan_review -> voicing -> keyframing -> keyframe_review -> rendering -> assembling -> done | failed.
    Polls every 3 s while a handler owns the stage (`polling`); the owner closes plan_review (Approve plan)
-   and keyframe_review (Pick + Render shots) from here. Context variables: tests/test_gen_templates.py. #}
+   and keyframe_review (Pick + Render shots) from here. Context variables: tests/test_gen_templates.py.
+   Irreversible actions (Approve plan, Render shots, Re-roll, Render final quality) confirm INLINE through
+   `confirm()` below, never window.confirm: a modal dialog blocks the page and any browser automation
+   driving it. The candidate grid shows each keyframe's 240 px `thumb_url` (18 full stills froze the
+   renderer) and opens the full `url` in the page's lightbox (gen/plan.html). #}
 {% set stage = plan.stage %}
 {% set keyframe_kinds = ('ai_video', 'still') %}
 {% set shot_status_labels = {'pending': 'pending', 'running': 'running', 'needs_review': 'waiting for Kaggle',
                              'done': 'done', 'failed': 'failed', 'skipped': 'skipped'} %}
 
+{# A two-step button: the summary is the button, opening it shows the question with Cancel / confirm next to
+   it (base.html `.confirm`). The form only posts from the confirm button, so a stray click never acts. #}
+{% macro confirm(url, label, question, yes, cls='btn-secondary btn-sm') -%}
+<details class="confirm">
+  <summary class="btn {{ cls }}" role="button">{{ label }}</summary>
+  <form hx-post="{{ url }}" hx-target="#gen-plan" hx-swap="outerHTML" class="confirm-box card-float">
+    <p class="ss-body-sm">{{ question }}</p>
+    <div class="flex justify-end gap-2">
+      <button type="button" class="btn btn-ghost btn-sm" onclick="this.closest('details').removeAttribute('open')">Cancel</button>
+      <button type="submit" class="btn btn-primary btn-sm">{{ yes }}</button>
+    </div>
+  </form>
+</details>
+{%- endmacro %}
+
 {% macro reroll_form(row) -%}
-<form hx-post="/api/gen/shots/{{ row.id }}/reroll" hx-target="#gen-plan" hx-swap="outerHTML" hx-confirm="Re-roll this shot?">
-  <button type="submit" class="btn btn-secondary btn-sm">Re-roll</button>
-</form>
+{{ confirm('/api/gen/shots/' ~ row.id ~ '/reroll', 'Re-roll', 'Re-roll this shot?', 'Yes, re-roll') }}
 {%- endmacro %}
 
 {% macro clip_view(clip) -%}
@@ -152,8 +169,11 @@
             <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {% for k in item.keyframes %}
               <div class="grid gap-1 content-start">
-                <img src="{{ k.url }}" alt="{{ s.id }} candidate {{ k.candidate_index }}" loading="lazy"
-                     class="tone-light w-full max-h-40 object-cover rounded-widget bg-ink {% if k.selected %}ring-2 ring-ink ring-offset-2 ring-offset-surface-card{% endif %}">
+                <button type="button" class="lightbox-open block w-full p-0 border-0 bg-transparent cursor-zoom-in"
+                        data-full="{{ k.url }}" title="Open candidate {{ k.candidate_index }} at full size">
+                  <img src="{{ k.thumb_url or k.url }}" alt="{{ s.id }} candidate {{ k.candidate_index }}" loading="lazy" decoding="async"
+                       class="tone-light w-full max-h-40 object-cover rounded-widget bg-ink {% if k.selected %}ring-2 ring-ink ring-offset-2 ring-offset-surface-card{% endif %}">
+                </button>
                 <div class="flex flex-wrap items-center gap-2">
                   <span class="ss-meta">#{{ k.candidate_index }}{% if k.chosen %} · judge's pick{% endif %}{% if k.score is defined and k.score is not none %} · {{ '%.2f'|format(k.score) }}{% endif %}</span>
                   {% if can_pick and row and row.status == 'needs_review' %}
@@ -237,19 +257,19 @@
       </div>
 
       {% if can_review %}
-      <form hx-post="/api/gen/plans/{{ plan.id }}/approve" hx-target="#gen-plan" hx-swap="outerHTML"
-            hx-confirm="Approve this shot list? Narration is voiced next, then the shots are rendered.">
-        <button type="submit" class="btn btn-primary w-full">Approve plan</button>
-      </form>
+      {{ confirm('/api/gen/plans/' ~ plan.id ~ '/approve', 'Approve plan',
+                 'Approve this shot list? Narration is voiced next, then the shots are rendered.', 'Approve', cls='btn-primary w-full') }}
       {% elif stage == 'keyframe_review' %}
       <div class="card p-4 grid gap-2">
         <div class="ss-meta">Render</div>
         <p class="ss-body-sm">Pick one keyframe per ai_video and still shot, then render every shot at once.</p>
-        <form hx-post="/api/gen/plans/{{ plan.id }}/render" hx-target="#gen-plan" hx-swap="outerHTML"
-              hx-confirm="Render every shot now? This starts the Kaggle run.">
-          <button type="submit" class="btn btn-primary w-full" {% if not can_render %}disabled{% endif %}>Render shots</button>
+        {% if can_render %}
+        {{ confirm('/api/gen/plans/' ~ plan.id ~ '/render', 'Render shots',
+                   'Render every shot now? This starts the Kaggle run.', 'Render', cls='btn-primary w-full') }}
+        {% else %}
+        <form hx-post="/api/gen/plans/{{ plan.id }}/render" hx-target="#gen-plan" hx-swap="outerHTML">
+          <button type="submit" class="btn btn-primary w-full" disabled>Render shots</button>
         </form>
-        {% if not can_render %}
         <p class="ss-meta">{% if blocking %}Waiting on {{ blocking|join(', ') }}.{% else %}Nothing to render yet.{% endif %}</p>
         {% endif %}
       </div>
@@ -260,10 +280,8 @@
         <p class="ss-body-sm">Rendered at final quality.</p>
         {% elif can_final %}
         <p class="ss-body-sm">This is the {{ plan.quality }} cut. Re-render every shot at the final size and re-assemble.</p>
-        <form hx-post="/api/gen/plans/{{ plan.id }}/final" hx-target="#gen-plan" hx-swap="outerHTML"
-              hx-confirm="Re-render every shot at final size and re-assemble?">
-          <button type="submit" class="btn btn-primary w-full">Render final quality</button>
-        </form>
+        {{ confirm('/api/gen/plans/' ~ plan.id ~ '/final', 'Render final quality',
+                   'Re-render every shot at final size and re-assemble?', 'Render final', cls='btn-primary w-full') }}
         {% else %}
         <p class="ss-body-sm">This is the {{ plan.quality }} cut.</p>
         {% endif %}

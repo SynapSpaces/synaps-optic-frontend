@@ -245,6 +245,22 @@
         :root[data-theme="dark"] .theme-sun { display: block; }
         :root[data-theme="dark"] .theme-moon { display: none; }
 
+        /* Inline confirm (partials/gen_plan.html `confirm()`): a <details> whose summary is the button and whose
+           body is a small floating card with the question and Cancel / confirm. No modal, nothing blocks. */
+        .confirm { position: relative; }
+        .confirm > summary { list-style: none; }
+        .confirm > summary::-webkit-details-marker { display: none; }
+        .confirm > summary:focus-visible { box-shadow: var(--shadow-focus); outline: 0; }
+        .confirm-box { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; display: grid; gap: 10px;
+                       min-width: 260px; max-width: 320px; padding: 14px; }
+
+        /* Keyframe lightbox (gen/plan.html): the full still on black, sized to the viewport. */
+        .lightbox { padding: 0; border: 0; border-radius: var(--radius-lg); background: #000; max-width: min(96vw, 1920px); max-height: 96vh; }
+        .lightbox::backdrop { background: rgba(0, 0, 0, .7); }
+        .lightbox > img { display: block; max-width: 96vw; max-height: 96vh; object-fit: contain; }
+        .lightbox-close { position: absolute; top: 8px; right: 8px; background: rgba(0, 0, 0, .55); color: #fff; }
+        .lightbox-close:hover { background: rgba(0, 0, 0, .8); color: #fff; }
+
         [hidden] { display: none !important; }
     </style>
 </head>
