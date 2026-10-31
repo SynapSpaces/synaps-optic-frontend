@@ -4,18 +4,21 @@ platform/brief.html) and the partials (partials/platform_runs.html, partials/pla
 platform_routes.py relies on: the forms and their actions, the chips, the polling attributes, the inline
 confirms (approve, replace the checklist), the cited-sources list, the read-only shape of synced items, the
 brief read view, the rendered markdown page, the brief mentions, the board columns, the people rows, the
-ledger tables, the integrations page and the pull-request / repository cards.
+ledger tables, the integrations page, the pull-request / repository cards, the Work card (start work on a
+branch) and posting a review run as a pull request comment.
 Rendered with minimal fake contexts through the same Jinja2 setup the backend uses (tests/conftest.py).
 
 Context keys the templates read:
     module page:   request, module, mod, items, status, needs, statuses, has_ask, pages (missing = none),
                    is_owner, modules_nav; each item: attention, latest_run, read_only, meta.kind, due_at
-                   (meta.kind pr: number, author, draft, checks; meta.kind repo: open_prs)
+                   (meta.kind pr: number, author, draft, checks; meta.kind repo: open_prs; meta.work = branch chip)
     item page:     request, module, mod, item (due_at, assignee_user_id, meta), runs, polling, latest, statuses,
                    next_status, attention, is_policy, is_person, checklist, members, owner_name, assignee_name,
-                   today, read_only, agents, body_html (missing or "" = no Page card), is_owner, modules_nav;
-                   item.meta.kind pr (repo, number, author, head, base, state, checks, draft) or repo
-                   (default_branch, open_prs, private) with item.external_url
+                   today, read_only, agents, body_html (missing or "" = no Page card), work_repos (missing or
+                   [] = no Start work form), work (None or item.meta.work: repo, branch, base, brief_path,
+                   branch_url, compare_url, started_at), comment_agent (passed through to the runs partial),
+                   is_owner, modules_nav; item.meta.kind pr (repo, number, author, head, base, state, checks,
+                   draft) or repo (default_branch, open_prs, private) with item.external_url
     board page:    request, module, mod, pages, columns ([{status, items}]; each item: attention, assignee_name,
                    owner_name, overdue, next_status, read_only, due_at, source), today, is_owner, modules_nav
     people page:   request, module, mod, pages, people (role, start_date, done, total), is_owner, modules_nav
@@ -23,7 +26,9 @@ Context keys the templates read:
                    skipped, is_owner, modules_nav
     integrations:  request, module ("dev"), mod, pages, configured, github (None or {external_account, scopes,
                    repos, updated_at, last_sync_at, last_error}), open_prs, poll_minutes, is_owner, modules_nav
-    runs partial:  module, item, runs, polling, read_only (missing = false)
+    runs partial:  module, item, runs, polling, read_only (missing = false), comment_agent (missing or None =
+                   never offer to post; a done run of that agent with text offers "Post as a comment", and
+                   run.output.comment_url / commented_by show it as posted)
     ask page:      request, module, mod, runs, polling, is_owner, modules_nav
     ask partial:   module, runs, polling
     approvals:     request, items, show, is_owner, modules_nav
@@ -1230,6 +1235,186 @@ def test_item_page_repository_card(jinja_env):
     # an ordinary item has neither card
     html = tpl.render(**_item_ctx())
     assert ">Pull request</div>" not in html and ">Repository</div>" not in html and "Open on GitHub" not in html
+
+
+# ---- start work (the Work card) and posting a review as a comment ---------------------------------------
+
+WORK_REPOS = ["wolfwdavid/synaps-optic-backend", "wolfwdavid/synaps-optic-frontend"]
+WORK = {"repo": "wolfwdavid/synaps-optic-backend", "branch": "work/refund-policy-it1", "base": "main",
+        "brief_path": "briefs/refund-policy-it1.md",
+        "branch_url": "https://github.com/wolfwdavid/synaps-optic-backend/tree/work/refund-policy-it1",
+        "compare_url": "https://github.com/wolfwdavid/synaps-optic-backend/compare/main...work/refund-policy-it1?expand=1",
+        "started_at": "2026-10-31 10:00"}
+WORK_HEADING = '<div class="ss-meta">Work</div>'
+START_WORK_URL = "/api/m/knowledge/items/it1/start-work"
+
+
+def _right_column(html):
+    return html.split("md:grid-cols")[1].split('<div class="grid gap-4 content-start">')[1]
+
+
+def _work_card(html):
+    return _right_column(html).split(WORK_HEADING)[1].split('<div class="ss-meta">Agents</div>')[0]
+
+
+def test_item_page_work_card_offers_start_work(jinja_env):
+    html = jinja_env.get_template("platform/item.html").render(**_item_ctx(work_repos=WORK_REPOS, work=None))
+    right = _right_column(html)
+    assert right.count(WORK_HEADING) == 1
+    card = _work_card(html)
+    assert 'method="post"' in card.split(f'action="{START_WORK_URL}"')[0].rsplit("<form", 1)[1]
+    form = card.split(f'action="{START_WORK_URL}"')[1].split("</form>")[0]
+    select = form.split('<select name="repo" class="select select-sm"')[1].split("</select>")[0]
+    assert '<option value="wolfwdavid/synaps-optic-backend">wolfwdavid/synaps-optic-backend</option>' in select
+    assert '<option value="wolfwdavid/synaps-optic-frontend">wolfwdavid/synaps-optic-frontend</option>' in select
+    assert select.index("optic-backend") < select.index("optic-frontend") and select.count("<option") == 2
+    assert '<button type="submit" class="btn btn-primary btn-sm">Start work</button>' in form
+    assert "Creates a branch and a brief file in the repo; nothing else changes." in card
+    # in the right column between Status and Agents; nothing of the started state; no branch chip yet
+    assert right.index(">Status<") < right.index(WORK_HEADING) < right.index(">Agents<")
+    assert ">Branch<" not in card and "Open a pull request" not in html and "hx-post" not in card
+    header = html.split("</h1>")[1].split("md:grid-cols")[0]
+    assert '<span class="chip">branch</span>' not in header
+    assert "window.confirm" not in html and "hx-confirm" not in html
+    # the left column is unchanged
+    assert "/items/it1/edit" in html and 'id="platform-runs"' in html
+
+
+def test_item_page_work_card_shows_the_branch_once_started(jinja_env):
+    tpl = jinja_env.get_template("platform/item.html")
+    item = _item(meta={"work": WORK})
+    html = tpl.render(**_item_ctx(item=item, work_repos=WORK_REPOS, work=WORK))
+    header = html.split("</h1>")[1].split("md:grid-cols")[0]
+    assert '<span class="chip">branch</span>' in header
+    right = _right_column(html)
+    assert right.count(WORK_HEADING) == 1
+    card = _work_card(html)
+    assert ">Branch<" in card
+    assert ('<a href="https://github.com/wolfwdavid/synaps-optic-backend/tree/work/refund-policy-it1" target="_blank" '
+            'rel="noopener" class="ss-body-sm break-words hover:underline">work/refund-policy-it1</a>') in card
+    assert "briefs/refund-policy-it1.md in wolfwdavid/synaps-optic-backend, from main" in card
+    assert ('<a href="https://github.com/wolfwdavid/synaps-optic-backend/compare/main...work/refund-policy-it1?expand=1" '
+            'target="_blank" rel="noopener" class="btn btn-secondary btn-sm">Open a pull request</a>') in card
+    assert card.index(">Branch<") < card.index("work/refund-policy-it1</a>") < card.index("briefs/") < card.index("Open a pull request")
+    # no second start: no form, no select, no button
+    assert "/start-work" not in html and 'name="repo"' not in html and "Start work" not in html
+    assert right.index(">Status<") < right.index(WORK_HEADING) < right.index(">Agents<")
+    # the started state shows with the repos missing from the context too, and on a read-only item (no Status card)
+    html = tpl.render(**_item_ctx(item=item, work=WORK))
+    assert ">Branch<" in html and "Open a pull request" in html and "/start-work" not in html
+    html = tpl.render(**_item_ctx(item=_item(source="repo", meta={"work": WORK}), read_only=True, work=WORK, work_repos=[]))
+    assert ">Status<" not in html and WORK_HEADING in html and "Open a pull request" in html and "/start-work" not in html
+    assert html.index(WORK_HEADING) < html.index(">Agents<") and '<span class="chip">branch</span>' in html
+
+
+def test_item_page_without_work_has_no_work_card(jinja_env):
+    tpl = jinja_env.get_template("platform/item.html")
+    for ctx in (_item_ctx(), _item_ctx(work_repos=[], work=None), _item_ctx(work_repos=None, work=None),
+                # a read-only item never offers to start work, even if repos reach its context
+                _item_ctx(item=_item(source="repo"), read_only=True, work_repos=WORK_REPOS, work=None),
+                _dev_item_ctx(_pr(7), work_repos=WORK_REPOS, work=None)):
+        html = tpl.render(**ctx)
+        assert WORK_HEADING not in html and "/start-work" not in html and "Start work" not in html
+        assert "Open a pull request" not in html and '<span class="chip">branch</span>' not in html
+        assert ">Agents<" in html
+
+
+def test_module_page_branch_chip_when_work_started(jinja_env):
+    items = [_item(meta={"work": WORK}), _item(id="it2"), _item(id="it3", meta={"kind": "policy", "work": WORK}),
+             _item(id="it4", meta={"work": None})]
+    html = jinja_env.get_template("platform/module.html").render(**_module_ctx(items=items))
+    one = html.split('href="/m/knowledge/items/it1"')[1].split("</a>")[0]
+    assert '<span class="chip">branch</span>' in one
+    for item_id in ("it2", "it4"):
+        row = html.split(f'href="/m/knowledge/items/{item_id}"')[1].split("</a>")[0]
+        assert '<span class="chip">branch</span>' not in row
+    three = html.split('href="/m/knowledge/items/it3"')[1].split("</a>")[0]
+    assert '<span class="chip">policy</span>' in three and '<span class="chip">branch</span>' in three
+    assert three.index(">policy<") < three.index(">branch<")
+
+
+def _review(**over):
+    base = _run("done", id="rv1", label="Review", agent="review", output={"text": "Looks fine; one nit in the tests."})
+    base.update(over)
+    return base
+
+
+def _render_pr_runs(jinja_env, runs, **over):
+    ctx = dict(module="dev", item=_pr(7), runs=runs, polling=False, read_only=True, comment_agent="review")
+    ctx.update(over)
+    return jinja_env.get_template("partials/platform_runs.html").render(**ctx)
+
+
+COMMENT_URL = "/api/m/dev/runs/rv1/comment"
+COMMENT_QUESTION = ("Post this review as a comment on the pull request? It goes to GitHub under your token, "
+                    "and the agent never approves or merges.")
+
+
+def test_runs_partial_offers_to_post_a_done_review_as_a_comment(jinja_env):
+    html = _render_pr_runs(jinja_env, [_review()])
+    assert "Looks fine; one nit in the tests." in html and ">Review</span>" in html
+    block = _confirm(html, COMMENT_URL)
+    assert block and COMMENT_QUESTION in block
+    assert 'method="post"' in block.split(f'action="{COMMENT_URL}"')[0].rsplit("<form", 1)[1]
+    assert "hx-post" not in block
+    assert '<button type="submit" class="btn btn-primary btn-sm">Post</button>' in block and ">Cancel</button>" in block
+    assert '<summary class="btn btn-secondary btn-sm" role="button">Post as a comment</summary>' in html
+    assert html.count('<details class="confirm">') == 1
+    assert "window.confirm" not in html and "hx-confirm" not in html
+    # it stands in for "Use this draft": the pr item is read-only, and a writable context keeps the comment form too
+    assert "Use this draft" not in html and "/apply" not in html
+    assert "Posted as a comment" not in html and "View on GitHub" not in html
+    html = _render_pr_runs(jinja_env, [_review()], read_only=False)
+    assert _confirm(html, COMMENT_URL) and "Use this draft" not in html and "/apply" not in html
+    # through the item page of a read-only pull request the included partial renders the same confirm
+    html = jinja_env.get_template("platform/item.html").render(**_dev_item_ctx(_pr(7), runs=[_review()], comment_agent="review"))
+    block = _confirm(html, COMMENT_URL)
+    assert block and COMMENT_QUESTION in block and ">Post</button>" in block
+    assert "Use this draft" not in html and ">Status<" not in html and "/items/pr7/edit" not in html
+
+
+def test_runs_partial_comment_only_for_the_comment_agent_when_done(jinja_env):
+    tpl = jinja_env.get_template("partials/platform_runs.html")
+    # another agent's done run on the same item: nothing to post (and nothing to apply, the item is read-only)
+    html = _render_pr_runs(jinja_env, [_run("done", output={"text": "A summary."})])
+    assert "Post as a comment" not in html and "/comment" not in html and "A summary." in html
+    assert "Use this draft" not in html and '<details class="confirm">' not in html
+    # comment_agent None or missing: a review run posts nothing
+    for ctx in (dict(comment_agent=None), {}):
+        base = dict(module="dev", item=_pr(7), runs=[_review()], polling=False, read_only=True)
+        base.update(ctx)
+        html = tpl.render(**base)
+        assert "Post as a comment" not in html and "/comment" not in html and "Looks fine; one nit in the tests." in html
+    # on an ordinary writable item without comment_agent the review run still offers "Use this draft"
+    html = tpl.render(module="knowledge", item=_item(), runs=[_review()], polling=False)
+    assert "Post as a comment" not in html and "Use this draft" in html and 'action="/api/m/knowledge/runs/rv1/apply"' in html
+    # a review that is not done, or done without text, posts nothing
+    for run in (_review(status="queued", position=0, output=None), _review(status="running", output=None),
+                _review(status="failed", error="model timed out", output=None),
+                _review(output={"text": ""}), _review(output=None)):
+        html = _render_pr_runs(jinja_env, [run])
+        assert "Post as a comment" not in html and "/comment" not in html and '<details class="confirm">' not in html
+
+
+def test_runs_partial_shows_a_posted_review(jinja_env):
+    posted = _review(output={"text": "Looks fine; one nit in the tests.",
+                             "comment_url": "https://github.com/wolfwdavid/synaps-optic-backend/pull/7#issuecomment-42",
+                             "commented_by": "david", "commented_at": "2026-10-31 10:05"})
+    html = _render_pr_runs(jinja_env, [posted])
+    assert '<span class="ss-meta">Posted as a comment by david</span>' in html
+    assert ('<a href="https://github.com/wolfwdavid/synaps-optic-backend/pull/7#issuecomment-42" target="_blank" '
+            'rel="noopener" class="ss-body-sm hover:underline">View on GitHub</a>') in html
+    assert html.index("Posted as a comment") < html.index("View on GitHub")
+    assert "Post as a comment" not in html and COMMENT_URL not in html and '<details class="confirm">' not in html
+    assert "Use this draft" not in html and "/apply" not in html
+    # without the poster's name the line is just "Posted as a comment"
+    posted["output"].pop("commented_by")
+    html = _render_pr_runs(jinja_env, [posted])
+    assert '<span class="ss-meta">Posted as a comment</span>' in html and " by " not in html.split("Posted as a comment")[1].split("</a>")[0]
+    # one posted and one still to post: the link for the first, the confirm for the second only
+    html = _render_pr_runs(jinja_env, [posted, _review(id="rv2")])
+    assert "View on GitHub" in html and _confirm(html, "/api/m/dev/runs/rv2/comment") and not _confirm(html, COMMENT_URL)
+    assert html.count('<details class="confirm">') == 1
 
 
 # ---- base nav -------------------------------------------------------------------------------------------

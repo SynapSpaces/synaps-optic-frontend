@@ -21,9 +21,15 @@
    "draft" and an "Open on GitHub" button to `item.external_url`); a repository (`meta.kind` `repo`) carries
    "repo" and a "Repository" card (default branch, open pull requests, private or public, the same button).
    Both cards come first on the left and render for read-only items too. Card order on the left: Pull request
-   / Repository, Brief / Person / Checklist, Page, Edit, then the runs. A due date in the past on an item not
-   yet approved or done shows as a `chip-err`. Approving, and replacing the checklist, confirm inline (base.html `.confirm`), never
-   through window.confirm. #}
+   / Repository, Brief / Person / Checklist, Page, Edit, then the runs. On the right: Status, Work, Agents.
+   "Start work" (DEV-02): `work_repos` (the workspace's "owner/name" repositories; empty or missing without a
+   GitHub connection or on a read-only item) offers a "Work" card with a select and a "Start work" form posting
+   `repo` to /start-work; once started, `work` (item.meta.work: repo, branch, base, brief_path, branch_url,
+   compare_url, started_at) shows the branch link, the brief path and an "Open a pull request" link to
+   compare_url instead, and the header gains a plain "branch" chip. The runs partial reads `comment_agent`
+   from this same context (posting a review as a pull request comment, DEV-03). A due date in the past on an
+   item not yet approved or done shows as a `chip-err`. Approving, and replacing the checklist, confirm inline
+   (base.html `.confirm`), never through window.confirm. #}
 {% block title %}{{ item.title }} · {{ mod.label }} · Synaps Optic{% endblock %}
 {% block content %}
 {% set tone = {'review': 'chip-warn', 'approved': 'chip-ok', 'done': 'chip-ok', 'failed': 'chip-err'} %}
@@ -64,6 +70,7 @@
       {% if is_person %}<span class="chip">person</span>{% endif %}
       {% if is_pr %}<span class="chip">pr</span>{% endif %}
       {% if is_repo %}<span class="chip">repo</span>{% endif %}
+      {% if work %}<span class="chip">branch</span>{% endif %}
       {% if item.due_at and today and item.due_at < today and item.status not in ('approved', 'done') %}
       <span class="chip chip-err">due {{ item.due_at }}</span>
       {% elif item.due_at %}<span class="ss-meta">due {{ item.due_at }}</span>{% endif %}
@@ -234,6 +241,28 @@
           </select>
           <button type="submit" class="btn btn-ghost btn-sm">Set</button>
         </form>
+      </div>
+      {% endif %}
+
+      {% if work or (work_repos and not read_only) %}
+      <div class="card p-4 grid gap-3">
+        <div class="ss-meta">Work</div>
+        {% if work %}
+        <div class="grid gap-1">
+          <div class="ss-meta">Branch</div>
+          <a href="{{ work.branch_url }}" target="_blank" rel="noopener" class="ss-body-sm break-words hover:underline">{{ work.branch }}</a>
+          <div class="ss-meta break-words">{{ work.brief_path }} in {{ work.repo }}, from {{ work.base }}</div>
+        </div>
+        <a href="{{ work.compare_url }}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">Open a pull request</a>
+        {% else %}
+        <form method="post" action="/api/m/{{ module }}/items/{{ item.id }}/start-work" class="grid gap-2">
+          <select name="repo" class="select select-sm" aria-label="Repository">
+            {% for repo in work_repos %}<option value="{{ repo }}">{{ repo }}</option>{% endfor %}
+          </select>
+          <button type="submit" class="btn btn-primary btn-sm">Start work</button>
+        </form>
+        <p class="ss-meta">Creates a branch and a brief file in the repo; nothing else changes.</p>
+        {% endif %}
       </div>
       {% endif %}
 

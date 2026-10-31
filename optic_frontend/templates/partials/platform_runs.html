@@ -1,8 +1,12 @@
 {# Agent runs of one module item (backend platform_routes.py), in the order the backend lists them (newest
    first). Swapped in by the agent forms on platform/item.html and, while a run is queued or running
    (`polling`), polled every 3 s. A done run's `run.output.sources` (n, module, item_id, title) lists the pages
-   it cited; `read_only` (missing = false) hides "Use this draft" on synced items. Context: module, item, runs,
-   polling, read_only. #}
+   it cited; `read_only` (missing = false) hides "Use this draft" on synced items. `comment_agent` (missing or
+   None = never; the backend sets it to the review agent's name on a pull request item, DEV-03): a done run of
+   that agent with text offers "Post as a comment" inside the inline two-step (base.html `.confirm`, never
+   window.confirm), a plain form posting to /runs/{id}/comment, in place of "Use this draft"; once posted
+   (`run.output.comment_url`, `run.output.commented_by`) it shows "Posted as a comment" with a "View on GitHub"
+   link instead. Context: module, item, runs, polling, read_only, comment_agent. #}
 {% set run_tone = {'queued': 'chip-warn', 'running': 'chip-info', 'done': 'chip-ok', 'failed': 'chip-err'} %}
 <div id="platform-runs" class="card p-4 grid gap-3"
      {% if polling %}hx-get="/partials/m/{{ module }}/items/{{ item.id }}/runs" hx-trigger="every 3s" hx-swap="outerHTML"{% endif %}>
@@ -39,7 +43,27 @@
       {% endfor %}
     </div>
     {% endif %}
-    {% if not read_only %}
+    {% if comment_agent and run.agent == comment_agent %}
+    {% if run.output.comment_url %}
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="ss-meta">Posted as a comment{% if run.output.commented_by %} by {{ run.output.commented_by }}{% endif %}</span>
+      <a href="{{ run.output.comment_url }}" target="_blank" rel="noopener" class="ss-body-sm hover:underline">View on GitHub</a>
+    </div>
+    {% else %}
+    <div class="flex items-center justify-end">
+      <details class="confirm">
+        <summary class="btn btn-secondary btn-sm" role="button">Post as a comment</summary>
+        <form method="post" action="/api/m/{{ module }}/runs/{{ run.id }}/comment" class="confirm-box card-float">
+          <p class="ss-body-sm">Post this review as a comment on the pull request? It goes to GitHub under your token, and the agent never approves or merges.</p>
+          <div class="flex justify-end gap-2">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="this.closest('details').removeAttribute('open')">Cancel</button>
+            <button type="submit" class="btn btn-primary btn-sm">Post</button>
+          </div>
+        </form>
+      </details>
+    </div>
+    {% endif %}
+    {% elif not read_only %}
     <form method="post" action="/api/m/{{ module }}/runs/{{ run.id }}/apply" class="flex flex-wrap items-center gap-3">
       <button type="submit" class="btn btn-secondary btn-sm">Use this draft</button>
       <span class="ss-meta">Replaces the body with this text and sends the item to review.</span>
