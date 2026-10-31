@@ -4,13 +4,17 @@
    is_policy, read_only, agents (list of (name, label)), is_owner, modules_nav. The runs list is
    partials/platform_runs.html, which the agent forms swap in and which polls while a run is queued or running;
    it reads `read_only` from this same context. A read-only item (synced from `item.source`, optionally linking
-   `item.external_url`) shows its body in a pre instead of the edit form and has no Status card. Approving is
-   the one irreversible step, so it confirms inline (base.html `.confirm`), never through window.confirm. #}
+   `item.external_url`) shows its body in a pre instead of the edit form and has no Status card. A brief
+   (`item.meta.kind == 'brief'`, written by the brief agent for platform/brief.html) carries a "brief" chip and
+   shows its body read-first in a "Brief" card above the edit form, which stays so the owner can correct it.
+   Approving is the one irreversible step, so it confirms inline (base.html `.confirm`), never through
+   window.confirm. #}
 {% block title %}{{ item.title }} · {{ mod.label }} · Synaps Optic{% endblock %}
 {% block content %}
 {% set tone = {'review': 'chip-warn', 'approved': 'chip-ok', 'done': 'chip-ok', 'failed': 'chip-err'} %}
 {% set status_url = '/api/m/' ~ module ~ '/items/' ~ item.id ~ '/status' %}
 {% set next_labels = {'draft': 'Start drafting', 'review': 'Submit for review', 'approved': 'Approve', 'done': 'Mark done'} %}
+{% set is_brief = item.meta and item.meta.kind == 'brief' %}
 
 {# A two-step status button: the summary is the button, opening it shows the question with Cancel / confirm.
    The form only posts from the confirm button, so a stray click never changes the status. #}
@@ -37,6 +41,7 @@
       {% if attention == 'needs_you' %}<span class="chip chip-warn">Needs you</span>
       {% elif attention == 'ai_done' %}<span class="chip chip-info">AI done</span>{% endif %}
       {% if is_policy %}<span class="chip">policy</span>{% endif %}
+      {% if is_brief %}<span class="chip">brief</span>{% endif %}
       <span class="ss-meta">updated {{ item.updated_at }}</span>
     </div>
   </div>
@@ -51,6 +56,12 @@
           {% if item.external_url %}<a href="{{ item.external_url }}" target="_blank" rel="noopener" class="hover:underline">Open the source</a>{% endif %}</p>
       </div>
       {% else %}
+      {% if is_brief %}
+      <div class="card p-4 grid gap-3">
+        <div class="ss-body-strong">Brief</div>
+        <pre class="whitespace-pre-wrap rounded-widget bg-surface-field p-3 font-mono text-xs text-fg-1">{{ item.body or '' }}</pre>
+      </div>
+      {% endif %}
       <form method="post" action="/api/m/{{ module }}/items/{{ item.id }}/edit" class="card p-4 grid gap-3">
         <div class="ss-body-strong">Edit</div>
         <input name="title" required value="{{ item.title }}" class="input" autocomplete="off">

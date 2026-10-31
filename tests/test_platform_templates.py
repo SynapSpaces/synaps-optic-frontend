@@ -1,7 +1,8 @@
 """The platform module pages (platform/module.html, platform/item.html, platform/ask.html,
-platform/approvals.html) and the partials (partials/platform_runs.html, partials/platform_ask_runs.html) pin
-the contract the backend's platform_routes.py relies on: the forms and their actions, the chips, the polling
-attribute, the inline approve confirm, the cited-sources list and the read-only shape of synced items.
+platform/approvals.html, platform/brief.html) and the partials (partials/platform_runs.html,
+partials/platform_ask_runs.html) pin the contract the backend's platform_routes.py relies on: the forms and
+their actions, the chips, the polling attributes, the inline approve confirm, the cited-sources list, the
+read-only shape of synced items and the brief read view.
 Rendered with minimal fake contexts through the same Jinja2 setup the backend uses (tests/conftest.py).
 
 Context keys the templates read:
@@ -12,6 +13,7 @@ Context keys the templates read:
     ask page:      request, module, mod, runs, polling, is_owner, modules_nav
     ask partial:   module, runs, polling
     approvals:     request, items, show, is_owner, modules_nav
+    brief page:    request, briefs, latest, polling, is_owner, modules_nav
 """
 import pytest
 
@@ -219,6 +221,29 @@ def test_item_page_read_only_synced_item(jinja_env):
     assert "/items/it1/edit" in html and ">Status<" in html and "Synced from" not in html
 
 
+def test_item_page_brief_shows_chip_and_read_view_above_the_edit_form(jinja_env):
+    tpl = jinja_env.get_template("platform/item.html")
+    item = _item(title="Brief 2026-10-31", body="Finished: 3 renders.\nWaits on you: 1 approval.",
+                 status="draft", attention="ai_done", meta={"kind": "brief", "date": "2026-10-31"})
+    html = tpl.render(**_item_ctx(item=item, next_status="review"))
+    header = html.split("</h1>")[1].split("md:grid-cols")[0]
+    assert '<span class="chip">brief</span>' in header and '<span class="chip">policy</span>' not in header
+    # the read view comes first, then the edit form still follows with the same body
+    body = html.split("md:grid-cols")[1]
+    heading = '<div class="ss-body-strong">Brief</div>'
+    assert heading in body
+    read = body.split(heading)[1].split("</div>")[0]
+    assert '<pre class="whitespace-pre-wrap' in read and "Finished: 3 renders." in read
+    assert body.index(heading) < body.index('action="/api/m/knowledge/items/it1/edit"')
+    edit = html.split('action="/api/m/knowledge/items/it1/edit"')[1].split("</form>")[0]
+    assert 'name="title" required value="Brief 2026-10-31"' in edit and "Waits on you: 1 approval." in edit
+    assert ">Status<" in html and ">Agents<" in html
+    # an ordinary item, and a policy item, have neither the chip nor the read view
+    for ctx in (_item_ctx(), _item_ctx(item=_item(meta={"kind": "policy"}), is_policy=True)):
+        html = tpl.render(**ctx)
+        assert '<span class="chip">brief</span>' not in html and heading not in html
+
+
 # ---- runs partial ---------------------------------------------------------------------------------------
 
 @pytest.fixture
@@ -387,9 +412,98 @@ def test_approvals_rows_link_to_items(jinja_env):
     assert "Marketing" in second and "Launch post" in second and "AI done" in second and "Needs you" not in second
 
 
+# ---- owner brief ----------------------------------------------------------------------------------------
+
+def _brief(n=1, **over):
+    date = f"2026-10-{31 - n + 1:02d}"
+    base = {"id": f"br{n}", "title": f"Brief {date}", "status": "draft",
+            "body": f"Finished: {n} renders.\nWaits on you: 1 approval.\nNext: a cat short.",
+            "meta": {"kind": "brief", "date": date}, "updated_at": f"{date} 07:00"}
+    base.update(over)
+    return base
+
+
+def _brief_ctx(briefs, polling=False, **over):
+    ctx = dict(request=_Req("/brief"), briefs=briefs, latest=briefs[0] if briefs else None, polling=polling,
+               is_owner=True, modules_nav=MODULES_NAV)
+    ctx.update(over)
+    return ctx
+
+
+def test_brief_page_empty_state(jinja_env):
+    html = jinja_env.get_template("platform/brief.html").render(**_brief_ctx([]))
+    assert "Platform · brief" in html and "Owner brief" in html
+    assert "Every day the brief agent reads what finished, what waits on you and the money records, then suggests what to make next." in html
+    form = html.split('action="/api/brief"')[1].split("</form>")[0]
+    assert '<button type="submit" class="btn btn-primary btn-sm">Make today\'s brief now</button>' in form
+    assert "No brief yet. The first one arrives at the scheduled hour, or press the button." in html
+    assert "<pre" not in html and "Earlier briefs" not in html and "/m/knowledge/items/" not in html
+    assert "hx-get" not in html and "window.confirm" not in html and "hx-confirm" not in html
+
+
+def test_brief_page_shows_the_latest_brief(jinja_env):
+    html = jinja_env.get_template("platform/brief.html").render(**_brief_ctx([_brief()]))
+    assert "No brief yet." not in html
+    card = html.split('action="/api/brief"')[1].split("</form>")[1].split("</pre>")[0]
+    assert '<span class="ss-body-strong truncate">Brief 2026-10-31</span>' in card
+    assert '<span class="chip ">draft</span>' in card
+    assert '<a href="/m/knowledge/items/br1" class="ss-meta ml-auto hover:underline">Open</a>' in card
+    assert '<pre class="whitespace-pre-wrap rounded-widget bg-surface-field p-3 font-mono text-xs text-fg-1">' in card
+    assert "Finished: 1 renders.\nWaits on you: 1 approval.\nNext: a cat short." in card
+    assert "being written" not in html and 'class="dot dot-info pulse-dot"' not in html
+    # not polling: the section carries no htmx attributes; one brief means no earlier list
+    section = html.split("<section")[1].split(">")[0]
+    assert "hx-get" not in section and "hx-trigger" not in section
+    assert "Earlier briefs" not in html
+    # status tone follows the shared map
+    html = jinja_env.get_template("platform/brief.html").render(**_brief_ctx([_brief(status="review")]))
+    assert '<span class="chip chip-warn">review</span>' in html
+
+
+def test_brief_page_polls_while_the_brief_is_being_written(jinja_env):
+    tpl = jinja_env.get_template("platform/brief.html")
+    html = tpl.render(**_brief_ctx([_brief(body="")], polling=True))
+    section = html.split("<section")[1].split(">")[0]
+    assert 'hx-get="/brief"' in section and 'hx-trigger="every 5s"' in section
+    assert 'hx-select="section"' in section and 'hx-swap="outerHTML"' in section
+    assert '<span class="chip chip-info"><span class="dot dot-info pulse-dot"></span>being written</span>' in html
+    assert "<pre" not in html and 'href="/m/knowledge/items/br1"' in html
+    # the body arrived but the backend still says polling: the text shows and the section keeps refreshing
+    html = tpl.render(**_brief_ctx([_brief()], polling=True))
+    assert 'hx-get="/brief"' in html and "being written" not in html and "Finished: 1 renders." in html
+
+
+def test_brief_page_lists_earlier_briefs(jinja_env):
+    briefs = [_brief(1), _brief(2), _brief(3)]
+    html = jinja_env.get_template("platform/brief.html").render(**_brief_ctx(briefs))
+    assert "Earlier briefs" in html
+    earlier = html.split("Earlier briefs")[1]
+    assert 'href="/m/knowledge/items/br1"' not in earlier
+    for n, date in ((2, "2026-10-30"), (3, "2026-10-29")):
+        row = earlier.split(f'href="/m/knowledge/items/br{n}"')[1].split("</a>")[0]
+        assert f"Brief {date}" in row and f'<span class="ss-meta ml-auto">{date} 07:00</span>' in row
+    # only the latest body is on the page
+    assert html.count("<pre") == 1 and "Finished: 1 renders." in html and "Finished: 2 renders." not in html
+
+
 # ---- base nav -------------------------------------------------------------------------------------------
 
 def test_nav_renders_without_modules_nav(jinja_env):
     """`modules_nav` is a backend Jinja global; every page must still render when it is undefined."""
     html = jinja_env.get_template("projects.html").render(projects=[], fmt=str, request=_Req("/projects"), is_owner=True)
-    assert 'href="/approvals"' in html and "/m/" not in html
+    assert 'href="/approvals"' in html and 'href="/brief"' in html and "/m/" not in html
+
+
+def test_nav_has_the_brief_link_after_approvals(jinja_env):
+    html = jinja_env.get_template("platform/brief.html").render(**_brief_ctx([]))
+    assert '<a href="/brief" class="nav-link active">Brief</a>' in html
+    assert '<a href="/approvals" class="nav-link ">Approvals</a>' in html
+    assert '<a href="/m/knowledge" class="nav-link ">Knowledge</a>' in html
+    assert html.index('href="/approvals"') < html.index('href="/brief"') < html.index('href="/recast"')
+    # module pages still render, with Brief present but idle and the module active
+    html = jinja_env.get_template("platform/module.html").render(**_module_ctx())
+    assert '<a href="/brief" class="nav-link ">Brief</a>' in html
+    assert '<a href="/m/knowledge" class="nav-link active">Knowledge</a>' in html
+    html = jinja_env.get_template("platform/approvals.html").render(
+        request=_Req("/approvals"), items=[], show="needs_you", is_owner=True, modules_nav=MODULES_NAV)
+    assert '<a href="/brief" class="nav-link ">Brief</a>' in html and '<a href="/approvals" class="nav-link active">Approvals</a>' in html

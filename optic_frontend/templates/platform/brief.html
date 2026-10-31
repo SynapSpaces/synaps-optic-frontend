@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{# The daily owner brief (backend platform_routes.py): the newest brief in full, a button to make one now and
+   the earlier briefs as links. Context: request, briefs (knowledge items with meta.kind == "brief", newest
+   first: id, title, status, body, meta (date, kind), updated_at), latest (the newest brief or None), polling
+   (true while the latest brief is still being written: its body is empty and the whole section re-fetches
+   /brief every 5 s until the text arrives), is_owner, modules_nav. Each brief is an ordinary knowledge item,
+   so "Open" and the earlier-briefs links lead to platform/item.html. Shapes shared with module.html are in
+   docs/DESIGN.md section 8. #}
+{% block title %}Owner brief · Synaps Optic{% endblock %}
+{% block content %}
+{% set tone = {'review': 'chip-warn', 'approved': 'chip-ok', 'done': 'chip-ok', 'failed': 'chip-err'} %}
+<section class="grid gap-8"{% if polling %} hx-get="/brief" hx-trigger="every 5s" hx-select="section" hx-swap="outerHTML"{% endif %}>
+  <div class="flex flex-wrap items-start gap-4">
+    <div class="min-w-0 flex-1">
+      <div class="ss-meta">Platform · brief</div>
+      <h1 class="ss-h2">Owner brief</h1>
+      <p class="mt-2 ss-body">Every day the brief agent reads what finished, what waits on you and the money records, then suggests what to make next.</p>
+    </div>
+    <form method="post" action="/api/brief">
+      <button type="submit" class="btn btn-primary btn-sm">Make today's brief now</button>
+    </form>
+  </div>
+
+  {% if latest %}
+  <div class="card p-4 grid gap-3">
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="ss-body-strong truncate">{{ latest.title }}</span>
+      <span class="chip {{ tone.get(latest.status, '') }}">{{ latest.status }}</span>
+      {% if not latest.body %}<span class="chip chip-info"><span class="dot dot-info pulse-dot"></span>being written</span>{% endif %}
+      <a href="/m/knowledge/items/{{ latest.id }}" class="ss-meta ml-auto hover:underline">Open</a>
+    </div>
+    {% if latest.body %}
+    <pre class="whitespace-pre-wrap rounded-widget bg-surface-field p-3 font-mono text-xs text-fg-1">{{ latest.body }}</pre>
+    {% else %}
+    <p class="ss-meta">The brief agent is writing this one; the text appears here as soon as it is done.</p>
+    {% endif %}
+  </div>
+
+  {% if briefs|length > 1 %}
+  <div class="grid gap-2">
+    <div class="ss-meta">Earlier briefs</div>
+    {% for b in briefs if b.id != latest.id %}
+    <a href="/m/knowledge/items/{{ b.id }}" class="card p-4 flex flex-wrap items-center gap-2 transition hover:bg-gray-100">
+      <span class="ss-body-strong truncate">{{ b.title }}</span>
+      <span class="ss-meta ml-auto">{{ b.updated_at }}</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% else %}
+  <div class="card p-12 text-center">
+    <p class="ss-body">No brief yet. The first one arrives at the scheduled hour, or press the button.</p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}
