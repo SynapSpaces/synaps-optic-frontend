@@ -1,0 +1,40 @@
+{# Agent runs of one module item (backend platform_routes.py), in the order the backend lists them (newest
+   first). Swapped in by the agent forms on platform/item.html and, while a run is queued or running
+   (`polling`), polled every 3 s. Context: module, item, runs, polling. #}
+{% set run_tone = {'queued': 'chip-warn', 'running': 'chip-info', 'done': 'chip-ok', 'failed': 'chip-err'} %}
+<div id="platform-runs" class="card p-4 grid gap-3"
+     {% if polling %}hx-get="/partials/m/{{ module }}/items/{{ item.id }}/runs" hx-trigger="every 3s" hx-swap="outerHTML"{% endif %}>
+  <div class="flex items-center gap-2">
+    <div class="ss-body-strong">Runs</div>
+    {% if polling %}<span class="chip chip-info"><span class="dot dot-info pulse-dot"></span>working</span>{% endif %}
+  </div>
+  {% if not runs %}
+  <p class="ss-meta">No runs yet.</p>
+  {% else %}
+  {% for run in runs %}
+  <div class="rule pt-3 grid gap-2">
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="ss-body-strong">{{ run.label or run.agent }}</span>
+      <span class="chip {{ run_tone.get(run.status, '') }}">
+        {%- if run.status in ('queued', 'running') %}<span class="dot dot-info pulse-dot"></span>{% endif -%}
+        {%- if run.status == 'queued' and run.position is not none %}queued, {{ run.position }} ahead{% else %}{{ run.status }}{% endif -%}
+      </span>
+      {% if run.model %}<span class="ss-meta">{{ run.model }}</span>{% endif %}
+      {% if run.tokens_in or run.tokens_out %}<span class="ss-numeral">{{ (run.tokens_in or 0) + (run.tokens_out or 0) }} tokens</span>{% endif %}
+      {% if run.seconds is not none %}<span class="ss-numeral">{{ '%.1f'|format(run.seconds) }} s</span>{% endif %}
+      <span class="ss-meta ml-auto">{{ run.created_at }}</span>
+    </div>
+    {% if run.status == 'failed' and run.error %}
+    <div class="rounded-input status-err px-3 py-2 text-xs">{{ run.error }}</div>
+    {% endif %}
+    {% if run.status == 'done' and run.output and run.output.text %}
+    <pre class="whitespace-pre-wrap rounded-widget bg-surface-field p-3 font-mono text-xs text-fg-1">{{ run.output.text }}</pre>
+    <form method="post" action="/api/m/{{ module }}/runs/{{ run.id }}/apply" class="flex flex-wrap items-center gap-3">
+      <button type="submit" class="btn btn-secondary btn-sm">Use this draft</button>
+      <span class="ss-meta">Replaces the body with this text and sends the item to review.</span>
+    </form>
+    {% endif %}
+  </div>
+  {% endfor %}
+  {% endif %}
+</div>

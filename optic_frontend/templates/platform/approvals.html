@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{# Everything across the modules that waits on a member (backend platform_routes.py).
+   Context: request, items (id, module, module_label, title, status, attention, latest_run, updated_at),
+   show ("needs_you" | "ai_done" | "all"), is_owner, modules_nav. #}
+{% block title %}Approvals · Synaps Optic{% endblock %}
+{% block content %}
+{% set tone = {'review': 'chip-warn', 'approved': 'chip-ok', 'done': 'chip-ok', 'failed': 'chip-err'} %}
+<section class="grid gap-6">
+  <div class="min-w-0">
+    <div class="ss-meta">Platform</div>
+    <h1 class="ss-h2">Approvals</h1>
+    <p class="mt-2 ss-body">Items that need a member's decision, and drafts the agents have finished.</p>
+  </div>
+
+  <div class="flex flex-wrap items-center gap-1">
+    <a href="/approvals?show=needs_you" class="nav-link {% if show == 'needs_you' %}active{% endif %}">Needs you</a>
+    <a href="/approvals?show=ai_done" class="nav-link {% if show == 'ai_done' %}active{% endif %}">AI done</a>
+    <a href="/approvals?show=all" class="nav-link {% if show == 'all' %}active{% endif %}">All</a>
+  </div>
+
+  {% if not items %}
+  <div class="card p-12 text-center">
+    <p class="ss-body">Nothing waits on you.</p>
+  </div>
+  {% else %}
+  <div class="grid gap-2">
+    {% for item in items %}
+    <a href="/m/{{ item.module }}/items/{{ item.id }}" class="card p-4 grid gap-2 transition hover:bg-gray-100">
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="ss-meta">{{ item.module_label }}</span>
+        <span class="ss-body-strong truncate">{{ item.title }}</span>
+        <span class="chip {{ tone.get(item.status, '') }}">{{ item.status }}</span>
+        {% if item.attention == 'needs_you' %}<span class="chip chip-warn">Needs you</span>
+        {% elif item.attention == 'ai_done' %}<span class="chip chip-info">AI done</span>{% endif %}
+        <span class="ss-meta ml-auto">{{ item.updated_at }}</span>
+      </div>
+      {% if item.latest_run %}
+      <div class="ss-meta">{{ item.latest_run.agent }} · {{ item.latest_run.status }}</div>
+      {% endif %}
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

@@ -287,6 +287,12 @@
             {{ brand.wordmark() }}
             <ul class="flex items-center gap-1">
                 <li><a href="/projects" class="nav-link {% if request.url.path.startswith('/projects') %}active{% endif %}">Projects</a></li>
+                {# Platform modules (backend platform_routes.py): `modules_nav` is a Jinja global there; the
+                   `or []` keeps every page rendering where it is not set (tests, other hosts). #}
+                {% for slug, label in (modules_nav or []) %}
+                <li><a href="/m/{{ slug }}" class="nav-link {% if request.url.path.startswith('/m/' ~ slug) %}active{% endif %}">{{ label }}</a></li>
+                {% endfor %}
+                <li><a href="/approvals" class="nav-link {% if request.url.path.startswith('/approvals') %}active{% endif %}">Approvals</a></li>
                 <li><a href="/recast" class="nav-link {% if request.url.path.startswith('/recast') %}active{% endif %}">Recast</a></li>
                 {% if is_owner %}
                 <li><a href="/admin/invites" class="nav-link {% if request.url.path.startswith('/admin') %}active{% endif %}">Invites</a></li>

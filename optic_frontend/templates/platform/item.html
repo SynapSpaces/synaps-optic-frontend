@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{# One module item (backend platform_routes.py): edit it, move its status, hand it to an agent, read the runs.
+   Context: request, module, mod, item, runs, polling, latest, statuses, next_status (or None), attention,
+   is_policy, agents (list of (name, label)), is_owner, modules_nav. The runs list is partials/platform_runs.html,
+   which the agent forms swap in and which polls while a run is queued or running. Approving is the one
+   irreversible step, so it confirms inline (base.html `.confirm`), never through window.confirm. #}
+{% block title %}{{ item.title }} · {{ mod.label }} · Synaps Optic{% endblock %}
+{% block content %}
+{% set tone = {'review': 'chip-warn', 'approved': 'chip-ok', 'done': 'chip-ok', 'failed': 'chip-err'} %}
+{% set status_url = '/api/m/' ~ module ~ '/items/' ~ item.id ~ '/status' %}
+{% set next_labels = {'draft': 'Start drafting', 'review': 'Submit for review', 'approved': 'Approve', 'done': 'Mark done'} %}
+
+{# A two-step status button: the summary is the button, opening it shows the question with Cancel / confirm.
+   The form only posts from the confirm button, so a stray click never changes the status. #}
+{% macro confirm_status(url, status, label, question, yes, cls='btn-primary btn-sm') -%}
+<details class="confirm">
+  <summary class="btn {{ cls }}" role="button">{{ label }}</summary>
+  <form method="post" action="{{ url }}" class="confirm-box card-float">
+    <input type="hidden" name="status" value="{{ status }}">
+    <p class="ss-body-sm">{{ question }}</p>
+    <div class="flex justify-end gap-2">
+      <button type="button" class="btn btn-ghost btn-sm" onclick="this.closest('details').removeAttribute('open')">Cancel</button>
+      <button type="submit" class="btn btn-primary btn-sm">{{ yes }}</button>
+    </div>
+  </form>
+</details>
+{%- endmacro %}
+
+<section class="grid gap-6">
+  <div class="min-w-0 grid gap-2">
+    <a href="/m/{{ module }}" class="ss-meta hover:underline">&lsaquo; {{ mod.label }}</a>
+    <h1 class="ss-h2 truncate">{{ item.title }}</h1>
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="chip {{ tone.get(item.status, '') }}">{{ item.status }}</span>
+      {% if attention == 'needs_you' %}<span class="chip chip-warn">Needs you</span>
+      {% elif attention == 'ai_done' %}<span class="chip chip-info">AI done</span>{% endif %}
+      {% if is_policy %}<span class="chip">policy</span>{% endif %}
+      <span class="ss-meta">updated {{ item.updated_at }}</span>
+    </div>
+  </div>
+
+  <div class="grid gap-4 md:grid-cols-[1fr_300px]">
+    <div class="grid gap-4">
+      <form method="post" action="/api/m/{{ module }}/items/{{ item.id }}/edit" class="card p-4 grid gap-3">
+        <div class="ss-body-strong">Edit</div>
+        <input name="title" required value="{{ item.title }}" class="input" autocomplete="off">
+        <textarea name="body" rows="16" class="textarea font-mono text-xs" spellcheck="false">{{ item.body or '' }}</textarea>
+        <div class="flex items-center justify-end">
+          <button type="submit" class="btn btn-secondary btn-sm">Save</button>
+        </div>
+      </form>
+
+      {% include "partials/platform_runs.html" %}
+    </div>
+
+    <div class="grid gap-4 content-start">
+      <div class="card p-4 grid gap-3">
+        <div class="ss-meta">Status</div>
+        {% if item.status == 'approved' %}
+        <p class="ss-body-sm">Approved by {{ item.meta.approved_by }} at {{ item.meta.approved_at }}</p>
+        {% endif %}
+        {% if next_status == 'approved' %}
+        {{ confirm_status(status_url, 'approved', 'Approve',
+                          'Approve this item? Only a member can do this; agents never approve.', 'Approve', cls='btn-primary w-full') }}
+        {% elif next_status %}
+        <form method="post" action="{{ status_url }}">
+          <input type="hidden" name="status" value="{{ next_status }}">
+          <button type="submit" class="btn btn-primary w-full">{{ next_labels.get(next_status, next_status) }}</button>
+        </form>
+        {% endif %}
+        <form method="post" action="{{ status_url }}" class="flex items-center gap-2">
+          <select name="status" class="select select-sm" aria-label="Set status">
+            {% for s in statuses %}<option value="{{ s }}"{% if s == item.status %} selected{% endif %}>{{ s }}</option>{% endfor %}
+          </select>
+          <button type="submit" class="btn btn-ghost btn-sm">Set</button>
+        </form>
+      </div>
+
+      <div class="card p-4 grid gap-3">
+        <div class="ss-meta">Agents</div>
+        {% if not agents %}<p class="ss-body-sm">No agents for this module.</p>{% endif %}
+        {% for name, label in agents %}
+        <form hx-post="/api/m/{{ module }}/items/{{ item.id }}/agents/{{ name }}" hx-target="#platform-runs" hx-swap="outerHTML" class="grid gap-2">
+          <input name="prompt" placeholder="Extra instructions" class="input input-sm" autocomplete="off">
+          <button type="submit" class="btn btn-secondary btn-sm">{{ label }}</button>
+        </form>
+        {% endfor %}
+        <p class="ss-meta">An agent writes its draft into a run; nothing changes until you use it.</p>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

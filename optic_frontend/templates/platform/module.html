@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{# One platform module (backend platform_routes.py): its items, a filter row and the new-item form.
+   Context: request, module (slug), mod (label, blurb, statuses, agents), items, status (current filter or ""),
+   needs ("", "you", "ai"), statuses, is_owner, modules_nav. Shapes shared with item.html and approvals.html
+   are in docs/DESIGN.md section 8. #}
+{% block title %}{{ mod.label }} · Synaps Optic{% endblock %}
+{% block content %}
+{% set tone = {'review': 'chip-warn', 'approved': 'chip-ok', 'done': 'chip-ok', 'failed': 'chip-err'} %}
+<section class="grid gap-8">
+  <div class="min-w-0">
+    <div class="ss-meta">Platform · {{ module }}</div>
+    <h1 class="ss-h2">{{ mod.label }}</h1>
+    {% if mod.blurb %}<p class="mt-2 ss-body">{{ mod.blurb }}</p>{% endif %}
+  </div>
+
+  <form method="post" action="/api/m/{{ module }}/items" class="card p-4 grid gap-3">
+    <div class="ss-body-strong">New item</div>
+    <input name="title" required placeholder="Title" class="input" autocomplete="off">
+    <textarea name="body" rows="4" placeholder="Body (optional; an agent can draft it)" class="textarea"></textarea>
+    <div class="flex flex-wrap items-center gap-3">
+      {% if module == 'knowledge' %}
+      <label class="flex items-center gap-2 ss-body-sm">
+        <input type="checkbox" name="kind" value="policy"> Policy page (rules every agent reads first)
+      </label>
+      {% endif %}
+      <button type="submit" class="ml-auto btn btn-primary btn-sm">Create</button>
+    </div>
+  </form>
+
+  <div class="grid gap-4">
+    <div class="flex flex-wrap items-center gap-1">
+      <a href="/m/{{ module }}" class="nav-link {% if not status and not needs %}active{% endif %}">All</a>
+      {% for s in statuses %}
+      <a href="/m/{{ module }}?status={{ s }}" class="nav-link {% if status == s %}active{% endif %}">{{ s }}</a>
+      {% endfor %}
+      <a href="/m/{{ module }}?needs=you" class="nav-link {% if needs == 'you' %}active{% endif %}">Needs you</a>
+      <a href="/m/{{ module }}?needs=ai" class="nav-link {% if needs == 'ai' %}active{% endif %}">AI done</a>
+    </div>
+
+    {% if not items %}
+    <div class="card p-12 text-center">
+      <p class="ss-body">{% if status or needs %}Nothing matches this filter.{% else %}No items yet. Create one above and hand it to an agent.{% endif %}</p>
+    </div>
+    {% else %}
+    <div class="grid gap-2">
+      {% for item in items %}
+      <a href="/m/{{ module }}/items/{{ item.id }}" class="card p-4 grid gap-2 transition hover:bg-gray-100">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="ss-body-strong truncate">{{ item.title }}</span>
+          <span class="chip {{ tone.get(item.status, '') }}">{{ item.status }}</span>
+          {% if item.attention == 'needs_you' %}<span class="chip chip-warn">Needs you</span>
+          {% elif item.attention == 'ai_done' %}<span class="chip chip-info">AI done</span>{% endif %}
+          {% if item.meta and item.meta.kind == 'policy' %}<span class="chip">policy</span>{% endif %}
+          <span class="ss-meta ml-auto">{{ item.updated_at }}</span>
+        </div>
+        {% if item.latest_run %}
+        {% set agent = mod.agents.get(item.latest_run.agent) if mod.agents else none %}
+        <div class="ss-meta">{{ agent.label if agent else item.latest_run.agent }} · {{ item.latest_run.status }}</div>
+        {% endif %}
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

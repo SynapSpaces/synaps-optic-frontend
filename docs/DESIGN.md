@@ -133,3 +133,19 @@ Each component's props are in its `.d.ts`; each `.prompt.md` has a usage example
 ## 7. App shell (installable web app, 2026-10-30)
 
 The site installs to a phone's home screen as a standalone app: `static/app/manifest.webmanifest` (name Synaps Optic, short name Optic, standalone, start at /projects, icons 192/512 + maskable 512 rendered from the three-node mark, `apple-touch-icon.png` 180), the iOS home-screen metas and the manifest link in `base.html`, and a service worker at `static/app/sw.js` that the backend serves at `/sw.js` with `Service-Worker-Allowed: /`. The worker caches the design system and shell cache-first (versioned by its VERSION constant: bump it with any change to those files), serves pages and htmx partials network-first, shows `static/app/offline.html` on a failed navigation, and never touches non-GET requests, /api, /auth, /admin or the music library. Install: iPhone = Safari share sheet, Add to Home Screen; Android = Chrome's install prompt. Native wrappers (Capacitor) are the backend plan's MOB-02/03.
+
+## 8. Platform module pages (2026-10-31)
+
+The platform modules (`/m/<slug>`, `/m/<slug>/items/<id>`, `/approvals`; backend `platform_routes.py`) share three page shapes in `templates/platform/` plus `partials/platform_runs.html`. The nav in `base.html` lists every module from the `modules_nav` global, then Approvals.
+
+- **Module page**: eyebrow, `ss-h2` label and blurb; the new-item card (title, body, and for `knowledge` the "Policy page" checkbox); a filter row of `nav-link` pills (All · each status · Needs you · AI done, the current one `.active`); then one flat card per item linking to the item page.
+- **Item page**: back link, title and chip row; a two-column body (edit form and runs on the left, status and agents cards on the right). The main status button moves the item to `next_status`; approving is wrapped in the inline `.confirm` two-step, never `window.confirm`. Agent forms `hx-post` and swap `#platform-runs`, which polls every 3 s while a run is queued or running; a done run offers "Use this draft".
+- **Approvals page**: the same filter row and item rows across every module, with the module label as an eyebrow in each row. Empty state "Nothing waits on you."
+
+Chips on these pages are the app status pills from `base.html`, never coloured text:
+
+| Chip | Class | Meaning |
+|---|---|---|
+| status | `chip` (draft) · `chip-warn` (review) · `chip-ok` (approved, done) · `chip-err` (failed) | the item's or run's lifecycle state; a queued run reads "queued, N ahead" |
+| attention | `chip-warn` "Needs you" · `chip-info` "AI done" | what waits on a member vs what an agent just finished |
+| policy | plain `chip` "policy" | a knowledge item whose `meta.kind` is `policy`: rules every agent reads first |
