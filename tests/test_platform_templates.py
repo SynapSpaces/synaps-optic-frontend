@@ -3,7 +3,8 @@ platform/people.html, platform/ledger.html, platform/ask.html, platform/approval
 and the partials (partials/platform_runs.html, partials/platform_ask_runs.html) pin the contract the backend's
 platform_routes.py relies on: the forms and their actions, the chips, the polling attributes, the inline
 confirms (approve, replace the checklist), the cited-sources list, the read-only shape of synced items, the
-brief read view, the board columns, the people rows and the ledger tables.
+brief read view, the rendered markdown page, the brief mentions, the board columns, the people rows and the
+ledger tables.
 Rendered with minimal fake contexts through the same Jinja2 setup the backend uses (tests/conftest.py).
 
 Context keys the templates read:
@@ -11,7 +12,7 @@ Context keys the templates read:
                    is_owner, modules_nav; each item: attention, latest_run, read_only, meta.kind, due_at
     item page:     request, module, mod, item (due_at, assignee_user_id, meta), runs, polling, latest, statuses,
                    next_status, attention, is_policy, is_person, checklist, members, owner_name, assignee_name,
-                   today, read_only, agents, is_owner, modules_nav
+                   today, read_only, agents, body_html (missing or "" = no Page card), is_owner, modules_nav
     board page:    request, module, mod, pages, columns ([{status, items}]; each item: attention, assignee_name,
                    owner_name, overdue, next_status, read_only, due_at, source), today, is_owner, modules_nav
     people page:   request, module, mod, pages, people (role, start_date, done, total), is_owner, modules_nav
@@ -21,7 +22,8 @@ Context keys the templates read:
     ask page:      request, module, mod, runs, polling, is_owner, modules_nav
     ask partial:   module, runs, polling
     approvals:     request, items, show, is_owner, modules_nav
-    brief page:    request, briefs, latest, polling, is_owner, modules_nav
+    brief page:    request, briefs, latest, polling, mentions (missing or [] = no "Mentioned" block;
+                   each {module, module_label, id, title, why}), is_owner, modules_nav
 """
 import pytest
 
@@ -406,6 +408,67 @@ def test_item_page_brief_shows_chip_and_read_view_above_the_edit_form(jinja_env)
         assert '<span class="chip">brief</span>' not in html and heading not in html
 
 
+PAGE_HTML = ('<h2>Refunds</h2>\n<p>Within <strong>30 days</strong> &amp; with a receipt.</p>\n'
+             '<ul>\n<li>Cash</li>\n<li>Store credit</li>\n</ul>\n<pre><code>POST /refunds</code></pre>')
+PAGE_MD = "## Refunds\n\nWithin **30 days** & with a receipt.\n\n- Cash\n- Store credit\n\n```\nPOST /refunds\n```"
+PAGE_HEADING = '<div class="ss-body-strong">Page</div>'
+
+
+def test_item_page_body_html_shows_the_page_card_above_the_edit_form(jinja_env):
+    tpl = jinja_env.get_template("platform/item.html")
+    html = tpl.render(**_item_ctx(item=_item(body=PAGE_MD), body_html=PAGE_HTML))
+    # the backend's HTML is printed as is (not escaped), once, inside the .md block of the Page card
+    assert html.count(PAGE_HEADING) == 1 and html.count('<div class="md">') == 1
+    assert f'<div class="md">{PAGE_HTML}</div>' in html and "&lt;h2&gt;" not in html
+    card = html.split(PAGE_HEADING)[1].split("</form>")[0]
+    assert '<div class="md">' in card.split('action="/api/m/knowledge/items/it1/edit"')[0]
+    # the edit form still follows, with the markdown source in the textarea, and the right column is unchanged
+    assert html.index(PAGE_HEADING) < html.index('action="/api/m/knowledge/items/it1/edit"')
+    edit = html.split('action="/api/m/knowledge/items/it1/edit"')[1].split("</form>")[0]
+    assert 'name="title" required value="Refund policy"' in edit and "## Refunds" in edit and "&amp; with a receipt" in edit
+    assert ">Status<" in html and ">Agents<" in html and 'id="platform-runs"' in html
+    assert "Synced from" not in html and '<pre class="whitespace-pre-wrap' not in html
+    # order on the left: Brief / Checklist, then Page, then Edit, then the runs
+    brief = _item(body=PAGE_MD, status="draft", meta={"kind": "brief", "date": "2026-10-31", "checklist": [{"text": "Ship", "done": False}]})
+    html = tpl.render(**_item_ctx(item=brief, next_status="review", body_html=PAGE_HTML,
+                                  checklist=[{"text": "Ship", "done": False}]))
+    marks = ['<div class="ss-body-strong">Brief</div>', '<div class="ss-body-strong">Checklist</div>', PAGE_HEADING,
+             'action="/api/m/knowledge/items/it1/edit"', 'id="platform-runs"']
+    positions = [html.index(m) for m in marks]
+    assert positions == sorted(positions), marks
+
+
+def test_item_page_read_only_item_with_body_html_shows_the_page_instead_of_the_pre(jinja_env):
+    tpl = jinja_env.get_template("platform/item.html")
+    item = _item(source="repo", body=PAGE_MD, external_url="https://github.com/example/wiki/blob/main/refunds.md")
+    html = tpl.render(**_item_ctx(item=item, read_only=True, body_html=PAGE_HTML))
+    assert f'<div class="md">{PAGE_HTML}</div>' in html and html.count(PAGE_HEADING) == 1
+    assert '<pre class="whitespace-pre-wrap' not in html and ">Body<" not in html and "## Refunds" not in html
+    # the synced note and the source link stay, under the rendered page, in the same card
+    card = html.split(PAGE_HEADING)[1].split('id="platform-runs"')[0]
+    assert "Synced from repo; read-only on this site." in card
+    assert ('<a href="https://github.com/example/wiki/blob/main/refunds.md" target="_blank" rel="noopener" '
+            'class="hover:underline">Open the source</a>') in card
+    assert card.index('<div class="md">') < card.index("Synced from repo")
+    # still read-only: no edit form, no Status card; Agents stay
+    assert "/items/it1/edit" not in html and 'name="title"' not in html and ">Status<" not in html
+    assert ">Agents<" in html and "Use this draft" not in html
+
+
+def test_item_page_without_body_html_has_no_page_card(jinja_env):
+    tpl = jinja_env.get_template("platform/item.html")
+    for ctx in (_item_ctx(), _item_ctx(body_html=""), _item_ctx(body_html=None),
+                _item_ctx(item=_item(meta={"kind": "brief"}), next_status="review", body_html="")):
+        html = tpl.render(**ctx)
+        assert PAGE_HEADING not in html and 'class="md"' not in html and "/items/it1/edit" in html
+    for ctx in (_item_ctx(item=_item(source="repo"), read_only=True),
+                _item_ctx(item=_item(source="repo"), read_only=True, body_html="")):
+        html = tpl.render(**ctx)
+        assert PAGE_HEADING not in html and 'class="md"' not in html
+        assert ">Body<" in html and '<pre class="whitespace-pre-wrap' in html and "Refunds within 30 days." in html
+        assert "Synced from repo; read-only on this site." in html
+
+
 # ---- runs partial ---------------------------------------------------------------------------------------
 
 @pytest.fixture
@@ -648,6 +711,44 @@ def test_brief_page_lists_earlier_briefs(jinja_env):
     assert html.count("<pre") == 1 and "Finished: 1 renders." in html and "Finished: 2 renders." not in html
 
 
+MENTIONS = [{"module": "marketing", "module_label": "Marketing", "id": "mk1", "title": "Launch post", "why": "approved"},
+            {"module": "knowledge", "module_label": "Knowledge", "id": "it1", "title": "Refund policy", "why": "waiting"},
+            {"module": "accounting", "module_label": "Accounting", "id": "ac1", "title": "October ledger", "why": "money"},
+            {"module": "hr", "module_label": "HR", "id": "hr1", "title": "Onboard Sam", "why": "done"}]
+MENTIONS_HEADING = '<div class="ss-meta">Mentioned in this brief</div>'
+
+
+def test_brief_page_lists_the_mentions_under_the_latest_brief(jinja_env):
+    tpl = jinja_env.get_template("platform/brief.html")
+    html = tpl.render(**_brief_ctx([_brief(1), _brief(2)], mentions=MENTIONS))
+    assert html.count(MENTIONS_HEADING) == 1
+    # inside the latest-brief card: after its pre, before the earlier briefs
+    card = html.split('action="/api/brief"')[1].split("</form>")[1].split("Earlier briefs")[0]
+    assert card.index("</pre>") < card.index(MENTIONS_HEADING)
+    block = card.split(MENTIONS_HEADING)[1]
+    for m, cls in zip(MENTIONS, ("chip chip-ok", "chip chip-warn", "chip ", "chip chip-ok")):
+        link = f'<a href="/m/{m["module"]}/items/{m["id"]}" class="ss-body-sm hover:underline">{m["title"]}</a>'
+        assert link in block
+        row = block.split(link)[1].split("</span>")[0] + "</span>"
+        assert f'<span class="{cls}">{m["why"]}</span>' in row
+    # the mention links are in order and the earlier-briefs list follows them
+    assert [block.index(f'/m/{m["module"]}/items/{m["id"]}"') for m in MENTIONS] == sorted(
+        block.index(f'/m/{m["module"]}/items/{m["id"]}"') for m in MENTIONS)
+    assert html.index(MENTIONS_HEADING) < html.index("Earlier briefs")
+    # while the brief is still being written nothing is mentioned yet
+    html = tpl.render(**_brief_ctx([_brief(body="")], polling=True, mentions=MENTIONS))
+    assert MENTIONS_HEADING not in html and "/m/marketing/items/mk1" not in html and "being written" in html
+
+
+def test_brief_page_without_mentions_has_no_mentioned_block(jinja_env):
+    tpl = jinja_env.get_template("platform/brief.html")
+    for ctx in (_brief_ctx([_brief()]), _brief_ctx([_brief()], mentions=[]), _brief_ctx([_brief()], mentions=None),
+                _brief_ctx([], mentions=MENTIONS)):
+        html = tpl.render(**ctx)
+        assert "Mentioned in this brief" not in html and 'class="ss-body-sm hover:underline"' not in html
+        assert "/m/marketing/items/mk1" not in html
+
+
 # ---- board ----------------------------------------------------------------------------------------------
 
 def _card(id="it1", status="review", **over):
@@ -887,6 +988,19 @@ def test_nav_renders_without_modules_nav(jinja_env):
     """`modules_nav` is a backend Jinja global; every page must still render when it is undefined."""
     html = jinja_env.get_template("projects.html").render(projects=[], fmt=str, request=_Req("/projects"), is_owner=True)
     assert 'href="/approvals"' in html and 'href="/brief"' in html and "/m/" not in html
+
+
+def test_base_styles_the_rendered_markdown(jinja_env):
+    """The .md rules live in base.html's style block, so every page that prints body_html gets them."""
+    html = jinja_env.get_template("platform/item.html").render(**_item_ctx(body_html="<p>x</p>"))
+    style = html.split("<style>")[-1].split("</style>")[0]  # a comment names the tag before the real one
+    assert ".md {" in style and ".md h2 {" in style and ".md p {" in style and ".md a:hover {" in style
+    assert ".md code {" in style and ".md blockquote {" in style and ".md hr {" in style
+    pre = style.split(".md pre {")[1].split("}")[0]
+    assert "white-space: pre-wrap" in pre and "var(--surface-field)" in pre
+    table = style.split(".md table {")[1].split("}")[0]
+    assert "overflow-x: auto" in table and "display: block" in table
+    assert "max-width: 100%" in style.split(".md img {")[1].split("}")[0]
 
 
 def test_nav_has_the_brief_link_after_approvals(jinja_env):

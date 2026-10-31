@@ -277,6 +277,33 @@
         .lightbox-close { position: absolute; top: 8px; right: 8px; background: rgba(0, 0, 0, .55); color: #fff; }
         .lightbox-close:hover { background: rgba(0, 0, 0, .8); color: #fff; }
 
+        /* Rendered markdown (platform/item.html "Page" card): the backend renders a knowledge page's markdown
+           with raw HTML off and the template prints it inside .md. Same voice as the ss-* classes, scaled to
+           a card; nothing may overflow sideways on a phone, so pre wraps and tables scroll on their own. */
+        .md { font: var(--type-body); color: var(--fg-1); overflow-wrap: anywhere; }
+        .md > :first-child { margin-top: 0; }
+        .md > :last-child { margin-bottom: 0; }
+        .md h1, .md h2, .md h3, .md h4, .md h5, .md h6 { font-weight: 500; line-height: 1.25; letter-spacing: -0.01em;
+                                                        color: var(--fg-1); margin: 1.25rem 0 .5rem; }
+        .md h1 { font-size: 22px; } .md h2 { font-size: 18px; } .md h3 { font-size: 16px; }
+        .md h4 { font-size: 14px; } .md h5, .md h6 { font-size: 13px; }
+        .md p { margin: 0 0 .75rem; }
+        .md ul, .md ol { margin: 0 0 .75rem; padding-left: 1.5rem; }
+        .md ul { list-style: disc; } .md ol { list-style: decimal; }
+        .md li { margin: .25rem 0; } .md li > ul, .md li > ol { margin-bottom: 0; }
+        .md a { color: var(--link); text-decoration: none; } .md a:hover { text-decoration: underline; }
+        .md code { font-family: var(--font-mono); font-size: 12px; line-height: 1rem; background: var(--surface-field);
+                   border-radius: var(--radius-xs); padding: 1px 5px; }
+        .md pre { white-space: pre-wrap; overflow-wrap: anywhere; background: var(--surface-field); border-radius: var(--radius-sm);
+                  padding: 12px; margin: 0 0 .75rem; font-family: var(--font-mono); font-size: 12px; line-height: 1rem; color: var(--fg-1); }
+        .md pre code { background: transparent; padding: 0; border-radius: 0; }
+        .md blockquote { margin: 0 0 .75rem; padding: 0 0 0 12px; border-left: 2px solid var(--border-default); color: var(--fg-2); }
+        .md table { display: block; width: 100%; max-width: 100%; overflow-x: auto; border-collapse: collapse; margin: 0 0 .75rem; }
+        .md th { font: var(--type-meta); color: var(--fg-2); text-align: left; }
+        .md th, .md td { padding: 6px 12px 6px 0; border-bottom: 1px solid var(--border-subtle); vertical-align: top; }
+        .md hr { border: 0; border-top: 1px solid var(--border-subtle); margin: 1rem 0; }
+        .md img { max-width: 100%; height: auto; border-radius: var(--radius-sm); }
+
         [hidden] { display: none !important; }
     </style>
 </head>

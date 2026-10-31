@@ -3,18 +3,22 @@
    Context: request, module, mod, item, runs, polling, latest, statuses, next_status (or None), attention,
    is_policy, is_person, checklist ([{text, done}] from item.meta.checklist), members ([(user_id, name)]),
    owner_name, assignee_name (names or None), today (YYYY-MM-DD), read_only, agents (list of (name, label)),
-   is_owner, modules_nav. The item carries due_at (YYYY-MM-DD or None) and assignee_user_id, both set from the
-   edit form. The runs list is partials/platform_runs.html, which the agent forms swap in and which polls while
-   a run is queued or running; it reads `read_only` from this same context. A read-only item (synced from
-   `item.source`, optionally linking `item.external_url`) shows its body in a pre instead of the edit form and
-   has no Status card. A brief (`item.meta.kind == 'brief'`, written by the brief agent for platform/brief.html)
-   carries a "brief" chip and shows its body read-first in a "Brief" card above the edit form, which stays so
-   the owner can correct it. A person (`is_person`, an hr item synced from the members table, OPS-01) carries a
-   "person" chip and a "Person" card (role, start date, user id); the "Checklist" card (a person, or any item
-   that already has one) ticks, removes and adds items and can replace the list with the body's lines, each a
-   plain form posting to /checklist. A due date in the past on an item not yet approved or done shows as a
-   `chip-err`. Approving, and replacing the checklist, confirm inline (base.html `.confirm`), never through
-   window.confirm. #}
+   body_html ("" or missing for every module but knowledge), is_owner, modules_nav. The item carries due_at
+   (YYYY-MM-DD or None) and assignee_user_id, both set from the edit form. The runs list is
+   partials/platform_runs.html, which the agent forms swap in and which polls while a run is queued or running;
+   it reads `read_only` from this same context. A read-only item (synced from `item.source`, optionally linking
+   `item.external_url`) shows its body in a pre instead of the edit form and has no Status card. `body_html` is
+   the body already rendered from markdown by the backend (raw HTML off, so it is safe to print unescaped): when
+   it is non-empty a "Page" card shows it in a `.md` block (base.html) above the edit form, or in place of the
+   read-only pre, under which the synced note stays. A brief (`item.meta.kind == 'brief'`, written by the brief
+   agent for platform/brief.html) carries a "brief" chip and shows its body read-first in a "Brief" card above
+   the edit form, which stays so the owner can correct it. A person (`is_person`, an hr item synced from the
+   members table, OPS-01) carries a "person" chip and a "Person" card (role, start date, user id); the
+   "Checklist" card (a person, or any item that already has one) ticks, removes and adds items and can replace
+   the list with the body's lines, each a plain form posting to /checklist. Card order on the left: Brief /
+   Person / Checklist, Page, Edit, then the runs. A due date in the past on an item not yet approved or done
+   shows as a `chip-err`. Approving, and replacing the checklist, confirm inline (base.html `.confirm`), never
+   through window.confirm. #}
 {% block title %}{{ item.title }} · {{ mod.label }} · Synaps Optic{% endblock %}
 {% block content %}
 {% set tone = {'review': 'chip-warn', 'approved': 'chip-ok', 'done': 'chip-ok', 'failed': 'chip-err'} %}
@@ -62,8 +66,13 @@
     <div class="grid gap-4">
       {% if read_only %}
       <div class="card p-4 grid gap-3">
+        {% if body_html %}
+        <div class="ss-body-strong">Page</div>
+        <div class="md">{{ body_html|safe }}</div>
+        {% else %}
         <div class="ss-body-strong">Body</div>
         <pre class="whitespace-pre-wrap rounded-widget bg-surface-field p-3 font-mono text-xs text-fg-1">{{ item.body or '' }}</pre>
+        {% endif %}
         <p class="ss-meta">Synced from {{ item.source }}; read-only on this site.
           {% if item.external_url %}<a href="{{ item.external_url }}" target="_blank" rel="noopener" class="hover:underline">Open the source</a>{% endif %}</p>
       </div>
@@ -127,6 +136,12 @@
             </form>
           </details>
         </div>
+      </div>
+      {% endif %}
+      {% if body_html %}
+      <div class="card p-4 grid gap-3">
+        <div class="ss-body-strong">Page</div>
+        <div class="md">{{ body_html|safe }}</div>
       </div>
       {% endif %}
       <form method="post" action="/api/m/{{ module }}/items/{{ item.id }}/edit" class="card p-4 grid gap-3">

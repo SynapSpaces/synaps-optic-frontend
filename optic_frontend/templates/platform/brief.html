@@ -3,12 +3,14 @@
    the earlier briefs as links. Context: request, briefs (knowledge items with meta.kind == "brief", newest
    first: id, title, status, body, meta (date, kind), updated_at), latest (the newest brief or None), polling
    (true while the latest brief is still being written: its body is empty and the whole section re-fetches
-   /brief every 5 s until the text arrives), is_owner, modules_nav. Each brief is an ordinary knowledge item,
-   so "Open" and the earlier-briefs links lead to platform/item.html. Shapes shared with module.html are in
-   docs/DESIGN.md section 8. #}
+   /brief every 5 s until the text arrives), mentions (the items the latest brief names, possibly missing or
+   empty: [{module, module_label, id, title, why}] with why one of approved, done, waiting, money), is_owner,
+   modules_nav. Each brief is an ordinary knowledge item, so "Open", the mention links and the earlier-briefs
+   links lead to platform/item.html. Shapes shared with module.html are in docs/DESIGN.md section 8. #}
 {% block title %}Owner brief · Synaps Optic{% endblock %}
 {% block content %}
 {% set tone = {'review': 'chip-warn', 'approved': 'chip-ok', 'done': 'chip-ok', 'failed': 'chip-err'} %}
+{% set why_tone = {'waiting': 'chip-warn', 'approved': 'chip-ok', 'done': 'chip-ok'} %}
 <section class="grid gap-8"{% if polling %} hx-get="/brief" hx-trigger="every 5s" hx-select="section" hx-swap="outerHTML"{% endif %}>
   <div class="flex flex-wrap items-start gap-4">
     <div class="min-w-0 flex-1">
@@ -31,6 +33,18 @@
     </div>
     {% if latest.body %}
     <pre class="whitespace-pre-wrap rounded-widget bg-surface-field p-3 font-mono text-xs text-fg-1">{{ latest.body }}</pre>
+    {% if mentions %}
+    {# The items the brief talks about, one link each with why it is there (base.html chips, never coloured text). #}
+    <div class="grid gap-2">
+      <div class="ss-meta">Mentioned in this brief</div>
+      {% for m in (mentions or []) %}
+      <div class="flex flex-wrap items-center gap-2">
+        <a href="/m/{{ m.module }}/items/{{ m.id }}" class="ss-body-sm hover:underline">{{ m.title }}</a>
+        <span class="chip {{ why_tone.get(m.why, '') }}">{{ m.why }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
     {% else %}
     <p class="ss-meta">The brief agent is writing this one; the text appears here as soon as it is done.</p>
     {% endif %}
