@@ -1,14 +1,22 @@
-"""The platform module pages (platform/module.html, platform/item.html, platform/ask.html,
-platform/approvals.html, platform/brief.html) and the partials (partials/platform_runs.html,
-partials/platform_ask_runs.html) pin the contract the backend's platform_routes.py relies on: the forms and
-their actions, the chips, the polling attributes, the inline approve confirm, the cited-sources list, the
-read-only shape of synced items and the brief read view.
+"""The platform module pages (platform/module.html, platform/item.html, platform/board.html,
+platform/people.html, platform/ledger.html, platform/ask.html, platform/approvals.html, platform/brief.html)
+and the partials (partials/platform_runs.html, partials/platform_ask_runs.html) pin the contract the backend's
+platform_routes.py relies on: the forms and their actions, the chips, the polling attributes, the inline
+confirms (approve, replace the checklist), the cited-sources list, the read-only shape of synced items, the
+brief read view, the board columns, the people rows and the ledger tables.
 Rendered with minimal fake contexts through the same Jinja2 setup the backend uses (tests/conftest.py).
 
 Context keys the templates read:
-    module page:   request, module, mod, items, status, needs, statuses, has_ask, is_owner, modules_nav
-    item page:     request, module, mod, item, runs, polling, latest, statuses, next_status, attention,
-                   is_policy, read_only, agents, is_owner, modules_nav
+    module page:   request, module, mod, items, status, needs, statuses, has_ask, pages (missing = none),
+                   is_owner, modules_nav; each item: attention, latest_run, read_only, meta.kind, due_at
+    item page:     request, module, mod, item (due_at, assignee_user_id, meta), runs, polling, latest, statuses,
+                   next_status, attention, is_policy, is_person, checklist, members, owner_name, assignee_name,
+                   today, read_only, agents, is_owner, modules_nav
+    board page:    request, module, mod, pages, columns ([{status, items}]; each item: attention, assignee_name,
+                   owner_name, overdue, next_status, read_only, due_at, source), today, is_owner, modules_nav
+    people page:   request, module, mod, pages, people (role, start_date, done, total), is_owner, modules_nav
+    ledger page:   request, module, mod, pages, months, month, entries, categories, imports, modes, imported,
+                   skipped, is_owner, modules_nav
     runs partial:  module, item, runs, polling, read_only (missing = false)
     ask page:      request, module, mod, runs, polling, is_owner, modules_nav
     ask partial:   module, runs, polling
@@ -137,14 +145,51 @@ def test_module_page_ask_link_only_with_has_ask(jinja_env):
     assert header.index("</h1>") < header.index("Ask the wiki")
 
 
-def test_module_page_source_chip_for_synced_items(jinja_env):
+def test_module_page_source_chip_only_for_read_only_items(jinja_env):
     tpl = jinja_env.get_template("platform/module.html")
-    html = tpl.render(**_module_ctx(items=[_item(source="repo"), _item(id="it2", source="manual"), _item(id="it3")]))
+    items = [_item(source="repo", read_only=True), _item(id="it2", source="manual", read_only=False),
+             _item(id="it3"), _item(id="it4", source="members", read_only=False)]
+    html = tpl.render(**_module_ctx(items=items))
     repo = html.split('href="/m/knowledge/items/it1"')[1].split("</a>")[0]
     assert '<span class="chip">repo</span>' in repo
-    for item_id in ("it2", "it3"):
+    # a synced but editable item (a person from the members table) carries no source chip
+    for item_id, source in (("it2", "manual"), ("it3", "repo"), ("it4", "members")):
         row = html.split(f'href="/m/knowledge/items/{item_id}"')[1].split("</a>")[0]
-        assert '<span class="chip">manual</span>' not in row and '<span class="chip">repo</span>' not in row
+        assert f'<span class="chip">{source}</span>' not in row
+
+
+def test_module_page_board_and_pages_links(jinja_env):
+    tpl = jinja_env.get_template("platform/module.html")
+    html = tpl.render(**_module_ctx())
+    header = html.split("<section")[1].split('action="/api/m/knowledge/items"')[0]
+    assert '<a href="/m/knowledge/board" class="btn btn-secondary btn-sm">Board</a>' in header
+    assert header.index("</h1>") < header.index(">Board<")
+    assert "People directory" not in header and "Ledger" not in header
+    # a module with its own pages links each after Board; `pages` may be missing from older contexts
+    html = tpl.render(**_module_ctx("hr", mod=_mod(label="People"), pages=[("people", "People directory")], has_ask=True))
+    header = html.split("<section")[1].split('action="/api/m/hr/items"')[0]
+    assert '<a href="/m/hr/people" class="btn btn-secondary btn-sm">People directory</a>' in header
+    assert header.index("Ask the wiki") < header.index(">Board<") < header.index("People directory")
+    html = tpl.render(**_module_ctx("accounting", mod=_mod(label="Accounting"), pages=[("ledger", "Ledger")]))
+    assert '<a href="/m/accounting/ledger" class="btn btn-secondary btn-sm">Ledger</a>' in html
+    html = tpl.render(**_module_ctx(pages=[]))
+    assert 'href="/m/knowledge/board"' in html and 'href="/m/knowledge/people"' not in html
+
+
+def test_module_page_kind_chips_and_due_date(jinja_env):
+    tpl = jinja_env.get_template("platform/module.html")
+    items = [_item(meta={"kind": "person", "user_id": "u1"}, source="members", read_only=False),
+             _item(id="it2", meta={"kind": "ledger_import", "rows": 3}, due_at="2026-11-15"),
+             _item(id="it3", due_at=None)]
+    html = tpl.render(**_module_ctx("hr", mod=_mod(label="People"), items=items))
+    person = html.split('href="/m/hr/items/it1"')[1].split("</a>")[0]
+    assert '<span class="chip">person</span>' in person and '<span class="chip">members</span>' not in person
+    assert "due " not in person
+    imp = html.split('href="/m/hr/items/it2"')[1].split("</a>")[0]
+    assert '<span class="chip">import</span>' in imp and '<span class="ss-meta">due 2026-11-15</span>' in imp
+    assert '<span class="chip">person</span>' not in imp
+    plain = html.split('href="/m/hr/items/it3"')[1].split("</a>")[0]
+    assert "due " not in plain and '<span class="chip">import</span>' not in plain
 
 
 # ---- item page ------------------------------------------------------------------------------------------
@@ -219,6 +264,123 @@ def test_item_page_read_only_synced_item(jinja_env):
     assert "Synced from repo; read-only on this site." in html and "Open the source" not in html
     html = tpl.render(**_item_ctx(read_only=False))
     assert "/items/it1/edit" in html and ">Status<" in html and "Synced from" not in html
+
+
+def test_item_page_due_date_owner_and_assignee(jinja_env):
+    tpl = jinja_env.get_template("platform/item.html")
+    members = [("u1", "ana@example.com"), ("u2", "ben@example.com")]
+    item = _item(due_at="2026-11-15", assignee_user_id="u2", owner_user_id="u1")
+    html = tpl.render(**_item_ctx(item=item, members=members, owner_name="ana@example.com",
+                                  assignee_name="ben@example.com", today="2026-10-31"))
+    header = html.split("</h1>")[1].split("md:grid-cols")[0]
+    assert '<span class="ss-meta">due 2026-11-15</span>' in header and "chip-err" not in header
+    assert '<span class="ss-meta">owner ana@example.com</span>' in header
+    assert '<span class="ss-meta">assignee ben@example.com</span>' in header
+    # the edit form: the date input and the assignee select with the members, the assignee selected
+    edit = html.split('action="/api/m/knowledge/items/it1/edit"')[1].split("</form>")[0]
+    assert '<input type="date" name="due_at" value="2026-11-15" class="input input-sm">' in edit
+    assert ">Due<" in edit and ">Assignee<" in edit
+    select = edit.split('<select name="assignee_user_id" class="select select-sm">')[1].split("</select>")[0]
+    assert '<option value="">Unassigned</option>' in select
+    assert '<option value="u1">ana@example.com</option>' in select
+    assert '<option value="u2" selected>ben@example.com</option>' in select
+    # overdue: past due date on an item in review is a chip-err; approved or done never is
+    html = tpl.render(**_item_ctx(item=_item(due_at="2026-10-01"), today="2026-10-31"))
+    assert '<span class="chip chip-err">due 2026-10-01</span>' in html and '<span class="ss-meta">due 2026-10-01</span>' not in html
+    for status in ("approved", "done"):
+        html = tpl.render(**_item_ctx(item=_item(due_at="2026-10-01", status=status), today="2026-10-31", next_status=None))
+        header = html.split("</h1>")[1].split("md:grid-cols")[0]
+        assert '<span class="ss-meta">due 2026-10-01</span>' in header and "chip-err" not in header
+    # no due date, no names: nothing of this in the chip row; the empty date input and the select stay
+    html = tpl.render(**_item_ctx(members=members, owner_name=None, assignee_name=None, today="2026-10-31"))
+    header = html.split("</h1>")[1].split("md:grid-cols")[0]
+    assert "due " not in header and "owner " not in header and "assignee " not in header
+    assert '<input type="date" name="due_at" value="" class="input input-sm">' in html
+    assert '<option value="">Unassigned</option>' in html and '<option value="u1">ana@example.com</option>' in html
+    # a read-only item has no edit form, so no due input and no assignee select
+    html = tpl.render(**_item_ctx(item=_item(source="repo", due_at="2026-11-15"), read_only=True, today="2026-10-31"))
+    assert 'name="due_at"' not in html and 'name="assignee_user_id"' not in html
+    assert '<span class="ss-meta">due 2026-11-15</span>' in html
+
+
+def _person(**over):
+    base = _item(id="p1", title="ana@example.com", body="", status="draft", attention="", latest_run=None,
+                 source="members", meta={"kind": "person", "user_id": "u1", "role": "member",
+                                         "start_date": "2026-10-20", "checklist": []})
+    base.update(over)
+    return base
+
+
+def test_item_page_person_card_and_checklist(jinja_env):
+    tpl = jinja_env.get_template("platform/item.html")
+    checklist = [{"text": "Sign the NDA", "done": True}, {"text": "Read the policy pages", "done": False}]
+    person = _person(body="1. Sign the NDA\n2. Read the policy pages\n3. Meet the team",
+                     meta={"kind": "person", "user_id": "u1", "role": "member", "start_date": "2026-10-20",
+                           "checklist": checklist})
+    html = tpl.render(**_item_ctx(item=person, module="hr", mod=_mod(label="People"), is_person=True,
+                                  checklist=checklist, members=[("u1", "ana@example.com")], today="2026-10-31",
+                                  next_status="review"))
+    header = html.split("</h1>")[1].split("md:grid-cols")[0]
+    assert '<span class="chip">person</span>' in header and '<span class="chip">members</span>' not in header
+    body = html.split("md:grid-cols")[1]
+    # the Person card: role, start date, user id and the onboarding note, above the edit form
+    card = body.split('<div class="ss-body-strong">Person</div>')[1].split("</p>")[0]
+    assert '<span class="chip">member</span>' in card and "since 2026-10-20" in card and "user u1" in card
+    assert "Draft an onboarding checklist with the agent, use the draft, then turn the body into the checklist." in card
+    assert body.index(">Person<") < body.index(">Checklist<") < body.index('action="/api/m/hr/items/p1/edit"')
+    # the Checklist card: progress, one toggle + remove form per item, the add form, the from_body confirm
+    check = body.split('<div class="ss-body-strong">Checklist</div>')[1].split('action="/api/m/hr/items/p1/edit"')[0]
+    assert '<span class="ss-meta ml-auto">1/2 done</span>' in check
+    url = "/api/m/hr/items/p1/checklist"
+    forms = [f.split("</form>")[0] for f in check.split(f'action="{url}"')[1:]]
+    toggles = [f for f in forms if 'name="action" value="toggle"' in f]
+    removes = [f for f in forms if 'name="action" value="remove"' in f]
+    assert len(toggles) == 2 and len(removes) == 2
+    assert 'name="index" value="0"' in toggles[0] and "☑" in toggles[0] and "Sign the NDA" in toggles[0]
+    assert "line-through text-fg-3" in toggles[0]
+    assert 'name="index" value="1"' in toggles[1] and "☐" in toggles[1] and "Read the policy pages" in toggles[1]
+    assert "line-through" not in toggles[1]
+    assert 'name="index" value="1"' in removes[1] and ">×</button>" in removes[1]
+    add = [f for f in forms if 'name="action" value="add"' in f][0]
+    assert '<input name="text" required placeholder="Add an item" class="input input-sm"' in add
+    assert '<button type="submit" class="btn btn-secondary btn-sm">Add</button>' in add
+    # from_body sits inside the two-step confirm, with the question and Cancel / Replace; never window.confirm
+    confirm = _confirm(html, url)
+    assert confirm and 'name="action" value="from_body"' in confirm
+    assert "Replace the checklist with the body's lines? Ticked items that keep their text stay ticked." in confirm
+    assert ">Cancel</button>" in confirm and ">Replace</button>" in confirm
+    assert "Use the body as the checklist" in check.split('<details class="confirm">')[1].split("<form")[0]
+    assert "window.confirm" not in html and "hx-confirm" not in html
+    # the approve confirm is a separate details block
+    assert html.count('<details class="confirm">') == 1 and "Submit for review" in html
+    # the edit form and the agents card stay
+    assert 'name="title" required value="ana@example.com"' in html and ">Agents<" in html
+
+
+def test_item_page_checklist_card_only_for_a_person_or_a_list(jinja_env):
+    tpl = jinja_env.get_template("platform/item.html")
+    # an ordinary item without a checklist: no Person card, no Checklist card
+    html = tpl.render(**_item_ctx(is_person=False, checklist=[], members=[], today="2026-10-31"))
+    assert ">Person<" not in html and ">Checklist<" not in html and "/checklist" not in html
+    # an older context without the new keys renders the same
+    html = tpl.render(**_item_ctx())
+    assert ">Checklist<" not in html and "/checklist" not in html and 'name="due_at"' in html
+    # a person with an empty checklist: the card with its empty state, 0/0, the add form and the confirm
+    html = tpl.render(**_item_ctx(item=_person(), module="hr", mod=_mod(label="People"), is_person=True,
+                                  checklist=[], members=[("u1", "ana@example.com")], today="2026-10-31", next_status="review"))
+    assert ">Person<" in html and ">Checklist<" in html and "No items yet." in html
+    assert '<span class="ss-meta ml-auto">0/0 done</span>' in html
+    assert 'name="action" value="add"' in html and 'name="action" value="from_body"' in html
+    assert 'name="action" value="toggle"' not in html
+    # a non-person item with a checklist: the Checklist card without the Person card
+    html = tpl.render(**_item_ctx(item=_item(meta={"checklist": [{"text": "Ship it", "done": False}]}),
+                                  checklist=[{"text": "Ship it", "done": False}], members=[], today="2026-10-31"))
+    assert ">Person<" not in html and ">Checklist<" in html and "Ship it" in html
+    assert '<span class="ss-meta ml-auto">0/1 done</span>' in html
+    # a read-only item never shows the Checklist card
+    html = tpl.render(**_item_ctx(item=_item(source="repo", meta={"checklist": [{"text": "Ship it", "done": False}]}),
+                                  read_only=True, checklist=[{"text": "Ship it", "done": False}], today="2026-10-31"))
+    assert ">Checklist<" not in html and "/checklist" not in html
 
 
 def test_item_page_brief_shows_chip_and_read_view_above_the_edit_form(jinja_env):
@@ -484,6 +646,239 @@ def test_brief_page_lists_earlier_briefs(jinja_env):
         assert f"Brief {date}" in row and f'<span class="ss-meta ml-auto">{date} 07:00</span>' in row
     # only the latest body is on the page
     assert html.count("<pre") == 1 and "Finished: 1 renders." in html and "Finished: 2 renders." not in html
+
+
+# ---- board ----------------------------------------------------------------------------------------------
+
+def _card(id="it1", status="review", **over):
+    base = _item(id=id, status=status, attention="", due_at=None, owner_user_id="u1", assignee_user_id=None, source="manual",
+                 assignee_name=None, owner_name="ana@example.com", overdue=False, read_only=False,
+                 next_status={"draft": "review", "review": "approved", "approved": "done", "done": None}[status])
+    base.pop("latest_run", None)
+    base.update(over)
+    return base
+
+
+def _board_ctx(cards=(), module="knowledge", **over):
+    columns = [{"status": s, "items": [c for c in cards if c["status"] == s]} for s in STATUSES]
+    ctx = dict(request=_Req(f"/m/{module}/board"), module=module, mod=_mod(), pages=[], columns=columns,
+               today="2026-10-31", is_owner=True, modules_nav=MODULES_NAV)
+    ctx.update(over)
+    return ctx
+
+
+def _column(html, status):
+    return html.split(f'data-status="{status}"')[1].split("data-status=")[0]
+
+
+def test_board_page_columns_in_status_order_with_counts(jinja_env):
+    cards = [_card("it1", "draft"), _card("it2", "draft", attention="ai_done"), _card("it3", "review", attention="needs_you")]
+    html = jinja_env.get_template("platform/board.html").render(**_board_ctx(cards))
+    assert "Platform · knowledge" in html and "Knowledge board" in html
+    assert '<a href="/m/knowledge" class="ss-meta hover:underline">' in html
+    assert [html.index(f'data-status="{s}"') for s in STATUSES] == sorted(html.index(f'data-status="{s}"') for s in STATUSES)
+    row = html.split("<section")[1].split('data-status=')[0]
+    assert "overflow-x-auto" in row
+    draft = _column(html, "draft")
+    assert '<span class="chip ">draft</span>' in draft and '<span class="ss-numeral">2</span>' in draft
+    assert 'href="/m/knowledge/items/it1"' in draft and 'href="/m/knowledge/items/it2"' in draft and "AI done" in draft
+    review = _column(html, "review")
+    assert '<span class="chip chip-warn">review</span>' in review and '<span class="ss-numeral">1</span>' in review
+    assert 'href="/m/knowledge/items/it3"' in review and "Needs you" in review
+    for s in ("approved", "done"):
+        assert "Nothing here." in _column(html, s) and "/items/" not in _column(html, s)
+    assert "Nothing here." not in draft
+    # nav: the module stays highlighted; nothing confirms through the browser
+    assert '<a href="/m/knowledge" class="nav-link active">Knowledge</a>' in html
+    assert "window.confirm" not in html and "hx-confirm" not in html and "hx-post" not in html
+
+
+def test_board_card_due_assignee_source_and_next_status(jinja_env):
+    tpl = jinja_env.get_template("platform/board.html")
+    cards = [_card("it1", "draft", due_at="2026-11-15", assignee_name="ben@example.com"),
+             _card("it2", "draft", due_at="2026-10-01", overdue=True),
+             _card("it3", "review"),
+             _card("it4", "approved", due_at="2026-10-01"),
+             _card("it5", "done"),
+             _card("it6", "draft", source="repo", read_only=True)]
+    html = tpl.render(**_board_ctx(cards))
+
+    def card(item_id):  # one card: from its title link to the next card or column
+        after = html.split(f'href="/m/knowledge/items/{item_id}"')[1]
+        return after.split('<div class="card p-4 grid gap-2">')[0].split("data-status=")[0]
+
+    one = card("it1")
+    assert '<span class="ss-meta">due 2026-11-15</span>' in one and "chip-err" not in one
+    assert '<span class="ss-meta">ben@example.com</span>' in one and "unassigned" not in one
+    assert 'action="/api/m/knowledge/items/it1/status"' in one
+    assert 'name="status" value="review"' in one and 'name="back" value="board"' in one
+    assert '<button type="submit" class="btn btn-ghost btn-sm">→ review</button>' in one
+    two = card("it2")
+    assert '<span class="chip chip-err">due 2026-10-01</span>' in two and '<span class="ss-meta">unassigned</span>' in two
+    assert "→ review" in two
+    # towards approved there is no board button: approving stays on the item page behind its confirm
+    three = card("it3")
+    assert "/items/it3/status" not in three and "→" not in three and '<details class="confirm">' not in html
+    four = card("it4")
+    assert 'name="status" value="done"' in four and "→ done" in four and '<span class="ss-meta">due 2026-10-01</span>' in four
+    assert "chip-err" not in four
+    five = card("it5")
+    assert "/items/it5/status" not in five and "→" not in five
+    # a read-only card shows its source and has no status button
+    six = card("it6")
+    assert '<span class="chip">repo</span>' in six and "/items/it6/status" not in six and "→" not in six
+    for item_id in ("it1", "it2", "it3", "it4", "it5"):
+        assert '<span class="chip">manual</span>' not in card(item_id)
+    # the columns hold their own cards: it6 is a draft and sits before the review column
+    assert html.index('items/it6"') < html.index('data-status="review"') < html.index('items/it3"')
+
+
+def test_board_page_empty(jinja_env):
+    html = jinja_env.get_template("platform/board.html").render(**_board_ctx([]))
+    assert html.count("Nothing here.") == len(STATUSES) and "/items/" not in html
+    assert '<span class="ss-numeral">0</span>' in html
+
+
+# ---- people directory -----------------------------------------------------------------------------------
+
+def _people_ctx(people, **over):
+    ctx = dict(request=_Req("/m/hr/people"), module="hr", mod=_mod(label="People", blurb="Who is on the team."),
+               pages=[("people", "People directory")], people=people, is_owner=True,
+               modules_nav=MODULES_NAV + [("hr", "People")])
+    ctx.update(over)
+    return ctx
+
+
+def _person_row(n=1, **over):
+    base = {"id": f"p{n}", "title": f"person{n}@example.com", "status": "draft", "updated_at": "2026-10-31 09:00",
+            "meta": {"kind": "person", "user_id": f"u{n}", "role": "member", "start_date": "2026-10-20", "checklist": []},
+            "role": "member", "start_date": "2026-10-20", "done": 0, "total": 0}
+    base.update(over)
+    return base
+
+
+def test_people_page_empty_state(jinja_env):
+    html = jinja_env.get_template("platform/people.html").render(**_people_ctx([]))
+    assert "Platform · hr" in html and "People directory" in html
+    assert "One person per member of this workspace; members appear here as they join. Open a person to draft their onboarding checklist." in html
+    assert '<a href="/m/hr" class="ss-meta hover:underline">' in html
+    assert "No people yet. Members appear here as they join." in html and "/m/hr/items/" not in html
+    assert '<a href="/m/hr" class="nav-link active">People</a>' in html
+    assert "window.confirm" not in html and "hx-" not in html.split("</nav>")[-1]
+
+
+def test_people_page_rows(jinja_env):
+    people = [_person_row(1, role="owner", done=2, total=5), _person_row(2, start_date="2026-10-28"), _person_row(3, role="", start_date="")]
+    html = jinja_env.get_template("platform/people.html").render(**_people_ctx(people))
+    assert "No people yet." not in html
+    one = html.split('href="/m/hr/items/p1"')[1].split("</a>")[0]
+    assert '<span class="ss-body-strong truncate">person1@example.com</span>' in one
+    assert '<span class="chip">owner</span>' in one and "since 2026-10-20" in one and "2/5 onboarding items" in one
+    assert "no checklist yet" not in one
+    two = html.split('href="/m/hr/items/p2"')[1].split("</a>")[0]
+    assert '<span class="chip">member</span>' in two and "since 2026-10-28" in two and "no checklist yet" in two
+    three = html.split('href="/m/hr/items/p3"')[1].split("</a>")[0]
+    assert "<span class=\"chip\">" not in three and "since " not in three and "no checklist yet" in three
+
+
+# ---- ledger ---------------------------------------------------------------------------------------------
+
+MONTHS = [{"month": "2026-10", "in": "1200.00", "out": "340.50", "net": "859.50", "count": 12},
+          {"month": "2026-09", "in": "0.00", "out": "99.00", "net": "-99.00", "count": 3}]
+ENTRIES = [{"id": "e1", "entry_date": "2026-10-03", "direction": "out", "kind": "expense", "description": "Render credits",
+            "counterparty": "Kaggle", "category": "compute", "amount": "12.50", "currency": "USD"},
+           {"id": "e2", "entry_date": "2026-10-20", "direction": "in", "kind": "invoice", "description": "Cat short",
+            "counterparty": "Acme", "category": "sales", "amount": "1200.00", "currency": "USD"}]
+CATEGORIES = [{"category": "sales", "direction": "in", "total": "1200.00", "count": 1},
+              {"category": "compute", "direction": "out", "total": "340.50", "count": 11}]
+IMPORTS = [{"id": "imp1", "title": "Import 2026-10-31 (12 rows)", "created_at": "2026-10-31 09:00",
+            "meta": {"kind": "ledger_import", "rows": 12, "inserted": 10, "skipped": 2,
+                     "problems": ["line 4: no amount"], "months": ["2026-10"]}}]
+
+
+def _ledger_ctx(**over):
+    ctx = dict(request=_Req("/m/accounting/ledger"), module="accounting", mod=_mod(label="Accounting", blurb="Money records."),
+               pages=[("ledger", "Ledger")], months=MONTHS, month="2026-10", entries=ENTRIES, categories=CATEGORIES,
+               imports=IMPORTS, modes=["statement", "out", "in"], imported=None, skipped=None, is_owner=True,
+               modules_nav=MODULES_NAV + [("accounting", "Accounting")])
+    ctx.update(over)
+    return ctx
+
+
+def _table(html, heading):
+    return html.split(f'<div class="ss-body-strong">{heading}</div>')[1].split("</table>")[0]
+
+
+def test_ledger_page_import_form_and_empty_state(jinja_env):
+    html = jinja_env.get_template("platform/ledger.html").render(
+        **_ledger_ctx(months=[], month="", entries=[], categories=[], imports=[]))
+    assert "Platform · accounting" in html and ">Ledger</h1>" in html
+    assert "Records only: expenses, invoices and revenue imported from CSV. Nothing here is advice." in html
+    assert '<a href="/m/accounting" class="ss-meta hover:underline">' in html
+    form = html.split('action="/api/m/accounting/ledger/import"')[1].split("</form>")[0]
+    assert 'method="post"' in html.split('action="/api/m/accounting/ledger/import"')[0].rsplit("<form", 1)[1]
+    assert 'enctype="multipart/form-data"' in html.split('action="/api/m/accounting/ledger/import"')[1].split(">")[0]
+    assert '<textarea name="text" rows="6" placeholder="date, description, amount, category — or paste any export with a header row"' in form
+    assert '<input type="file" name="file" accept=".csv,text/csv,text/plain"' in form
+    assert '<input type="radio" name="mode" value="statement" checked> A statement: negative amounts are money out' in form
+    assert '<input type="radio" name="mode" value="out"> All expenses (money out)' in form
+    assert '<input type="radio" name="mode" value="in"> All income (money in)' in form
+    assert '<button type="submit" class="btn btn-primary btn-sm">Import</button>' in form
+    assert "No entries yet. Paste or upload a CSV above." in html
+    assert ">Months<" not in html and "Categories in" not in html and "Entries in" not in html and "Recent imports" not in html
+    assert "Imported " not in html and "window.confirm" not in html and "hx-confirm" not in html
+
+
+def test_ledger_page_months_categories_entries_and_imports(jinja_env):
+    html = jinja_env.get_template("platform/ledger.html").render(**_ledger_ctx())
+    assert "No entries yet." not in html
+    months = _table(html, "Months")
+    assert '<a href="/m/accounting/ledger?month=2026-10" class="ss-body-strong hover:underline">2026-10</a>' in months
+    assert '<a href="/m/accounting/ledger?month=2026-09" class="ss-body-strong hover:underline">2026-09</a>' in months
+    assert months.index("2026-10</a>") < months.index("2026-09</a>")
+    selected = months.split('data-month="2026-10"')[0].rsplit("<tr", 1)[1] + months.split('data-month="2026-10"')[1].split("</tr>")[0]
+    assert "bg-gray-100" in selected and 'aria-current="true"' in selected
+    assert '<td class="py-2 pr-3 text-right ss-numeral">1200.00</td>' in selected
+    assert '<td class="py-2 pr-3 text-right ss-numeral">340.50</td>' in selected
+    assert '<td class="py-2 pr-3 text-right ss-numeral">859.50</td>' in selected
+    assert '<td class="py-2 text-right ss-numeral">12</td>' in selected
+    other = months.split('data-month="2026-09"')[0].rsplit("<tr", 1)[1]
+    assert "bg-gray-100" not in other and 'aria-current' not in other
+    assert ">-99.00</td>" in months
+    cats = _table(html, "Categories in 2026-10")
+    sales = cats.split("<td class=\"py-2 pr-3\">sales</td>")[1].split("</tr>")[0]
+    assert '<span class="chip chip-ok">in</span>' in sales and ">1200.00</td>" in sales and ">1</td>" in sales
+    compute = cats.split("<td class=\"py-2 pr-3\">compute</td>")[1].split("</tr>")[0]
+    assert '<span class="chip ">out</span>' in compute and ">340.50</td>" in compute and ">11</td>" in compute
+    entries = _table(html, "Entries in 2026-10")
+    e1 = entries.split('data-entry="e1"')[1].split("</tr>")[0]
+    assert "2026-10-03" in e1 and '<span class="chip ">out</span>' in e1 and ">12.50 USD</td>" in e1
+    assert ">compute</td>" in e1 and ">Render credits</td>" in e1 and ">Kaggle</td>" in e1 and ">expense</td>" in e1
+    e2 = entries.split('data-entry="e2"')[1].split("</tr>")[0]
+    assert '<span class="chip chip-ok">in</span>' in e2 and ">1200.00 USD</td>" in e2 and ">Cat short</td>" in e2
+    imports = html.split("Recent imports")[1]
+    row = imports.split('href="/m/accounting/items/imp1"')[1].split("</a>")[0]
+    assert "Import 2026-10-31 (12 rows)" in row and "2026-10-31 09:00" in row
+    assert '<div class="ss-meta">12 rows · 10 inserted · 2 skipped</div>' in row and "line 4: no amount" in row
+    # the nav keeps the module active
+    assert '<a href="/m/accounting" class="nav-link active">Accounting</a>' in html
+
+
+def test_ledger_page_import_echo_and_month_without_rows(jinja_env):
+    tpl = jinja_env.get_template("platform/ledger.html")
+    html = tpl.render(**_ledger_ctx(imported=10, skipped=2))
+    assert "Imported 10 entries, skipped 2 already in the ledger." in html
+    html = tpl.render(**_ledger_ctx(imported=0, skipped=0))
+    assert "Imported 0 entries, skipped 0 already in the ledger." in html
+    # a selected month with nothing in it: both tables show their empty line; no month: neither heading
+    html = tpl.render(**_ledger_ctx(month="2026-09", entries=[], categories=[]))
+    assert "Categories in 2026-09" in html and "Entries in 2026-09" in html and html.count("No entries in this month.") == 2
+    assert "Imported " not in html
+    html = tpl.render(**_ledger_ctx(month=""))
+    assert ">Months<" in html and "Categories in" not in html and "Entries in" not in html
+    # an import without problems lists none
+    html = tpl.render(**_ledger_ctx(imports=[{**IMPORTS[0], "meta": {**IMPORTS[0]["meta"], "problems": []}}]))
+    assert "line 4: no amount" not in html and "12 rows · 10 inserted · 2 skipped" in html
 
 
 # ---- base nav -------------------------------------------------------------------------------------------

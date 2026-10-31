@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{# One module's items as a board (backend platform_routes.py, PROD-01): one column per status in the module's
+   order. Context: request, module (slug), mod (label, blurb, statuses, agents), pages, columns, today, is_owner,
+   modules_nav. `columns` = [{status, items}]; each item is the item dict (id, title, body, status, due_at or
+   None, owner_user_id, assignee_user_id, meta, updated_at, source) plus attention ("needs_you" | "ai_done" | ""),
+   assignee_name (or None), owner_name, overdue (past due and not approved/done), next_status (or None) and
+   read_only. A card moves to its next status with a plain form (back=board brings the member here again);
+   approving is left to the item page and its inline confirm, so the board never approves anything. Shapes shared
+   with module.html and item.html are in docs/DESIGN.md section 8. #}
+{% block title %}{{ mod.label }} board · Synaps Optic{% endblock %}
+{% block content %}
+{% set tone = {'review': 'chip-warn', 'approved': 'chip-ok', 'done': 'chip-ok', 'failed': 'chip-err'} %}
+<section class="grid gap-6">
+  <div class="min-w-0 grid gap-2">
+    <a href="/m/{{ module }}" class="ss-meta hover:underline">&lsaquo; {{ mod.label }}</a>
+    <div class="ss-meta">Platform · {{ module }}</div>
+    <h1 class="ss-h2">{{ mod.label }} board</h1>
+  </div>
+
+  <div class="flex gap-4 overflow-x-auto pb-2 items-start">
+    {% for col in columns %}
+    <div class="min-w-[260px] flex-1 grid gap-2 content-start" data-status="{{ col.status }}">
+      <div class="flex items-center gap-2 px-1">
+        <span class="chip {{ tone.get(col.status, '') }}">{{ col.status }}</span>
+        <span class="ss-numeral">{{ col['items']|length }}</span>
+      </div>
+      {% if not col['items'] %}
+      <div class="card p-4"><p class="ss-meta">Nothing here.</p></div>
+      {% endif %}
+      {% for item in col['items'] %}
+      <div class="card p-4 grid gap-2">
+        <a href="/m/{{ module }}/items/{{ item.id }}" class="ss-body-strong hover:underline">{{ item.title }}</a>
+        <div class="flex flex-wrap items-center gap-2">
+          {% if item.attention == 'needs_you' %}<span class="chip chip-warn">Needs you</span>
+          {% elif item.attention == 'ai_done' %}<span class="chip chip-info">AI done</span>{% endif %}
+          {% if item.overdue %}<span class="chip chip-err">due {{ item.due_at }}</span>
+          {% elif item.due_at %}<span class="ss-meta">due {{ item.due_at }}</span>{% endif %}
+          {% if item.read_only %}<span class="chip">{{ item.source }}</span>{% endif %}
+          <span class="ss-meta">{{ item.assignee_name or 'unassigned' }}</span>
+        </div>
+        {% if item.next_status and item.next_status != 'approved' and not item.read_only %}
+        <form method="post" action="/api/m/{{ module }}/items/{{ item.id }}/status" class="flex justify-end">
+          <input type="hidden" name="status" value="{{ item.next_status }}">
+          <input type="hidden" name="back" value="board">
+          <button type="submit" class="btn btn-ghost btn-sm">→ {{ item.next_status }}</button>
+        </form>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

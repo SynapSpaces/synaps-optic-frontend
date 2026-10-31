@@ -1,13 +1,19 @@
 {% extends "base.html" %}
 {# One module item (backend platform_routes.py): edit it, move its status, hand it to an agent, read the runs.
    Context: request, module, mod, item, runs, polling, latest, statuses, next_status (or None), attention,
-   is_policy, read_only, agents (list of (name, label)), is_owner, modules_nav. The runs list is
-   partials/platform_runs.html, which the agent forms swap in and which polls while a run is queued or running;
-   it reads `read_only` from this same context. A read-only item (synced from `item.source`, optionally linking
-   `item.external_url`) shows its body in a pre instead of the edit form and has no Status card. A brief
-   (`item.meta.kind == 'brief'`, written by the brief agent for platform/brief.html) carries a "brief" chip and
-   shows its body read-first in a "Brief" card above the edit form, which stays so the owner can correct it.
-   Approving is the one irreversible step, so it confirms inline (base.html `.confirm`), never through
+   is_policy, is_person, checklist ([{text, done}] from item.meta.checklist), members ([(user_id, name)]),
+   owner_name, assignee_name (names or None), today (YYYY-MM-DD), read_only, agents (list of (name, label)),
+   is_owner, modules_nav. The item carries due_at (YYYY-MM-DD or None) and assignee_user_id, both set from the
+   edit form. The runs list is partials/platform_runs.html, which the agent forms swap in and which polls while
+   a run is queued or running; it reads `read_only` from this same context. A read-only item (synced from
+   `item.source`, optionally linking `item.external_url`) shows its body in a pre instead of the edit form and
+   has no Status card. A brief (`item.meta.kind == 'brief'`, written by the brief agent for platform/brief.html)
+   carries a "brief" chip and shows its body read-first in a "Brief" card above the edit form, which stays so
+   the owner can correct it. A person (`is_person`, an hr item synced from the members table, OPS-01) carries a
+   "person" chip and a "Person" card (role, start date, user id); the "Checklist" card (a person, or any item
+   that already has one) ticks, removes and adds items and can replace the list with the body's lines, each a
+   plain form posting to /checklist. A due date in the past on an item not yet approved or done shows as a
+   `chip-err`. Approving, and replacing the checklist, confirm inline (base.html `.confirm`), never through
    window.confirm. #}
 {% block title %}{{ item.title }} · {{ mod.label }} · Synaps Optic{% endblock %}
 {% block content %}
@@ -42,6 +48,12 @@
       {% elif attention == 'ai_done' %}<span class="chip chip-info">AI done</span>{% endif %}
       {% if is_policy %}<span class="chip">policy</span>{% endif %}
       {% if is_brief %}<span class="chip">brief</span>{% endif %}
+      {% if is_person %}<span class="chip">person</span>{% endif %}
+      {% if item.due_at and today and item.due_at < today and item.status not in ('approved', 'done') %}
+      <span class="chip chip-err">due {{ item.due_at }}</span>
+      {% elif item.due_at %}<span class="ss-meta">due {{ item.due_at }}</span>{% endif %}
+      {% if owner_name %}<span class="ss-meta">owner {{ owner_name }}</span>{% endif %}
+      {% if assignee_name %}<span class="ss-meta">assignee {{ assignee_name }}</span>{% endif %}
       <span class="ss-meta">updated {{ item.updated_at }}</span>
     </div>
   </div>
@@ -62,10 +74,80 @@
         <pre class="whitespace-pre-wrap rounded-widget bg-surface-field p-3 font-mono text-xs text-fg-1">{{ item.body or '' }}</pre>
       </div>
       {% endif %}
+      {% if is_person %}
+      <div class="card p-4 grid gap-3">
+        <div class="ss-body-strong">Person</div>
+        <div class="flex flex-wrap items-center gap-2">
+          {% if item.meta.role %}<span class="chip">{{ item.meta.role }}</span>{% endif %}
+          {% if item.meta.start_date %}<span class="ss-meta">since {{ item.meta.start_date }}</span>{% endif %}
+          {% if item.meta.user_id %}<span class="ss-meta">user {{ item.meta.user_id }}</span>{% endif %}
+        </div>
+        <p class="ss-meta">Draft an onboarding checklist with the agent, use the draft, then turn the body into the checklist.</p>
+      </div>
+      {% endif %}
+      {% if is_person or checklist %}
+      {% set checklist_url = '/api/m/' ~ module ~ '/items/' ~ item.id ~ '/checklist' %}
+      {% set done_count = checklist|selectattr('done')|list|length %}
+      <div class="card p-4 grid gap-3">
+        <div class="flex items-center gap-2">
+          <div class="ss-body-strong">Checklist</div>
+          <span class="ss-meta ml-auto">{{ done_count }}/{{ checklist|length }} done</span>
+        </div>
+        {% if not checklist %}<p class="ss-meta">No items yet.</p>{% endif %}
+        {% for c in checklist %}
+        <div class="flex items-center gap-2">
+          <form method="post" action="{{ checklist_url }}" class="flex min-w-0 flex-1 items-center gap-2">
+            <input type="hidden" name="action" value="toggle">
+            <input type="hidden" name="index" value="{{ loop.index0 }}">
+            <button type="submit" class="btn btn-ghost btn-sm" aria-label="{% if c.done %}Untick{% else %}Tick{% endif %}">{% if c.done %}☑{% else %}☐{% endif %}</button>
+            <span class="ss-body-sm min-w-0 truncate{% if c.done %} line-through text-fg-3{% endif %}">{{ c.text }}</span>
+          </form>
+          <form method="post" action="{{ checklist_url }}">
+            <input type="hidden" name="action" value="remove">
+            <input type="hidden" name="index" value="{{ loop.index0 }}">
+            <button type="submit" class="btn btn-ghost btn-sm" aria-label="Remove">×</button>
+          </form>
+        </div>
+        {% endfor %}
+        <form method="post" action="{{ checklist_url }}" class="flex items-center gap-2">
+          <input type="hidden" name="action" value="add">
+          <input name="text" required placeholder="Add an item" class="input input-sm" autocomplete="off">
+          <button type="submit" class="btn btn-secondary btn-sm">Add</button>
+        </form>
+        <div class="flex items-center justify-end">
+          <details class="confirm">
+            <summary class="btn btn-ghost btn-sm" role="button">Use the body as the checklist</summary>
+            <form method="post" action="{{ checklist_url }}" class="confirm-box card-float">
+              <input type="hidden" name="action" value="from_body">
+              <p class="ss-body-sm">Replace the checklist with the body's lines? Ticked items that keep their text stay ticked.</p>
+              <div class="flex justify-end gap-2">
+                <button type="button" class="btn btn-ghost btn-sm" onclick="this.closest('details').removeAttribute('open')">Cancel</button>
+                <button type="submit" class="btn btn-primary btn-sm">Replace</button>
+              </div>
+            </form>
+          </details>
+        </div>
+      </div>
+      {% endif %}
       <form method="post" action="/api/m/{{ module }}/items/{{ item.id }}/edit" class="card p-4 grid gap-3">
         <div class="ss-body-strong">Edit</div>
         <input name="title" required value="{{ item.title }}" class="input" autocomplete="off">
         <textarea name="body" rows="16" class="textarea font-mono text-xs" spellcheck="false">{{ item.body or '' }}</textarea>
+        <div class="grid gap-3 sm:grid-cols-2">
+          <label class="grid gap-1">
+            <span class="ss-meta">Due</span>
+            <input type="date" name="due_at" value="{{ item.due_at or '' }}" class="input input-sm">
+          </label>
+          <label class="grid gap-1">
+            <span class="ss-meta">Assignee</span>
+            <select name="assignee_user_id" class="select select-sm">
+              <option value="">Unassigned</option>
+              {% for user_id, name in members %}
+              <option value="{{ user_id }}"{% if user_id == item.assignee_user_id %} selected{% endif %}>{{ name }}</option>
+              {% endfor %}
+            </select>
+          </label>
+        </div>
         <div class="flex items-center justify-end">
           <button type="submit" class="btn btn-secondary btn-sm">Save</button>
         </div>

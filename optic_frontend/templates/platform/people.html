@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{# The people directory (backend platform_routes.py, OPS-01): one hr item per member of the workspace, synced
+   when the page opens. Context: request, module ("hr"), mod, pages, people, is_owner, modules_nav. `people` =
+   person items (id, title, status, meta {kind "person", user_id, role, start_date, checklist}, updated_at) plus
+   role, start_date, done and total (the onboarding checklist's progress), by start date then title. Each row
+   links to the person's item page (platform/item.html), where the checklist lives. Shapes shared with
+   module.html are in docs/DESIGN.md section 8. #}
+{% block title %}People directory · Synaps Optic{% endblock %}
+{% block content %}
+<section class="grid gap-6">
+  <div class="min-w-0 grid gap-2">
+    <a href="/m/{{ module }}" class="ss-meta hover:underline">&lsaquo; {{ mod.label }}</a>
+    <div class="ss-meta">Platform · {{ module }}</div>
+    <h1 class="ss-h2">People directory</h1>
+    <p class="ss-body">One person per member of this workspace; members appear here as they join. Open a person to draft their onboarding checklist.</p>
+  </div>
+
+  {% if not people %}
+  <div class="card p-12 text-center">
+    <p class="ss-body">No people yet. Members appear here as they join.</p>
+  </div>
+  {% else %}
+  <div class="grid gap-2">
+    {% for p in people %}
+    <a href="/m/{{ module }}/items/{{ p.id }}" class="card p-4 flex flex-wrap items-center gap-2 transition hover:bg-gray-100">
+      <span class="ss-body-strong truncate">{{ p.title }}</span>
+      {% if p.role %}<span class="chip">{{ p.role }}</span>{% endif %}
+      {% if p.start_date %}<span class="ss-meta">since {{ p.start_date }}</span>{% endif %}
+      <span class="ss-meta ml-auto">{% if p.total %}{{ p.done }}/{{ p.total }} onboarding items{% else %}no checklist yet{% endif %}</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

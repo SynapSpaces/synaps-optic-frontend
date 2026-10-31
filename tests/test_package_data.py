@@ -2,10 +2,11 @@
 and every template must at least compile under the backend's Jinja2 setup."""
 from optic_frontend import MUSIC_DIR, STATIC_DIR, TEMPLATES_DIR
 
-EXPECTED_TEMPLATE_COUNT = 37  # +partials/brand.html (logo), +gen/plan.html and partials/gen_plan.html (generated-video plan review),
+EXPECTED_TEMPLATE_COUNT = 40  # +partials/brand.html (logo), +gen/plan.html and partials/gen_plan.html (generated-video plan review),
                               # +platform/module.html, platform/item.html, platform/approvals.html and partials/platform_runs.html (platform modules),
                               # +platform/ask.html and partials/platform_ask_runs.html (ask the wiki),
-                              # +platform/brief.html (the daily owner brief)
+                              # +platform/brief.html (the daily owner brief),
+                              # +platform/board.html, platform/people.html and platform/ledger.html (board view, people directory, ledger)
 
 
 def test_core_files_present():

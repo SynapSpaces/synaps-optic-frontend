@@ -2,8 +2,12 @@
 {# One platform module (backend platform_routes.py): its items, a filter row and the new-item form.
    Context: request, module (slug), mod (label, blurb, statuses, agents), items, status (current filter or ""),
    needs ("", "you", "ai"), statuses, has_ask (the module answers questions: show the "Ask the wiki" link),
-   is_owner, modules_nav. An item's `source` other than "manual" (a synced page) shows as a plain chip. Shapes
-   shared with item.html, ask.html and approvals.html are in docs/DESIGN.md section 8. #}
+   pages ([(slug, label)] of the module's own pages beyond the list, e.g. hr "people", accounting "ledger";
+   missing in older contexts = none), is_owner, modules_nav. Each item carries attention, latest_run, read_only
+   (synced from `source` and owned there: the source shows as a plain chip) and may carry due_at; a person
+   (meta.kind "person") and a ledger import (meta.kind "ledger_import") carry a plain chip naming the kind.
+   The header links the board (platform/board.html) and each page. Shapes shared with item.html, board.html,
+   ask.html and approvals.html are in docs/DESIGN.md section 8. #}
 {% block title %}{{ mod.label }} · Synaps Optic{% endblock %}
 {% block content %}
 {% set tone = {'review': 'chip-warn', 'approved': 'chip-ok', 'done': 'chip-ok', 'failed': 'chip-err'} %}
@@ -14,7 +18,13 @@
       <h1 class="ss-h2">{{ mod.label }}</h1>
       {% if mod.blurb %}<p class="mt-2 ss-body">{{ mod.blurb }}</p>{% endif %}
     </div>
-    {% if has_ask %}<a href="/m/{{ module }}/ask" class="btn btn-secondary btn-sm">Ask the wiki</a>{% endif %}
+    <div class="flex flex-wrap items-center gap-2">
+      {% if has_ask %}<a href="/m/{{ module }}/ask" class="btn btn-secondary btn-sm">Ask the wiki</a>{% endif %}
+      <a href="/m/{{ module }}/board" class="btn btn-secondary btn-sm">Board</a>
+      {% for slug, label in (pages or []) %}
+      <a href="/m/{{ module }}/{{ slug }}" class="btn btn-secondary btn-sm">{{ label }}</a>
+      {% endfor %}
+    </div>
   </div>
 
   <form method="post" action="/api/m/{{ module }}/items" class="card p-4 grid gap-3">
@@ -55,7 +65,10 @@
           {% if item.attention == 'needs_you' %}<span class="chip chip-warn">Needs you</span>
           {% elif item.attention == 'ai_done' %}<span class="chip chip-info">AI done</span>{% endif %}
           {% if item.meta and item.meta.kind == 'policy' %}<span class="chip">policy</span>{% endif %}
-          {% if item.source and item.source != 'manual' %}<span class="chip">{{ item.source }}</span>{% endif %}
+          {% if item.meta and item.meta.kind == 'person' %}<span class="chip">person</span>{% endif %}
+          {% if item.meta and item.meta.kind == 'ledger_import' %}<span class="chip">import</span>{% endif %}
+          {% if item.read_only %}<span class="chip">{{ item.source }}</span>{% endif %}
+          {% if item.due_at %}<span class="ss-meta">due {{ item.due_at }}</span>{% endif %}
           <span class="ss-meta ml-auto">{{ item.updated_at }}</span>
         </div>
         {% if item.latest_run %}
