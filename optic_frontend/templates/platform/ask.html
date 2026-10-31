@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{# Ask the wiki (backend platform_routes.py): a question form and the answers it produced, each with the pages
+   it cited. Context: request, module (slug), mod (label, blurb, statuses, agents), runs, polling, is_owner,
+   modules_nav. The answers list is partials/platform_ask_runs.html, which the form swaps in and which polls
+   while a question is queued or running. Shapes shared with module.html are in docs/DESIGN.md section 8. #}
+{% block title %}Ask {{ mod.label }} · Synaps Optic{% endblock %}
+{% block content %}
+<section class="grid gap-8">
+  <div class="min-w-0 grid gap-2">
+    <a href="/m/{{ module }}" class="ss-meta hover:underline">&lsaquo; {{ mod.label }}</a>
+    <div class="ss-meta">Platform · {{ module }}</div>
+    <h1 class="ss-h2">Ask {{ mod.label }}</h1>
+    <p class="ss-body">Answers come from the approved pages, with the pages they used.</p>
+  </div>
+
+  <form hx-post="/api/m/{{ module }}/ask" hx-target="#platform-ask-runs" hx-swap="outerHTML" class="card p-4 grid gap-3">
+    <div class="ss-body-strong">Question</div>
+    <textarea name="question" rows="3" required placeholder="Ask a question about how the team works" class="textarea"></textarea>
+    <div class="flex items-center justify-end">
+      <button type="submit" class="btn btn-primary btn-sm">Ask</button>
+    </div>
+  </form>
+
+  {% include "partials/platform_ask_runs.html" %}
+</section>
+{% endblock %}

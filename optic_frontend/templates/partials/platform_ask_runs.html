@@ -1,0 +1,46 @@
+{# Answers to questions asked of one module's wiki (backend platform_routes.py), in the order the backend lists
+   them (newest first). Swapped in by the question form on platform/ask.html and, while a question is queued or
+   running (`polling`), polled every 3 s. Each run carries its question in `run.input.question`; a done run has
+   `run.output.text` and the pages it cited in `run.output.sources` (n, module, item_id, title).
+   Context: module, runs, polling. #}
+{% set run_tone = {'queued': 'chip-warn', 'running': 'chip-info', 'done': 'chip-ok', 'failed': 'chip-err'} %}
+<div id="platform-ask-runs" class="card p-4 grid gap-3"
+     {% if polling %}hx-get="/partials/m/{{ module }}/ask/runs" hx-trigger="every 3s" hx-swap="outerHTML"{% endif %}>
+  <div class="flex items-center gap-2">
+    <div class="ss-body-strong">Answers</div>
+    {% if polling %}<span class="chip chip-info"><span class="dot dot-info pulse-dot"></span>working</span>{% endif %}
+  </div>
+  {% if not runs %}
+  <p class="ss-meta">No questions yet.</p>
+  {% else %}
+  {% for run in runs %}
+  <div class="rule pt-3 grid gap-2">
+    <div class="ss-body-strong">{{ run.input.question if run.input else '' }}</div>
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="chip {{ run_tone.get(run.status, '') }}">
+        {%- if run.status in ('queued', 'running') %}<span class="dot dot-info pulse-dot"></span>{% endif -%}
+        {%- if run.status == 'queued' and run.position is not none %}queued, {{ run.position }} ahead{% else %}{{ run.status }}{% endif -%}
+      </span>
+      {% if run.model %}<span class="ss-meta">{{ run.model }}</span>{% endif %}
+      {% if run.tokens_in or run.tokens_out %}<span class="ss-numeral">{{ (run.tokens_in or 0) + (run.tokens_out or 0) }} tokens</span>{% endif %}
+      {% if run.seconds is not none %}<span class="ss-numeral">{{ '%.1f'|format(run.seconds) }} s</span>{% endif %}
+      <span class="ss-meta ml-auto">{{ run.created_at }}</span>
+    </div>
+    {% if run.status == 'failed' and run.error %}
+    <div class="rounded-input status-err px-3 py-2 text-xs">{{ run.error }}</div>
+    {% endif %}
+    {% if run.status == 'done' and run.output and run.output.text %}
+    <pre class="whitespace-pre-wrap rounded-widget bg-surface-field p-3 font-mono text-xs text-fg-1">{{ run.output.text }}</pre>
+    {% endif %}
+    {% if run.output and run.output.sources %}
+    <div class="grid gap-1">
+      <div class="ss-meta">Sources</div>
+      {% for s in run.output.sources %}
+      <a href="/m/{{ s.module }}/items/{{ s.item_id }}" class="ss-body-sm hover:underline">[{{ s.n }}] {{ s.title }}</a>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+  {% endif %}
+</div>

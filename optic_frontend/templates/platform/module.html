@@ -1,16 +1,20 @@
 {% extends "base.html" %}
 {# One platform module (backend platform_routes.py): its items, a filter row and the new-item form.
    Context: request, module (slug), mod (label, blurb, statuses, agents), items, status (current filter or ""),
-   needs ("", "you", "ai"), statuses, is_owner, modules_nav. Shapes shared with item.html and approvals.html
-   are in docs/DESIGN.md section 8. #}
+   needs ("", "you", "ai"), statuses, has_ask (the module answers questions: show the "Ask the wiki" link),
+   is_owner, modules_nav. An item's `source` other than "manual" (a synced page) shows as a plain chip. Shapes
+   shared with item.html, ask.html and approvals.html are in docs/DESIGN.md section 8. #}
 {% block title %}{{ mod.label }} · Synaps Optic{% endblock %}
 {% block content %}
 {% set tone = {'review': 'chip-warn', 'approved': 'chip-ok', 'done': 'chip-ok', 'failed': 'chip-err'} %}
 <section class="grid gap-8">
-  <div class="min-w-0">
-    <div class="ss-meta">Platform · {{ module }}</div>
-    <h1 class="ss-h2">{{ mod.label }}</h1>
-    {% if mod.blurb %}<p class="mt-2 ss-body">{{ mod.blurb }}</p>{% endif %}
+  <div class="flex flex-wrap items-start gap-4">
+    <div class="min-w-0 flex-1">
+      <div class="ss-meta">Platform · {{ module }}</div>
+      <h1 class="ss-h2">{{ mod.label }}</h1>
+      {% if mod.blurb %}<p class="mt-2 ss-body">{{ mod.blurb }}</p>{% endif %}
+    </div>
+    {% if has_ask %}<a href="/m/{{ module }}/ask" class="btn btn-secondary btn-sm">Ask the wiki</a>{% endif %}
   </div>
 
   <form method="post" action="/api/m/{{ module }}/items" class="card p-4 grid gap-3">
@@ -51,6 +55,7 @@
           {% if item.attention == 'needs_you' %}<span class="chip chip-warn">Needs you</span>
           {% elif item.attention == 'ai_done' %}<span class="chip chip-info">AI done</span>{% endif %}
           {% if item.meta and item.meta.kind == 'policy' %}<span class="chip">policy</span>{% endif %}
+          {% if item.source and item.source != 'manual' %}<span class="chip">{{ item.source }}</span>{% endif %}
           <span class="ss-meta ml-auto">{{ item.updated_at }}</span>
         </div>
         {% if item.latest_run %}

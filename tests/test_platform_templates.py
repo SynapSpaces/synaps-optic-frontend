@@ -1,13 +1,16 @@
-"""The platform module pages (platform/module.html, platform/item.html, platform/approvals.html) and the runs
-partial (partials/platform_runs.html) pin the contract the backend's platform_routes.py relies on: the forms
-and their actions, the chips, the polling attribute and the inline approve confirm. Rendered with minimal fake
-contexts through the same Jinja2 setup the backend uses (tests/conftest.py).
+"""The platform module pages (platform/module.html, platform/item.html, platform/ask.html,
+platform/approvals.html) and the partials (partials/platform_runs.html, partials/platform_ask_runs.html) pin
+the contract the backend's platform_routes.py relies on: the forms and their actions, the chips, the polling
+attribute, the inline approve confirm, the cited-sources list and the read-only shape of synced items.
+Rendered with minimal fake contexts through the same Jinja2 setup the backend uses (tests/conftest.py).
 
 Context keys the templates read:
-    module page:   request, module, mod, items, status, needs, statuses, is_owner, modules_nav
+    module page:   request, module, mod, items, status, needs, statuses, has_ask, is_owner, modules_nav
     item page:     request, module, mod, item, runs, polling, latest, statuses, next_status, attention,
-                   is_policy, agents, is_owner, modules_nav
-    runs partial:  module, item, runs, polling
+                   is_policy, read_only, agents, is_owner, modules_nav
+    runs partial:  module, item, runs, polling, read_only (missing = false)
+    ask page:      request, module, mod, runs, polling, is_owner, modules_nav
+    ask partial:   module, runs, polling
     approvals:     request, items, show, is_owner, modules_nav
 """
 import pytest
@@ -44,6 +47,10 @@ def _run(status, **over):
             "created_at": "2026-10-31 09:00", "output": None}
     base.update(over)
     return base
+
+
+SOURCES = [{"n": 1, "module": "knowledge", "item_id": "it1", "title": "Refund policy"},
+           {"n": 2, "module": "knowledge", "item_id": "it2", "title": "Returns FAQ"}]
 
 
 def _confirm(html, url):
@@ -118,6 +125,26 @@ def test_module_page_policy_badge_filters_and_empty_state(jinja_env):
     assert "No items yet." in html
 
 
+def test_module_page_ask_link_only_with_has_ask(jinja_env):
+    tpl = jinja_env.get_template("platform/module.html")
+    html = tpl.render(**_module_ctx())
+    assert 'href="/m/knowledge/ask"' not in html and "Ask the wiki" not in html
+    html = tpl.render(**_module_ctx(has_ask=True))
+    header = html.split("<section")[1].split('action="/api/m/knowledge/items"')[0]
+    assert '<a href="/m/knowledge/ask" class="btn btn-secondary btn-sm">Ask the wiki</a>' in header
+    assert header.index("</h1>") < header.index("Ask the wiki")
+
+
+def test_module_page_source_chip_for_synced_items(jinja_env):
+    tpl = jinja_env.get_template("platform/module.html")
+    html = tpl.render(**_module_ctx(items=[_item(source="repo"), _item(id="it2", source="manual"), _item(id="it3")]))
+    repo = html.split('href="/m/knowledge/items/it1"')[1].split("</a>")[0]
+    assert '<span class="chip">repo</span>' in repo
+    for item_id in ("it2", "it3"):
+        row = html.split(f'href="/m/knowledge/items/{item_id}"')[1].split("</a>")[0]
+        assert '<span class="chip">manual</span>' not in row and '<span class="chip">repo</span>' not in row
+
+
 # ---- item page ------------------------------------------------------------------------------------------
 
 def test_item_page_edit_status_and_agents(jinja_env):
@@ -167,6 +194,31 @@ def test_item_page_without_next_status_keeps_only_the_select(jinja_env):
     assert "No agents for this module." in html
 
 
+def test_item_page_read_only_synced_item(jinja_env):
+    tpl = jinja_env.get_template("platform/item.html")
+    item = _item(source="repo", external_url="https://github.com/example/wiki/blob/main/refunds.md")
+    done = _run("done", output={"text": "A summary of the refund page."})
+    html = tpl.render(**_item_ctx(item=item, read_only=True, runs=[done]))
+    # the body is shown, not edited; the note names the source and links out to it
+    assert "/items/it1/edit" not in html and 'name="title"' not in html and ">Save<" not in html
+    assert '<pre class="whitespace-pre-wrap' in html and "Refunds within 30 days." in html
+    assert "Synced from repo; read-only on this site." in html
+    assert ('<a href="https://github.com/example/wiki/blob/main/refunds.md" target="_blank" rel="noopener" '
+            'class="hover:underline">Open the source</a>') in html
+    # no Status card at all: no approve confirm, no main button, no select; Agents stay
+    assert ">Status<" not in html and "/items/it1/status" not in html and "<select" not in html
+    assert '<details class="confirm">' not in html
+    assert ">Agents<" in html and 'hx-post="/api/m/knowledge/items/it1/agents/writer"' in html
+    # read_only reaches the included runs partial
+    assert 'id="platform-runs"' in html and "A summary of the refund page." in html
+    assert "Use this draft" not in html and "/apply" not in html
+    # without external_url there is no link, and the editable page is unchanged
+    html = tpl.render(**_item_ctx(item=_item(source="repo"), read_only=True))
+    assert "Synced from repo; read-only on this site." in html and "Open the source" not in html
+    html = tpl.render(**_item_ctx(read_only=False))
+    assert "/items/it1/edit" in html and ">Status<" in html and "Synced from" not in html
+
+
 # ---- runs partial ---------------------------------------------------------------------------------------
 
 @pytest.fixture
@@ -200,6 +252,109 @@ def test_runs_partial_use_this_draft_only_for_a_done_run_with_output(render_runs
 def test_runs_partial_empty_state(render_runs):
     html = render_runs([], False)
     assert "No runs yet." in html and "<pre" not in html
+
+
+def test_runs_partial_lists_sources_of_a_done_run(render_runs):
+    done = _run("done", output={"text": "Refunds within 30 days [1], returns in 14 [2].", "sources": SOURCES})
+    html = render_runs([done], False)
+    block = html.split("</pre>")[1].split("</form>")[0]
+    assert ">Sources<" in block
+    assert '<a href="/m/knowledge/items/it1" class="ss-body-sm hover:underline">[1] Refund policy</a>' in block
+    assert '<a href="/m/knowledge/items/it2" class="ss-body-sm hover:underline">[2] Returns FAQ</a>' in block
+    assert "Use this draft" in html
+    # no sources, or an empty list: no Sources heading
+    for output in ({"text": "Plain draft."}, {"text": "Plain draft.", "sources": []}):
+        html = render_runs([_run("done", output=output)], False)
+        assert ">Sources<" not in html and "Use this draft" in html
+
+
+def test_runs_partial_hides_use_this_draft_when_read_only(jinja_env):
+    tpl = jinja_env.get_template("partials/platform_runs.html")
+    done = _run("done", output={"text": "A summary.", "sources": SOURCES})
+    html = tpl.render(module="knowledge", item=_item(source="repo"), runs=[done], polling=False, read_only=True)
+    assert "A summary." in html and "[1] Refund policy" in html
+    assert "Use this draft" not in html and "/apply" not in html
+    # a missing key behaves as false
+    html = tpl.render(module="knowledge", item=_item(), runs=[done], polling=False)
+    assert "Use this draft" in html and 'action="/api/m/knowledge/runs/run1/apply"' in html
+
+
+# ---- ask page and partial -------------------------------------------------------------------------------
+
+def _ask_run(status, question="How do refunds work?", **over):
+    base = _run(status, label="Ask", agent="ask", input={"question": question})
+    base.update(over)
+    return base
+
+
+def _ask_ctx(**over):
+    ctx = dict(request=_Req("/m/knowledge/ask"), module="knowledge", mod=_mod(), runs=[], polling=False,
+               is_owner=True, modules_nav=MODULES_NAV)
+    ctx.update(over)
+    return ctx
+
+
+def test_ask_page_form_and_included_partial(jinja_env):
+    html = jinja_env.get_template("platform/ask.html").render(**_ask_ctx())
+    assert "Platform · knowledge" in html and "Ask Knowledge" in html
+    assert "Answers come from the approved pages, with the pages they used." in html
+    assert '<a href="/m/knowledge" class="ss-meta hover:underline">' in html
+    form = html.split('hx-post="/api/m/knowledge/ask"')[1].split("</form>")[0]
+    assert 'hx-target="#platform-ask-runs"' in form.split(">")[0] and 'hx-swap="outerHTML"' in form.split(">")[0]
+    assert '<textarea name="question" rows="3" required' in form
+    assert 'placeholder="Ask a question about how the team works"' in form
+    assert '<button type="submit" class="btn btn-primary btn-sm">Ask</button>' in form
+    assert "window.confirm" not in html and "hx-confirm" not in html
+    # the partial is included, idle and empty
+    assert 'id="platform-ask-runs"' in html and "No questions yet." in html and 'hx-trigger="every 3s"' not in html
+    # nav: the module stays highlighted
+    assert '<a href="/m/knowledge" class="nav-link active">Knowledge</a>' in html
+
+
+def test_ask_page_lists_answers(jinja_env):
+    done = _ask_run("done", output={"text": "Within 30 days [1].", "sources": SOURCES[:1]})
+    html = jinja_env.get_template("platform/ask.html").render(**_ask_ctx(runs=[done]))
+    assert "How do refunds work?" in html and "Within 30 days [1]." in html and "[1] Refund policy" in html
+
+
+@pytest.fixture
+def render_ask_runs(jinja_env):
+    tpl = jinja_env.get_template("partials/platform_ask_runs.html")
+    return lambda runs, polling: tpl.render(module="knowledge", runs=runs, polling=polling)
+
+
+def test_ask_partial_polls_only_while_polling(render_ask_runs):
+    html = render_ask_runs([_ask_run("queued", position=1)], True)
+    assert 'id="platform-ask-runs"' in html and ">Answers<" in html and ">working<" in html.replace("</span>working", ">working<")
+    assert 'hx-get="/partials/m/knowledge/ask/runs"' in html and 'hx-trigger="every 3s"' in html and 'hx-swap="outerHTML"' in html
+    assert "How do refunds work?" in html and "queued, 1 ahead" in html
+    html = render_ask_runs([_ask_run("running")], False)
+    assert "hx-get" not in html and 'hx-trigger="every 3s"' not in html and "working" not in html
+    assert ">running<" in html.replace("</span>running", ">running<")
+
+
+def test_ask_partial_shows_question_answer_and_sources(render_ask_runs):
+    done = _ask_run("done", model="answerer-v1",
+                    output={"text": "Refunds within 30 days [1]; returns in 14 [2].", "sources": SOURCES})
+    html = render_ask_runs([done], False)
+    assert '<div class="ss-body-strong">How do refunds work?</div>' in html
+    assert '<pre class="whitespace-pre-wrap' in html and "Refunds within 30 days [1]; returns in 14 [2]." in html
+    assert "answerer-v1" in html and "460 tokens" in html and "4.2 s" in html and "2026-10-31 09:00" in html
+    sources = html.split(">Sources<")[1]
+    assert '<a href="/m/knowledge/items/it1" class="ss-body-sm hover:underline">[1] Refund policy</a>' in sources
+    assert '<a href="/m/knowledge/items/it2" class="ss-body-sm hover:underline">[2] Returns FAQ</a>' in sources
+    # answers are never applied to anything
+    assert "Use this draft" not in html and "/apply" not in html
+    # a failed question shows its error; a done one without sources has no Sources heading
+    html = render_ask_runs([_ask_run("failed", id="run2", error="no approved pages"),
+                            _ask_run("done", id="run3", output={"text": "Nothing cited.", "sources": []})], False)
+    assert "no approved pages" in html and "chip-err" in html
+    assert "Nothing cited." in html and ">Sources<" not in html
+
+
+def test_ask_partial_empty_state(render_ask_runs):
+    html = render_ask_runs([], False)
+    assert "No questions yet." in html and "<pre" not in html and ">Sources<" not in html
 
 
 # ---- approvals ------------------------------------------------------------------------------------------

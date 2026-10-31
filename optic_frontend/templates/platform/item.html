@@ -1,9 +1,11 @@
 {% extends "base.html" %}
 {# One module item (backend platform_routes.py): edit it, move its status, hand it to an agent, read the runs.
    Context: request, module, mod, item, runs, polling, latest, statuses, next_status (or None), attention,
-   is_policy, agents (list of (name, label)), is_owner, modules_nav. The runs list is partials/platform_runs.html,
-   which the agent forms swap in and which polls while a run is queued or running. Approving is the one
-   irreversible step, so it confirms inline (base.html `.confirm`), never through window.confirm. #}
+   is_policy, read_only, agents (list of (name, label)), is_owner, modules_nav. The runs list is
+   partials/platform_runs.html, which the agent forms swap in and which polls while a run is queued or running;
+   it reads `read_only` from this same context. A read-only item (synced from `item.source`, optionally linking
+   `item.external_url`) shows its body in a pre instead of the edit form and has no Status card. Approving is
+   the one irreversible step, so it confirms inline (base.html `.confirm`), never through window.confirm. #}
 {% block title %}{{ item.title }} · {{ mod.label }} · Synaps Optic{% endblock %}
 {% block content %}
 {% set tone = {'review': 'chip-warn', 'approved': 'chip-ok', 'done': 'chip-ok', 'failed': 'chip-err'} %}
@@ -41,6 +43,14 @@
 
   <div class="grid gap-4 md:grid-cols-[1fr_300px]">
     <div class="grid gap-4">
+      {% if read_only %}
+      <div class="card p-4 grid gap-3">
+        <div class="ss-body-strong">Body</div>
+        <pre class="whitespace-pre-wrap rounded-widget bg-surface-field p-3 font-mono text-xs text-fg-1">{{ item.body or '' }}</pre>
+        <p class="ss-meta">Synced from {{ item.source }}; read-only on this site.
+          {% if item.external_url %}<a href="{{ item.external_url }}" target="_blank" rel="noopener" class="hover:underline">Open the source</a>{% endif %}</p>
+      </div>
+      {% else %}
       <form method="post" action="/api/m/{{ module }}/items/{{ item.id }}/edit" class="card p-4 grid gap-3">
         <div class="ss-body-strong">Edit</div>
         <input name="title" required value="{{ item.title }}" class="input" autocomplete="off">
@@ -49,11 +59,13 @@
           <button type="submit" class="btn btn-secondary btn-sm">Save</button>
         </div>
       </form>
+      {% endif %}
 
       {% include "partials/platform_runs.html" %}
     </div>
 
     <div class="grid gap-4 content-start">
+      {% if not read_only %}
       <div class="card p-4 grid gap-3">
         <div class="ss-meta">Status</div>
         {% if item.status == 'approved' %}
@@ -75,6 +87,7 @@
           <button type="submit" class="btn btn-ghost btn-sm">Set</button>
         </form>
       </div>
+      {% endif %}
 
       <div class="card p-4 grid gap-3">
         <div class="ss-meta">Agents</div>

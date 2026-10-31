@@ -1,6 +1,8 @@
 {# Agent runs of one module item (backend platform_routes.py), in the order the backend lists them (newest
    first). Swapped in by the agent forms on platform/item.html and, while a run is queued or running
-   (`polling`), polled every 3 s. Context: module, item, runs, polling. #}
+   (`polling`), polled every 3 s. A done run's `run.output.sources` (n, module, item_id, title) lists the pages
+   it cited; `read_only` (missing = false) hides "Use this draft" on synced items. Context: module, item, runs,
+   polling, read_only. #}
 {% set run_tone = {'queued': 'chip-warn', 'running': 'chip-info', 'done': 'chip-ok', 'failed': 'chip-err'} %}
 <div id="platform-runs" class="card p-4 grid gap-3"
      {% if polling %}hx-get="/partials/m/{{ module }}/items/{{ item.id }}/runs" hx-trigger="every 3s" hx-swap="outerHTML"{% endif %}>
@@ -29,10 +31,20 @@
     {% endif %}
     {% if run.status == 'done' and run.output and run.output.text %}
     <pre class="whitespace-pre-wrap rounded-widget bg-surface-field p-3 font-mono text-xs text-fg-1">{{ run.output.text }}</pre>
+    {% if run.output.sources %}
+    <div class="grid gap-1">
+      <div class="ss-meta">Sources</div>
+      {% for s in run.output.sources %}
+      <a href="/m/{{ s.module }}/items/{{ s.item_id }}" class="ss-body-sm hover:underline">[{{ s.n }}] {{ s.title }}</a>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if not read_only %}
     <form method="post" action="/api/m/{{ module }}/runs/{{ run.id }}/apply" class="flex flex-wrap items-center gap-3">
       <button type="submit" class="btn btn-secondary btn-sm">Use this draft</button>
       <span class="ss-meta">Replaces the body with this text and sends the item to review.</span>
     </form>
+    {% endif %}
     {% endif %}
   </div>
   {% endfor %}
