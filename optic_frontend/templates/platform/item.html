@@ -15,9 +15,14 @@
    the edit form, which stays so the owner can correct it. A person (`is_person`, an hr item synced from the
    members table, OPS-01) carries a "person" chip and a "Person" card (role, start date, user id); the
    "Checklist" card (a person, or any item that already has one) ticks, removes and adds items and can replace
-   the list with the body's lines, each a plain form posting to /checklist. Card order on the left: Brief /
-   Person / Checklist, Page, Edit, then the runs. A due date in the past on an item not yet approved or done
-   shows as a `chip-err`. Approving, and replacing the checklist, confirm inline (base.html `.confirm`), never
+   the list with the body's lines, each a plain form posting to /checklist. A pull request
+   (`item.meta.kind == 'pr'`, synced from GitHub by the dev lane, read-only) carries a "pr" chip and a "Pull
+   request" card (repo#number, author, head → base, the state chip open / merged / closed, the checks chip,
+   "draft" and an "Open on GitHub" button to `item.external_url`); a repository (`meta.kind` `repo`) carries
+   "repo" and a "Repository" card (default branch, open pull requests, private or public, the same button).
+   Both cards come first on the left and render for read-only items too. Card order on the left: Pull request
+   / Repository, Brief / Person / Checklist, Page, Edit, then the runs. A due date in the past on an item not
+   yet approved or done shows as a `chip-err`. Approving, and replacing the checklist, confirm inline (base.html `.confirm`), never
    through window.confirm. #}
 {% block title %}{{ item.title }} · {{ mod.label }} · Synaps Optic{% endblock %}
 {% block content %}
@@ -25,6 +30,10 @@
 {% set status_url = '/api/m/' ~ module ~ '/items/' ~ item.id ~ '/status' %}
 {% set next_labels = {'draft': 'Start drafting', 'review': 'Submit for review', 'approved': 'Approve', 'done': 'Mark done'} %}
 {% set is_brief = item.meta and item.meta.kind == 'brief' %}
+{% set is_pr = item.meta and item.meta.kind == 'pr' %}
+{% set is_repo = item.meta and item.meta.kind == 'repo' %}
+{% set checks_chip = {'success': ('chip-ok', 'checks pass'), 'failure': ('chip-err', 'checks fail'), 'pending': ('chip-warn', 'checks running')} %}
+{% set pr_state = {'open': 'chip-warn', 'merged': 'chip-ok'} %}
 
 {# A two-step status button: the summary is the button, opening it shows the question with Cancel / confirm.
    The form only posts from the confirm button, so a stray click never changes the status. #}
@@ -53,6 +62,8 @@
       {% if is_policy %}<span class="chip">policy</span>{% endif %}
       {% if is_brief %}<span class="chip">brief</span>{% endif %}
       {% if is_person %}<span class="chip">person</span>{% endif %}
+      {% if is_pr %}<span class="chip">pr</span>{% endif %}
+      {% if is_repo %}<span class="chip">repo</span>{% endif %}
       {% if item.due_at and today and item.due_at < today and item.status not in ('approved', 'done') %}
       <span class="chip chip-err">due {{ item.due_at }}</span>
       {% elif item.due_at %}<span class="ss-meta">due {{ item.due_at }}</span>{% endif %}
@@ -64,6 +75,35 @@
 
   <div class="grid gap-4 md:grid-cols-[1fr_300px]">
     <div class="grid gap-4">
+      {% if is_pr %}
+      <div class="card p-4 grid gap-3">
+        <div class="ss-body-strong">Pull request</div>
+        <div class="grid gap-1">
+          <div class="flex items-baseline gap-2"><span class="ss-meta w-16 shrink-0">Repo</span><span class="ss-body-sm min-w-0 break-words">{{ item.meta.repo }}#{{ item.meta.number }}</span></div>
+          <div class="flex items-baseline gap-2"><span class="ss-meta w-16 shrink-0">Author</span><span class="ss-body-sm min-w-0 break-words">{{ item.meta.author }}</span></div>
+          <div class="flex items-baseline gap-2"><span class="ss-meta w-16 shrink-0">Branch</span><span class="ss-body-sm min-w-0 break-words">{{ item.meta.head }} → {{ item.meta.base }}</span></div>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="chip {{ pr_state.get(item.meta.state, '') }}">{{ item.meta.state or 'open' }}</span>
+          {% set checks = checks_chip.get(item.meta.checks) %}
+          {% if checks %}<span class="chip {{ checks[0] }}">{{ checks[1] }}</span>{% endif %}
+          {% if item.meta.draft %}<span class="chip">draft</span>{% endif %}
+          {% if item.external_url %}<a href="{{ item.external_url }}" target="_blank" rel="noopener" class="ml-auto btn btn-secondary btn-sm">Open on GitHub</a>{% endif %}
+        </div>
+      </div>
+      {% elif is_repo %}
+      <div class="card p-4 grid gap-3">
+        <div class="ss-body-strong">Repository</div>
+        <div class="grid gap-1">
+          <div class="flex items-baseline gap-2"><span class="ss-meta w-16 shrink-0">Branch</span><span class="ss-body-sm min-w-0 break-words">{{ item.meta.default_branch or 'main' }}</span></div>
+          <div class="flex items-baseline gap-2"><span class="ss-meta w-16 shrink-0">Open</span><span class="ss-body-sm min-w-0 break-words">{{ item.meta.open_prs or 0 }} open pull request{% if item.meta.open_prs != 1 %}s{% endif %}</span></div>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="chip">{% if item.meta.private %}private{% else %}public{% endif %}</span>
+          {% if item.external_url %}<a href="{{ item.external_url }}" target="_blank" rel="noopener" class="ml-auto btn btn-secondary btn-sm">Open on GitHub</a>{% endif %}
+        </div>
+      </div>
+      {% endif %}
       {% if read_only %}
       <div class="card p-4 grid gap-3">
         {% if body_html %}

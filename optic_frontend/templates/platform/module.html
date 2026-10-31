@@ -5,12 +5,16 @@
    pages ([(slug, label)] of the module's own pages beyond the list, e.g. hr "people", accounting "ledger";
    missing in older contexts = none), is_owner, modules_nav. Each item carries attention, latest_run, read_only
    (synced from `source` and owned there: the source shows as a plain chip) and may carry due_at; a person
-   (meta.kind "person") and a ledger import (meta.kind "ledger_import") carry a plain chip naming the kind.
-   The header links the board (platform/board.html) and each page. Shapes shared with item.html, board.html,
+   (meta.kind "person") and a ledger import (meta.kind "ledger_import") carry a plain chip naming the kind; a
+   pull request (meta.kind "pr", synced from GitHub by the dev lane: number, author, draft, checks "success" |
+   "failure" | "pending" | "none") carries "pr", the checks chip, "draft pr" and ss-meta "#number by author"; a
+   repository (meta.kind "repo", open_prs) carries "repo" and its open count. The header links the board
+   (platform/board.html) and each page. Shapes shared with item.html, board.html,
    ask.html and approvals.html are in docs/DESIGN.md section 8. #}
 {% block title %}{{ mod.label }} · Synaps Optic{% endblock %}
 {% block content %}
 {% set tone = {'review': 'chip-warn', 'approved': 'chip-ok', 'done': 'chip-ok', 'failed': 'chip-err'} %}
+{% set checks_chip = {'success': ('chip-ok', 'checks pass'), 'failure': ('chip-err', 'checks fail'), 'pending': ('chip-warn', 'checks running')} %}
 <section class="grid gap-8">
   <div class="flex flex-wrap items-start gap-4">
     <div class="min-w-0 flex-1">
@@ -67,6 +71,17 @@
           {% if item.meta and item.meta.kind == 'policy' %}<span class="chip">policy</span>{% endif %}
           {% if item.meta and item.meta.kind == 'person' %}<span class="chip">person</span>{% endif %}
           {% if item.meta and item.meta.kind == 'ledger_import' %}<span class="chip">import</span>{% endif %}
+          {% if item.meta and item.meta.kind == 'pr' %}
+          <span class="chip">pr</span>
+          {% set checks = checks_chip.get(item.meta.checks) %}
+          {% if checks %}<span class="chip {{ checks[0] }}">{{ checks[1] }}</span>{% endif %}
+          {% if item.meta.draft %}<span class="chip">draft pr</span>{% endif %}
+          <span class="ss-meta">#{{ item.meta.number }} by {{ item.meta.author }}</span>
+          {% endif %}
+          {% if item.meta and item.meta.kind == 'repo' %}
+          <span class="chip">repo</span>
+          {% if item.meta.open_prs is defined %}<span class="ss-meta">{{ item.meta.open_prs }} open</span>{% endif %}
+          {% endif %}
           {% if item.read_only %}<span class="chip">{{ item.source }}</span>{% endif %}
           {% if item.due_at %}<span class="ss-meta">due {{ item.due_at }}</span>{% endif %}
           <span class="ss-meta ml-auto">{{ item.updated_at }}</span>

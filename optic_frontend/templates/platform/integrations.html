@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{# The GitHub integration of the dev module (backend platform_routes.py, DEV-01, slice 02-01): connect a
+   personal access token, name the repositories, see the account, the last poll and any error, poll now or
+   disconnect. Context: request, module ("dev"), mod, pages, configured (the server has an encryption key,
+   INTEGRATION_TOKEN_KEY; without it the connect form renders but its button is disabled), github (None when
+   not connected, else {external_account, scopes, repos ["owner/name"], updated_at, last_sync_at, last_error};
+   never the token), open_prs (int), poll_minutes (int), is_owner, modules_nav. Every form is a plain post:
+   /api/m/dev/integrations/github (token, repos) connects or updates, .../github/sync polls now and
+   .../github/delete forgets the token behind the inline `.confirm` two-step (base.html), never window.confirm.
+   Nothing is ever written to GitHub. The synced pull requests and repositories are dev items (module.html,
+   item.html); the shapes are in docs/DESIGN.md section 8. #}
+{% block title %}Integrations · Synaps Optic{% endblock %}
+{% block content %}
+<section class="grid gap-6">
+  <div class="min-w-0 grid gap-2">
+    <a href="/m/{{ module }}" class="ss-meta hover:underline">&lsaquo; {{ mod.label }}</a>
+    <div class="ss-meta">Platform · {{ module }}</div>
+    <h1 class="ss-h2">Integrations</h1>
+    <p class="ss-body">Bring your own account: a personal access token this workspace uses to read its repositories. Nothing is ever written to GitHub.</p>
+  </div>
+
+  {% if not configured %}
+  <div class="rounded-input status-err px-3 py-2 text-xs">Integrations are not configured on this server: the owner must set INTEGRATION_TOKEN_KEY.</div>
+  {% endif %}
+
+  <div class="card p-4 grid gap-3">
+    <div class="flex flex-wrap items-center gap-2">
+      <div class="ss-body-strong">GitHub</div>
+      {% if github %}<span class="chip chip-ok">connected as {{ github.external_account }}</span>
+      {% else %}<span class="chip">Not connected</span>{% endif %}
+    </div>
+    {% if github %}
+    {% if github.scopes %}<div class="ss-meta">scopes {{ github.scopes }}</div>{% endif %}
+    {% if github.repos %}
+    <div class="flex flex-wrap items-center gap-2">
+      {% for repo in github.repos %}<span class="chip">{{ repo }}</span>{% endfor %}
+    </div>
+    {% endif %}
+    <div class="ss-meta">{{ open_prs }} open pull requests · polled every {{ poll_minutes }} min · last poll {{ github.last_sync_at or 'never' }}</div>
+    {% if github.last_error %}
+    <div class="rounded-input status-err px-3 py-2 text-xs break-words">{{ github.last_error }}</div>
+    {% endif %}
+    <div class="flex flex-wrap items-center gap-2">
+      <form method="post" action="/api/m/dev/integrations/github/sync">
+        <button type="submit" class="btn btn-secondary btn-sm">Sync now</button>
+      </form>
+      <div class="ml-auto">
+        <details class="confirm">
+          <summary class="btn btn-ghost btn-sm" role="button">Disconnect</summary>
+          <form method="post" action="/api/m/dev/integrations/github/delete" class="confirm-box card-float">
+            <p class="ss-body-sm">Forget the token? The items already synced stay but stop updating.</p>
+            <div class="flex justify-end gap-2">
+              <button type="button" class="btn btn-ghost btn-sm" onclick="this.closest('details').removeAttribute('open')">Cancel</button>
+              <button type="submit" class="btn btn-primary btn-sm">Disconnect</button>
+            </div>
+          </form>
+        </details>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <form method="post" action="/api/m/dev/integrations/github" autocomplete="off" class="card p-4 grid gap-3">
+    <div class="ss-body-strong">{% if github %}Update the connection{% else %}Connect GitHub{% endif %}</div>
+    <label class="grid gap-1">
+      <span class="ss-meta">Personal access token</span>
+      <input type="password" name="token" class="input" autocomplete="off" placeholder="github_pat_… (fine-grained: Contents and Pull requests, read)" required>
+    </label>
+    <label class="grid gap-1">
+      <span class="ss-meta">Repositories</span>
+      <textarea name="repos" rows="3" class="textarea" placeholder="owner/name, one per line or comma-separated" required>{% if github %}{{ github.repos|join('\n') }}{% endif %}</textarea>
+    </label>
+    <div class="flex flex-wrap items-center gap-3">
+      <p class="ss-meta">The token is stored encrypted and only used to read the repositories; the lane polls them every {{ poll_minutes }} minutes.</p>
+      <button type="submit" class="ml-auto btn btn-primary btn-sm"{% if not configured %} disabled{% endif %}>{% if github %}Update{% else %}Connect{% endif %}</button>
+    </div>
+    <p class="ss-body-sm">How to make the token: GitHub → Settings → Developer settings → Fine-grained tokens. Give it repository access to the repositories above and the permissions Contents and Pull requests, read-only; metadata read is added automatically.</p>
+  </form>
+</section>
+{% endblock %}

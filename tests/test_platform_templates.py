@@ -1,23 +1,28 @@
 """The platform module pages (platform/module.html, platform/item.html, platform/board.html,
-platform/people.html, platform/ledger.html, platform/ask.html, platform/approvals.html, platform/brief.html)
-and the partials (partials/platform_runs.html, partials/platform_ask_runs.html) pin the contract the backend's
+platform/people.html, platform/ledger.html, platform/integrations.html, platform/ask.html, platform/approvals.html,
+platform/brief.html) and the partials (partials/platform_runs.html, partials/platform_ask_runs.html) pin the contract the backend's
 platform_routes.py relies on: the forms and their actions, the chips, the polling attributes, the inline
 confirms (approve, replace the checklist), the cited-sources list, the read-only shape of synced items, the
-brief read view, the rendered markdown page, the brief mentions, the board columns, the people rows and the
-ledger tables.
+brief read view, the rendered markdown page, the brief mentions, the board columns, the people rows, the
+ledger tables, the integrations page and the pull-request / repository cards.
 Rendered with minimal fake contexts through the same Jinja2 setup the backend uses (tests/conftest.py).
 
 Context keys the templates read:
     module page:   request, module, mod, items, status, needs, statuses, has_ask, pages (missing = none),
                    is_owner, modules_nav; each item: attention, latest_run, read_only, meta.kind, due_at
+                   (meta.kind pr: number, author, draft, checks; meta.kind repo: open_prs)
     item page:     request, module, mod, item (due_at, assignee_user_id, meta), runs, polling, latest, statuses,
                    next_status, attention, is_policy, is_person, checklist, members, owner_name, assignee_name,
-                   today, read_only, agents, body_html (missing or "" = no Page card), is_owner, modules_nav
+                   today, read_only, agents, body_html (missing or "" = no Page card), is_owner, modules_nav;
+                   item.meta.kind pr (repo, number, author, head, base, state, checks, draft) or repo
+                   (default_branch, open_prs, private) with item.external_url
     board page:    request, module, mod, pages, columns ([{status, items}]; each item: attention, assignee_name,
                    owner_name, overdue, next_status, read_only, due_at, source), today, is_owner, modules_nav
     people page:   request, module, mod, pages, people (role, start_date, done, total), is_owner, modules_nav
     ledger page:   request, module, mod, pages, months, month, entries, categories, imports, modes, imported,
                    skipped, is_owner, modules_nav
+    integrations:  request, module ("dev"), mod, pages, configured, github (None or {external_account, scopes,
+                   repos, updated_at, last_sync_at, last_error}), open_prs, poll_minutes, is_owner, modules_nav
     runs partial:  module, item, runs, polling, read_only (missing = false)
     ask page:      request, module, mod, runs, polling, is_owner, modules_nav
     ask partial:   module, runs, polling
@@ -980,6 +985,251 @@ def test_ledger_page_import_echo_and_month_without_rows(jinja_env):
     # an import without problems lists none
     html = tpl.render(**_ledger_ctx(imports=[{**IMPORTS[0], "meta": {**IMPORTS[0]["meta"], "problems": []}}]))
     assert "line 4: no amount" not in html and "12 rows · 10 inserted · 2 skipped" in html
+
+
+# ---- integrations ---------------------------------------------------------------------------------------
+
+GITHUB = {"external_account": "wolfwdavid", "scopes": "repo, read:org",
+          "repos": ["wolfwdavid/synaps-optic-backend", "wolfwdavid/synaps-optic-frontend"],
+          "updated_at": "2026-10-31 09:00", "last_sync_at": "2026-10-31 09:30", "last_error": None}
+
+
+def _integrations_ctx(**over):
+    ctx = dict(request=_Req("/m/dev/integrations"), module="dev", mod=_mod(label="Dev", blurb="Code and pull requests."),
+               pages=[("integrations", "Integrations")], configured=True, github=None, open_prs=0, poll_minutes=10,
+               is_owner=True, modules_nav=MODULES_NAV + [("dev", "Dev")])
+    ctx.update(over)
+    return ctx
+
+
+def _github_card(html):
+    return html.split('<div class="ss-body-strong">GitHub</div>')[1].split('action="/api/m/dev/integrations/github"')[0]
+
+
+def _connect_form(html):
+    return html.split('action="/api/m/dev/integrations/github"')[1].split("</form>")[0]
+
+
+def test_integrations_page_not_configured(jinja_env):
+    html = jinja_env.get_template("platform/integrations.html").render(**_integrations_ctx(configured=False))
+    assert "Integrations are not configured on this server: the owner must set INTEGRATION_TOKEN_KEY." in html
+    box = html.split("Integrations are not configured on this server")[0].rsplit("<div", 1)[1]
+    assert "status-err" in box
+    # the connect form still renders, its button disabled
+    form = _connect_form(html)
+    assert 'name="token"' in form and 'name="repos"' in form
+    assert '<button type="submit" class="ml-auto btn btn-primary btn-sm" disabled>Connect</button>' in form
+    assert '<span class="chip">Not connected</span>' in html
+
+
+def test_integrations_page_not_connected(jinja_env):
+    html = jinja_env.get_template("platform/integrations.html").render(**_integrations_ctx())
+    assert "Platform · dev" in html and ">Integrations</h1>" in html
+    assert ("Bring your own account: a personal access token this workspace uses to read its repositories. "
+            "Nothing is ever written to GitHub.") in html
+    assert '<a href="/m/dev" class="ss-meta hover:underline">' in html
+    body = html.split("</style>")[-1]
+    assert "INTEGRATION_TOKEN_KEY" not in body and "status-err" not in body
+    card = _github_card(html)
+    assert '<span class="chip">Not connected</span>' in card and "connected as" not in card
+    assert "Sync now" not in html and "/github/sync" not in html and "/github/delete" not in html
+    assert '<details class="confirm">' not in html and "Disconnect" not in html
+    # the connect form: a plain post, autocomplete off, the password input and the repos textarea
+    open_tag = html.split('action="/api/m/dev/integrations/github"')[0].rsplit("<form", 1)[1]
+    assert 'method="post"' in open_tag
+    assert 'autocomplete="off"' in html.split('action="/api/m/dev/integrations/github"')[1].split(">")[0]
+    form = _connect_form(html)
+    assert ">Connect GitHub<" in form and ">Personal access token<" in form and ">Repositories<" in form
+    assert ('<input type="password" name="token" class="input" autocomplete="off" '
+            'placeholder="github_pat_… (fine-grained: Contents and Pull requests, read)" required>') in form
+    assert ('<textarea name="repos" rows="3" class="textarea" placeholder="owner/name, one per line or comma-separated" '
+            'required></textarea>') in form
+    assert '<button type="submit" class="ml-auto btn btn-primary btn-sm">Connect</button>' in form
+    assert ("The token is stored encrypted and only used to read the repositories; "
+            "the lane polls them every 10 minutes.") in form
+    assert "How to make the token: GitHub → Settings → Developer settings → Fine-grained tokens." in form
+    assert "Contents and Pull requests, read-only; metadata read is added automatically." in form
+    assert "window.confirm" not in html and "hx-confirm" not in html
+    assert '<a href="/m/dev" class="nav-link active">Dev</a>' in html
+
+
+def test_integrations_page_connected(jinja_env):
+    html = jinja_env.get_template("platform/integrations.html").render(**_integrations_ctx(github=GITHUB, open_prs=3))
+    card = _github_card(html)
+    assert '<span class="chip chip-ok">connected as wolfwdavid</span>' in card and "Not connected" not in card
+    assert '<div class="ss-meta">scopes repo, read:org</div>' in card
+    assert '<span class="chip">wolfwdavid/synaps-optic-backend</span>' in card
+    assert '<span class="chip">wolfwdavid/synaps-optic-frontend</span>' in card
+    assert '<div class="ss-meta">3 open pull requests · polled every 10 min · last poll 2026-10-31 09:30</div>' in card
+    assert "status-err" not in card
+    sync = card.split('action="/api/m/dev/integrations/github/sync"')[1].split("</form>")[0]
+    assert 'method="post"' in card.split('action="/api/m/dev/integrations/github/sync"')[0].rsplit("<form", 1)[1]
+    assert '<button type="submit" class="btn btn-secondary btn-sm">Sync now</button>' in sync
+    # disconnect is the inline two-step, never a modal
+    dis = _confirm(html, "/api/m/dev/integrations/github/delete")
+    assert dis and "Forget the token? The items already synced stay but stop updating." in dis
+    assert ">Disconnect</button>" in dis and ">Cancel</button>" in dis
+    assert '<summary class="btn btn-ghost btn-sm" role="button">Disconnect</summary>' in card
+    assert "window.confirm" not in html and "hx-confirm" not in html
+    # the form updates: repos prefilled one per line, the button reads Update, the token never echoed
+    form = _connect_form(html)
+    assert ">Update the connection<" in form
+    assert ('<textarea name="repos" rows="3" class="textarea" placeholder="owner/name, one per line or comma-separated" '
+            'required>wolfwdavid/synaps-optic-backend\nwolfwdavid/synaps-optic-frontend</textarea>') in form
+    assert '<button type="submit" class="ml-auto btn btn-primary btn-sm">Update</button>' in form and ">Connect<" not in form
+    token = form.split('name="token"')[1].split(">")[0]
+    assert 'type="password"' in form.split('name="token"')[0].rsplit("<input", 1)[1] and "value=" not in token
+
+
+def test_integrations_page_error_box_and_never_polled(jinja_env):
+    github = {**GITHUB, "scopes": "", "repos": [], "last_sync_at": None,
+              "last_error": "HTTPStatusError: 401 Bad credentials"}
+    html = jinja_env.get_template("platform/integrations.html").render(**_integrations_ctx(github=github))
+    card = _github_card(html)
+    assert "HTTPStatusError: 401 Bad credentials" in card
+    box = card.split("HTTPStatusError")[0].rsplit("<div", 1)[1]
+    assert "status-err" in box
+    assert '<div class="ss-meta">0 open pull requests · polled every 10 min · last poll never</div>' in card
+    assert "scopes " not in card and '<span class="chip">wolfwdavid' not in card
+    assert '<span class="chip chip-ok">connected as wolfwdavid</span>' in card and "Sync now" in card
+    assert ('<textarea name="repos" rows="3" class="textarea" placeholder="owner/name, one per line or comma-separated" '
+            'required></textarea>') in html
+    assert ">Update</button>" in html
+
+
+# ---- pull requests and repositories as items ------------------------------------------------------------
+
+def _pr(n=1, **meta):
+    base_meta = {"kind": "pr", "repo": "wolfwdavid/synaps-optic-backend", "number": n, "author": "wolfwdavid",
+                 "head": "feature/x", "sha": "abc123", "base": "main", "draft": False, "checks": "success",
+                 "state": "open", "pr_updated_at": "2026-10-31T09:00:00Z"}
+    base_meta.update(meta)
+    return _item(id=f"pr{n}", title=f"wolfwdavid/synaps-optic-backend#{n}: Add the thing", status="review",
+                 attention="", latest_run=None, source="github", read_only=True, meta=base_meta,
+                 external_url=f"https://github.com/wolfwdavid/synaps-optic-backend/pull/{n}")
+
+
+def _repo(id="r1", **meta):
+    base_meta = {"kind": "repo", "repo": "wolfwdavid/synaps-optic-backend", "default_branch": "main",
+                 "open_prs": 2, "private": True}
+    base_meta.update(meta)
+    return _item(id=id, title="wolfwdavid/synaps-optic-backend", status="approved", attention="", latest_run=None,
+                 source="github", read_only=True, meta=base_meta,
+                 external_url="https://github.com/wolfwdavid/synaps-optic-backend")
+
+
+def _dev_module_ctx(items):
+    return _module_ctx("dev", mod=_mod(label="Dev"), pages=[("integrations", "Integrations")], items=items)
+
+
+@pytest.mark.parametrize("checks, chip", [
+    ("success", '<span class="chip chip-ok">checks pass</span>'),
+    ("failure", '<span class="chip chip-err">checks fail</span>'),
+    ("pending", '<span class="chip chip-warn">checks running</span>'),
+    ("none", None),
+    (None, None),
+])
+def test_module_page_pull_request_chips(jinja_env, checks, chip):
+    html = jinja_env.get_template("platform/module.html").render(**_dev_module_ctx([_pr(7, checks=checks)]))
+    row = html.split('href="/m/dev/items/pr7"')[1].split("</a>")[0]
+    assert '<span class="chip">pr</span>' in row and '<span class="chip">github</span>' in row
+    assert '<span class="ss-meta">#7 by wolfwdavid</span>' in row and "draft pr" not in row
+    if chip:
+        assert chip in row and row.count("checks") == 1
+    else:
+        assert "checks" not in row
+    assert '<a href="/m/dev/integrations" class="btn btn-secondary btn-sm">Integrations</a>' in html
+
+
+def test_module_page_draft_pr_and_repo_chips(jinja_env):
+    draft = _pr(8, draft=True)
+    del draft["meta"]["checks"]
+    bare = _repo("r2")
+    del bare["meta"]["open_prs"]
+    html = jinja_env.get_template("platform/module.html").render(
+        **_dev_module_ctx([draft, _repo(), bare, _repo("r3", open_prs=0)]))
+    row = html.split('href="/m/dev/items/pr8"')[1].split("</a>")[0]
+    assert '<span class="chip">pr</span>' in row and '<span class="chip">draft pr</span>' in row and "checks" not in row
+    assert row.index(">pr<") < row.index(">draft pr<") < row.index("#8 by wolfwdavid")
+    assert '<span class="chip">repo</span>' not in row
+    r1 = html.split('href="/m/dev/items/r1"')[1].split("</a>")[0]
+    assert '<span class="chip">repo</span>' in r1 and '<span class="ss-meta">2 open</span>' in r1
+    assert '<span class="chip">pr</span>' not in r1 and '<span class="chip">github</span>' in r1 and " by " not in r1
+    r2 = html.split('href="/m/dev/items/r2"')[1].split("</a>")[0]
+    assert '<span class="chip">repo</span>' in r2 and " open</span>" not in r2
+    r3 = html.split('href="/m/dev/items/r3"')[1].split("</a>")[0]
+    assert '<span class="ss-meta">0 open</span>' in r3
+
+
+def _dev_item_ctx(item, **over):
+    ctx = dict(read_only=True, module="dev", mod=_mod(label="Dev"), next_status=None, request=_Req(f"/m/dev/items/{item['id']}"))
+    ctx.update(over)
+    return _item_ctx(item=item, **ctx)
+
+
+def _left_card(html, heading):
+    """The first card on the left, from its heading to the read-only Body card that follows it."""
+    return html.split(f'<div class="ss-body-strong">{heading}</div>')[1].split('<div class="ss-body-strong">Body</div>')[0]
+
+
+def test_item_page_pull_request_card(jinja_env):
+    tpl = jinja_env.get_template("platform/item.html")
+    html = tpl.render(**_dev_item_ctx(_pr(7, checks="failure", draft=True)))
+    header = html.split("</h1>")[1].split("md:grid-cols")[0]
+    assert '<span class="chip">pr</span>' in header and '<span class="chip">repo</span>' not in header
+    card = _left_card(html, "Pull request")
+    assert ">Repo<" in card and ">wolfwdavid/synaps-optic-backend#7</span>" in card
+    assert ">Author<" in card and ">wolfwdavid</span>" in card
+    assert ">Branch<" in card and ">feature/x → main</span>" in card
+    assert '<span class="chip chip-warn">open</span>' in card
+    assert '<span class="chip chip-err">checks fail</span>' in card
+    assert '<span class="chip">draft</span>' in card
+    assert ('<a href="https://github.com/wolfwdavid/synaps-optic-backend/pull/7" target="_blank" rel="noopener" '
+            'class="ml-auto btn btn-secondary btn-sm">Open on GitHub</a>') in card
+    # first on the left, above the read-only body and its synced note; still no edit form or Status card
+    assert html.index(">Pull request</div>") < html.index(">Body</div>") < html.index("Synced from github; read-only on this site.")
+    assert ">Status<" not in html and "/items/pr7/edit" not in html and ">Repository</div>" not in html
+    assert "window.confirm" not in html and "hx-confirm" not in html
+    # merged: chip-ok, no checks chip for "none", no draft chip, no button without a url
+    merged = _pr(9, state="merged", checks="none")
+    merged["status"] = "done"
+    del merged["external_url"]
+    html = tpl.render(**_dev_item_ctx(merged))
+    card = _left_card(html, "Pull request")
+    assert '<span class="chip chip-ok">merged</span>' in card and "checks" not in card
+    assert '<span class="chip">draft</span>' not in card and "Open on GitHub" not in html
+    # closed: a plain chip; pending checks
+    closed = _pr(10, state="closed", checks="pending")
+    closed["status"] = "draft"
+    html = tpl.render(**_dev_item_ctx(closed))
+    card = _left_card(html, "Pull request")
+    assert '<span class="chip ">closed</span>' in card and '<span class="chip chip-warn">checks running</span>' in card
+    # the card does not depend on read_only: an editable pr still shows it, above the edit form
+    html = tpl.render(**_dev_item_ctx(_pr(11), read_only=False))
+    assert ">Pull request</div>" in html and html.index(">Pull request</div>") < html.index("/items/pr11/edit")
+
+
+def test_item_page_repository_card(jinja_env):
+    tpl = jinja_env.get_template("platform/item.html")
+    html = tpl.render(**_dev_item_ctx(_repo()))
+    header = html.split("</h1>")[1].split("md:grid-cols")[0]
+    assert '<span class="chip">repo</span>' in header and '<span class="chip">pr</span>' not in header
+    card = _left_card(html, "Repository")
+    assert ">Branch<" in card and ">main</span>" in card
+    assert ">Open<" in card and ">2 open pull requests</span>" in card
+    assert '<span class="chip">private</span>' in card and "public" not in card
+    assert ('<a href="https://github.com/wolfwdavid/synaps-optic-backend" target="_blank" rel="noopener" '
+            'class="ml-auto btn btn-secondary btn-sm">Open on GitHub</a>') in card
+    assert html.index(">Repository</div>") < html.index(">Body</div>")
+    assert ">Pull request</div>" not in html and ">Status<" not in html
+    html = tpl.render(**_dev_item_ctx(_repo(open_prs=1, private=False, default_branch="develop")))
+    card = _left_card(html, "Repository")
+    assert ">1 open pull request</span>" in card and '<span class="chip">public</span>' in card and ">develop</span>" in card
+    html = tpl.render(**_dev_item_ctx(_repo(open_prs=0)))
+    assert ">0 open pull requests</span>" in _left_card(html, "Repository")
+    # an ordinary item has neither card
+    html = tpl.render(**_item_ctx())
+    assert ">Pull request</div>" not in html and ">Repository</div>" not in html and "Open on GitHub" not in html
 
 
 # ---- base nav -------------------------------------------------------------------------------------------
