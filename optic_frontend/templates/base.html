@@ -319,6 +319,7 @@
                 {% for slug, label in (modules_nav or []) %}
                 <li><a href="/m/{{ slug }}" class="nav-link {% if request.url.path.startswith('/m/' ~ slug) %}active{% endif %}">{{ label }}</a></li>
                 {% endfor %}
+                <li><a href="/inbox" class="nav-link {% if request.url.path.startswith('/inbox') %}active{% endif %}">Inbox</a></li>
                 <li><a href="/approvals" class="nav-link {% if request.url.path.startswith('/approvals') %}active{% endif %}">Approvals</a></li>
                 <li><a href="/brief" class="nav-link {% if request.url.path.startswith('/brief') %}active{% endif %}">Brief</a></li>
                 <li><a href="/runs" class="nav-link {% if request.url.path.startswith('/runs') %}active{% endif %}">Runs</a></li>

@@ -1,0 +1,43 @@
+{# Signals filed through the inbox (backend platform_routes.py, slice 04-02), in the order the backend lists
+   them (newest first). Swapped in by the form on platform/inbox.html and, while a signal is queued or running
+   (`polling`), polled every 3 s. Each run carries its signal in `run.input.signal`; a done run has
+   `run.created` (module, item_id, title, kind, next; also in `run.output.created`) and `run.module_label`,
+   the label of the module the agent chose. Context: runs, polling. #}
+{% set run_tone = {'queued': 'chip-warn', 'running': 'chip-info', 'done': 'chip-ok', 'failed': 'chip-err'} %}
+<div id="platform-inbox-runs" class="card p-4 grid gap-3"
+     {% if polling %}hx-get="/partials/inbox/runs" hx-trigger="every 3s" hx-swap="outerHTML"{% endif %}>
+  <div class="flex items-center gap-2">
+    <div class="ss-body-strong">Filed</div>
+    {% if polling %}<span class="chip chip-info"><span class="dot dot-info pulse-dot"></span>working</span>{% endif %}
+  </div>
+  {% if not runs %}
+  <p class="ss-meta">Nothing filed yet.</p>
+  {% else %}
+  {% for run in runs %}
+  {% set signal = (run.input.signal if run.input else '') or '' %}
+  <div class="rule pt-3 grid gap-2">
+    <div class="ss-body-sm">{{ signal[:160] }}{% if signal|length > 160 %}…{% endif %}</div>
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="chip {{ run_tone.get(run.status, '') }}">
+        {%- if run.status in ('queued', 'running') %}<span class="dot dot-info pulse-dot"></span>{% endif -%}
+        {%- if run.status == 'queued' and run.position is not none %}queued, {{ run.position }} ahead{% else %}{{ run.status }}{% endif -%}
+      </span>
+      {% if run.tokens_in or run.tokens_out %}<span class="ss-numeral">{{ (run.tokens_in or 0) + (run.tokens_out or 0) }} tokens</span>{% endif %}
+      {% if run.seconds is not none %}<span class="ss-numeral">{{ '%.1f'|format(run.seconds) }} s</span>{% endif %}
+      <span class="ss-meta ml-auto">{{ run.created_at }}</span>
+    </div>
+    {% if run.status == 'failed' and run.error %}
+    <div class="rounded-input status-err px-3 py-2 text-xs">{{ run.error }}</div>
+    {% endif %}
+    {% if run.created %}
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="chip">{{ run.module_label or run.created.module }}</span>
+      {% if run.created.kind %}<span class="chip">{{ run.created.kind }}</span>{% endif %}
+      <a href="/m/{{ run.created.module }}/items/{{ run.created.item_id }}" class="ss-body-strong hover:underline">{{ run.created.title }}</a>
+    </div>
+    {% if run.created.next %}<div class="ss-meta">Next: {{ run.created.next }}</div>{% endif %}
+    {% endif %}
+  </div>
+  {% endfor %}
+  {% endif %}
+</div>

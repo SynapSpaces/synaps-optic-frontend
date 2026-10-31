@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{# The inbox (backend platform_routes.py, slice 04-02): one place to paste anything that came in; the triage
+   agent files it as an item in the module it names and a person takes it from there. Context: request, runs,
+   polling, is_owner, modules_nav. The filed list is partials/platform_inbox_runs.html, which the form swaps in
+   and which polls while a signal is queued or running. Shapes are in docs/DESIGN.md section 8. #}
+{% block title %}Inbox · Synaps Optic{% endblock %}
+{% block content %}
+<section class="grid gap-8">
+  <div class="min-w-0 grid gap-2">
+    <div class="ss-meta">Platform · inbox</div>
+    <h1 class="ss-h2">Inbox</h1>
+    <p class="ss-body">Paste anything that came in: an email, a message, a form entry, a thought. The director agent files it in the right module with a next step, and a person takes it from there.</p>
+  </div>
+
+  <form hx-post="/api/inbox" hx-target="#platform-inbox-runs" hx-swap="outerHTML" class="card p-4 grid gap-3">
+    <div class="ss-body-strong">Signal</div>
+    <textarea name="signal" rows="6" required placeholder="Paste the signal" class="textarea"></textarea>
+    <div class="flex items-center justify-end">
+      <button type="submit" class="btn btn-primary btn-sm">File it</button>
+    </div>
+  </form>
+
+  {% include "partials/platform_inbox_runs.html" %}
+</section>
+{% endblock %}

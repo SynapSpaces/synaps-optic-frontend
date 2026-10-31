@@ -1,7 +1,7 @@
 """The platform module pages (platform/module.html, platform/item.html, platform/board.html,
 platform/people.html, platform/ledger.html, platform/integrations.html, platform/ask.html, platform/approvals.html,
-platform/brief.html, platform/runs.html), the standalone preview documents (platform/deck_slides.html,
-platform/preview.html) and the partials (partials/platform_runs.html, partials/platform_ask_runs.html) pin the
+platform/brief.html, platform/runs.html, platform/inbox.html), the standalone preview documents (platform/deck_slides.html,
+platform/preview.html) and the partials (partials/platform_runs.html, partials/platform_ask_runs.html, partials/platform_inbox_runs.html) pin the
 contract the backend's platform_routes.py relies on: the forms and their actions, the chips, the polling
 attributes, the inline confirms (approve, replace the checklist), the cited-sources list, the read-only shape
 of synced items, the brief read view, the rendered markdown page, the brief mentions, the board columns, the
@@ -12,7 +12,8 @@ chips), the sandboxed Preview card with the deck-as-slides and page-mockup docum
 card (render on the lane, poll, download) and the Publish card (a mockup to the workspace's repository) with
 their chips, the runs dashboard (range pills, totals, the two tables, the latest runs) and the scorecard
 score chip (the same tone rule on the dashboard, in the runs partial, the module list, the board and the
-approvals page) with the runs partial's Scorecard details block.
+approvals page) with the runs partial's Scorecard details block, and the inbox (the signal form and the
+filed runs linking the items the triage agent created).
 Rendered with minimal fake contexts through the same Jinja2 setup the backend uses (tests/conftest.py).
 
 Context keys the templates read:
@@ -64,6 +65,10 @@ Context keys the templates read:
                    failed, seconds, tokens}), is_owner, modules_nav
     brief page:    request, briefs, latest, polling, mentions (missing or [] = no "Mentioned" block;
                    each {module, module_label, id, title, why}), is_owner, modules_nav
+    inbox page:    request, runs, polling, is_owner, modules_nav
+    inbox partial: runs (newest first; each {id, status, position, input {signal}, output (None or {text, created}),
+                   created (None or {module, item_id, title, kind, next}), module_label, error, seconds, tokens_in,
+                   tokens_out, created_at}), polling
     deck slides:   request, title, slides ([{title, bullets (list of str), notes (str)}]; [] = empty state)
     preview:       request, title, html (the sanitised fragment, printed unescaped; "" = empty state)
 """
@@ -647,6 +652,117 @@ def test_ask_partial_shows_question_answer_and_sources(render_ask_runs):
 def test_ask_partial_empty_state(render_ask_runs):
     html = render_ask_runs([], False)
     assert "No questions yet." in html and "<pre" not in html and ">Sources<" not in html
+
+
+# ---- inbox page and partial (slice 04-02) ---------------------------------------------------------------
+
+SIGNAL = ("Hi, I run a 40-person agency and we'd sponsor the next three episodes if the <b>cat</b> gets a cameo. "
+          "Budget is around $4k per episode; can you send a one-pager by Friday? Also, who handles invoices?")
+CREATED = {"module": "marketing", "item_id": "mk9", "title": "Agency sponsorship: three episodes", "kind": "sponsor",
+           "next": "Send the one-pager by Friday and loop in accounting for the invoice."}
+
+
+def _inbox_run(status, signal=SIGNAL, created=None, **over):
+    base = _run(status, label="File a signal", agent="triage", input={"signal": signal}, created=created,
+                module_label=("Marketing" if created else None),
+                output=({"text": "Module: marketing", "created": created} if created else None))
+    base.update(over)
+    return base
+
+
+def _inbox_ctx(**over):
+    ctx = dict(request=_Req("/inbox"), runs=[], polling=False, is_owner=True, modules_nav=MODULES_NAV)
+    ctx.update(over)
+    return ctx
+
+
+def test_inbox_page_form_and_included_partial(jinja_env):
+    html = jinja_env.get_template("platform/inbox.html").render(**_inbox_ctx())
+    assert "Platform · inbox" in html and '<h1 class="ss-h2">Inbox</h1>' in html
+    assert ("Paste anything that came in: an email, a message, a form entry, a thought. The director agent files it "
+            "in the right module with a next step, and a person takes it from there.") in html
+    form = html.split('hx-post="/api/inbox"')[1].split("</form>")[0]
+    assert 'hx-target="#platform-inbox-runs"' in form.split(">")[0] and 'hx-swap="outerHTML"' in form.split(">")[0]
+    assert '<textarea name="signal" rows="6" required placeholder="Paste the signal" class="textarea">' in form
+    assert '<button type="submit" class="btn btn-primary btn-sm">File it</button>' in form
+    assert "window.confirm" not in html and "hx-confirm" not in html
+    # the partial is included, idle and empty
+    assert 'id="platform-inbox-runs"' in html and "Nothing filed yet." in html and 'hx-trigger="every 3s"' not in html
+
+
+def test_inbox_page_lists_filed_runs(jinja_env):
+    html = jinja_env.get_template("platform/inbox.html").render(**_inbox_ctx(runs=[_inbox_run("done", created=CREATED)]))
+    assert "Agency sponsorship: three episodes" in html and 'href="/m/marketing/items/mk9"' in html
+
+
+@pytest.fixture
+def render_inbox_runs(jinja_env):
+    tpl = jinja_env.get_template("partials/platform_inbox_runs.html")
+    return lambda runs, polling: tpl.render(runs=runs, polling=polling)
+
+
+def test_inbox_partial_empty_state(render_inbox_runs):
+    html = render_inbox_runs([], False)
+    assert 'id="platform-inbox-runs"' in html and ">Filed<" in html and "Nothing filed yet." in html
+    assert "hx-get" not in html and "chip-" not in html and "/m/" not in html
+
+
+def test_inbox_partial_polls_only_while_polling(render_inbox_runs):
+    html = render_inbox_runs([_inbox_run("running")], True)
+    assert 'hx-get="/partials/inbox/runs"' in html and 'hx-trigger="every 3s"' in html and 'hx-swap="outerHTML"' in html
+    assert ">working<" in html.replace("</span>working", ">working<")
+    assert '<span class="chip chip-info"><span class="dot dot-info pulse-dot"></span>running</span>' in html
+    html = render_inbox_runs([_inbox_run("running")], False)
+    assert "hx-get" not in html and 'hx-trigger="every 3s"' not in html and "working" not in html
+
+
+def test_inbox_partial_queued_run_with_its_position(render_inbox_runs):
+    html = render_inbox_runs([_inbox_run("queued", position=2, seconds=None, tokens_in=0, tokens_out=0)], True)
+    assert '<span class="chip chip-warn"><span class="dot dot-info pulse-dot"></span>queued, 2 ahead</span>' in html
+    assert "tokens" not in html and " s</span>" not in html and "2026-10-31 09:00" in html
+    # the signal is cut to 160 characters and escaped; nothing is filed yet
+    body = html.split('<div class="ss-body-sm">')[1].split("</div>")[0]
+    assert body.startswith("Hi, I run a 40-person agency") and body.endswith("\u2026")
+    assert "<b>cat</b>" not in html and "&lt;b&gt;cat&lt;/b&gt;" in body
+    assert "Next:" not in html and "/m/" not in html and "status-err" not in html
+    # a queued run without a position reads "queued"
+    html = render_inbox_runs([_inbox_run("queued", position=None)], True)
+    assert '<span class="chip chip-warn"><span class="dot dot-info pulse-dot"></span>queued</span>' in html
+
+
+def test_inbox_partial_done_run_links_the_created_item(render_inbox_runs):
+    html = render_inbox_runs([_inbox_run("done", created=CREATED)], False)
+    assert '<span class="chip chip-ok">done</span>' in html
+    assert "460 tokens" in html and "4.2 s" in html and "2026-10-31 09:00" in html
+    filed = html.split('<span class="chip chip-ok">done</span>')[1]
+    assert '<span class="chip">Marketing</span>' in filed and '<span class="chip">sponsor</span>' in filed
+    assert filed.index('<span class="chip">Marketing</span>') < filed.index('<span class="chip">sponsor</span>')
+    assert ('<a href="/m/marketing/items/mk9" class="ss-body-strong hover:underline">'
+            "Agency sponsorship: three episodes</a>") in filed
+    assert '<div class="ss-meta">Next: Send the one-pager by Friday and loop in accounting for the invoice.</div>' in filed
+    # the agent's raw answer is never printed; the filing is the result
+    assert "Module: marketing" not in html and "<pre" not in html and "Use this draft" not in html
+    # the signal's HTML is escaped
+    assert "<b>cat</b>" not in html and "&lt;b&gt;cat&lt;/b&gt;" in html
+    # without a next step the Next line is gone; without a label the module slug is the chip
+    html = render_inbox_runs([_inbox_run("done", created=dict(CREATED, next=""), module_label=None)], False)
+    assert "Next:" not in html and '<span class="chip">marketing</span>' in html
+
+
+def test_inbox_partial_short_signal_is_not_cut(render_inbox_runs):
+    html = render_inbox_runs([_inbox_run("done", signal="Call Sam back about the cat & the invoice.", created=CREATED)], False)
+    assert '<div class="ss-body-sm">Call Sam back about the cat &amp; the invoice.</div>' in html and "\u2026" not in html
+
+
+def test_inbox_partial_failed_run_shows_its_error(render_inbox_runs):
+    html = render_inbox_runs([_inbox_run("failed", error="The agent answered without a Module line <x>")], False)
+    assert '<span class="chip chip-err">failed</span>' in html
+    assert ('<div class="rounded-input status-err px-3 py-2 text-xs">The agent answered without a Module line &lt;x&gt;</div>'
+            in html)
+    assert "Next:" not in html and "/m/" not in html
+    # the backend's order (newest first) is kept
+    html = render_inbox_runs([_inbox_run("done", id="r2", created=CREATED), _inbox_run("failed", id="r1", error="boom")], False)
+    assert html.index("Agency sponsorship") < html.index("boom")
 
 
 # ---- approvals ------------------------------------------------------------------------------------------
@@ -2182,7 +2298,9 @@ def test_nav_has_the_brief_link_after_approvals_and_runs_after_brief(jinja_env):
     assert '<a href="/approvals" class="nav-link ">Approvals</a>' in html
     assert '<a href="/runs" class="nav-link ">Runs</a>' in html
     assert '<a href="/m/knowledge" class="nav-link ">Knowledge</a>' in html
-    assert html.index('href="/approvals"') < html.index('href="/brief"') < html.index('href="/runs"') < html.index('href="/recast"')
+    assert '<a href="/inbox" class="nav-link ">Inbox</a>' in html
+    assert (html.index('href="/m/knowledge"') < html.index('href="/inbox"') < html.index('href="/approvals"')
+            < html.index('href="/brief"') < html.index('href="/runs"') < html.index('href="/recast"'))
     # module pages still render, with Brief and Runs present but idle and the module active
     html = jinja_env.get_template("platform/module.html").render(**_module_ctx())
     assert '<a href="/brief" class="nav-link ">Brief</a>' in html and '<a href="/runs" class="nav-link ">Runs</a>' in html
@@ -2195,6 +2313,11 @@ def test_nav_has_the_brief_link_after_approvals_and_runs_after_brief(jinja_env):
     html = jinja_env.get_template("platform/runs.html").render(**_runs_ctx())
     assert '<a href="/runs" class="nav-link active">Runs</a>' in html
     assert '<a href="/brief" class="nav-link ">Brief</a>' in html and '<a href="/approvals" class="nav-link ">Approvals</a>' in html
+    assert '<a href="/m/knowledge" class="nav-link ">Knowledge</a>' in html
+    # the inbox lights Inbox alone
+    html = jinja_env.get_template("platform/inbox.html").render(**_inbox_ctx())
+    assert '<a href="/inbox" class="nav-link active">Inbox</a>' in html
+    assert '<a href="/approvals" class="nav-link ">Approvals</a>' in html and '<a href="/runs" class="nav-link ">Runs</a>' in html
     assert '<a href="/m/knowledge" class="nav-link ">Knowledge</a>' in html
 
 
