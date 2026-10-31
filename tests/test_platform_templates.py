@@ -1,16 +1,19 @@
 """The platform module pages (platform/module.html, platform/item.html, platform/board.html,
 platform/people.html, platform/ledger.html, platform/integrations.html, platform/ask.html, platform/approvals.html,
-platform/brief.html) and the partials (partials/platform_runs.html, partials/platform_ask_runs.html) pin the contract the backend's
+platform/brief.html), the standalone preview documents (platform/deck_slides.html, platform/preview.html) and the partials
+(partials/platform_runs.html, partials/platform_ask_runs.html) pin the contract the backend's
 platform_routes.py relies on: the forms and their actions, the chips, the polling attributes, the inline
 confirms (approve, replace the checklist), the cited-sources list, the read-only shape of synced items, the
 brief read view, the rendered markdown page, the brief mentions, the board columns, the people rows, the
 ledger tables, the integrations page (GitHub and Linear), the pull-request / repository / Linear issue cards,
-the Work card (start work on a branch), the Linear card (create an issue from an item) and posting a review
-run as a pull request comment.
+the Work card (start work on a branch), the Linear card (create an issue from an item), posting a review
+run as a pull request comment, the item kinds (the Kind select and the post / deck / mockup chips) and the
+sandboxed Preview card with the deck-as-slides and page-mockup documents behind it.
 Rendered with minimal fake contexts through the same Jinja2 setup the backend uses (tests/conftest.py).
 
 Context keys the templates read:
     module page:   request, module, mod, items, status, needs, statuses, has_ask, pages (missing = none),
+                   kinds (missing or [] = no Kind select; [(slug, label)] offers one, the first selected),
                    is_owner, modules_nav; each item: attention, latest_run, read_only, meta.kind, due_at
                    (meta.kind pr: number, author, draft, checks; meta.kind repo: open_prs; meta.kind issue:
                    state, assignee; meta.work = branch chip)
@@ -21,7 +24,9 @@ Context keys the templates read:
                    branch_url, compare_url, started_at), comment_agent (passed through to the runs partial),
                    is_issue (missing = false: the "Linear issue" card and chip), linear_teams (missing or None =
                    no "Create in Linear" form; a list of team keys, possibly empty, offers it on a manual
-                   editable item), is_owner, modules_nav; item.meta.kind pr (repo, number, author, head, base,
+                   editable item), kind (missing or None = no kind chip; post / deck / mockup show one),
+                   preview_url (missing or None = no Preview card; a URL shows the sandboxed iframe card first
+                   on the left), is_owner, modules_nav; item.meta.kind pr (repo, number, author, head, base,
                    state, checks, draft) or repo (default_branch, open_prs, private) or issue (identifier, team,
                    state, state_type, assignee, priority, linear_error) with item.external_url
     board page:    request, module, mod, pages, columns ([{status, items}]; each item: attention, assignee_name,
@@ -41,6 +46,8 @@ Context keys the templates read:
     approvals:     request, items, show, is_owner, modules_nav
     brief page:    request, briefs, latest, polling, mentions (missing or [] = no "Mentioned" block;
                    each {module, module_label, id, title, why}), is_owner, modules_nav
+    deck slides:   request, title, slides ([{title, bullets (list of str), notes (str)}]; [] = empty state)
+    preview:       request, title, html (the sanitised fragment, printed unescaped; "" = empty state)
 """
 import pytest
 
@@ -1641,6 +1648,221 @@ def test_module_page_issue_chip(jinja_env):
     assert '<span class="chip">issue</span>' not in plain
     pr = html.split('href="/m/product/items/pr7"')[1].split("</a>")[0]
     assert '<span class="chip">pr</span>' in pr and '<span class="chip">issue</span>' not in pr
+
+
+# ---- decks and mockups (slice 03-01) --------------------------------------------------------------------
+
+SLIDES = [{"title": "Synaps Optic", "bullets": ["Video for the people who make it"], "notes": "Open warm. Pause after the name."},
+          {"title": "The problem", "bullets": ["Editing takes a day", "Renders cost money", "Nobody reads the brief"],
+           "notes": ""},
+          {"title": "What we built", "bullets": ["Agents draft, members approve", "Free, local, yours"],
+           "notes": "Mention the <sandbox> & the approvals."}]
+MOCKUP = ('<header class="hero"><h1 class="ss-display-lg">Edit less.</h1>'
+          '<a href="https://optic.synapspaces.com" rel="noopener noreferrer">Try it</a></header>'
+          '<p class="ss-body">Agents draft &amp; you approve.</p>')
+KINDS = [("post", "Post"), ("deck", "Deck")]
+PREVIEW_URL = "/m/marketing/items/dk1/preview"
+PREVIEW_HEADING = '<div class="ss-body-strong">Preview</div>'
+
+
+def _standalone(html):
+    """What every standalone document shares: its own skeleton, the DS stylesheet, no app shell, no scripts."""
+    assert html.lstrip().startswith("<!doctype html>") and '<meta charset="utf-8">' in html
+    assert '<meta name="viewport" content="width=device-width, initial-scale=1">' in html
+    assert '<link rel="stylesheet" href="/static/ds/synapspaces.css">' in html
+    assert "<script" not in html and "tailwindcss" not in html and "htmx" not in html
+    assert "https://" not in html.split("<body")[0]  # nothing external in the head
+    assert "nav-link" not in html and 'href="/approvals"' not in html
+
+
+def _deck_ctx(**over):
+    ctx = dict(request=_Req(PREVIEW_URL), title="Launch deck", slides=SLIDES)
+    ctx.update(over)
+    return ctx
+
+
+def test_deck_slides_document_renders_the_slides(jinja_env):
+    html = jinja_env.get_template("platform/deck_slides.html").render(**_deck_ctx())
+    _standalone(html)
+    assert "<title>Launch deck</title>" in html
+    sections = html.split('<section class="slide"')[1:]
+    assert len(sections) == 3
+    first, second, third = (s.split("</section>")[0] for s in sections)
+    # numbers as ss-meta, the title slide heading large, the others h2
+    assert '<div class="ss-meta">Slide 1 of 3</div>' in first and '<div class="ss-meta">Slide 2 of 3</div>' in second
+    assert '<h1 class="ss-display-lg">Synaps Optic</h1>' in first and "<h2" not in first
+    assert '<h2 class="ss-h2">The problem</h2>' in second and "<h1" not in second
+    assert '<h2 class="ss-h2">What we built</h2>' in third
+    # bullets: the single point large on the title slide, a plain list elsewhere, in order
+    assert '<ul class="point">' in first and '<li class="ss-body">Video for the people who make it</li>' in first
+    assert "<ul>" in second and 'class="point"' not in second
+    for bullet in ("Editing takes a day", "Renders cost money", "Nobody reads the brief"):
+        assert f'<li class="ss-body">{bullet}</li>' in second
+    assert second.index("Editing takes") < second.index("Renders cost") < second.index("Nobody reads")
+    assert second.count("<li") == 3
+    # notes under the slide, labelled, escaped; a slide without notes has no aside
+    notes = html.split('<aside class="notes">')[1:]
+    assert len(notes) == 2
+    assert '<span class="ss-meta label">Notes</span>' in notes[0] and "Open warm. Pause after the name." in notes[0]
+    assert "Mention the &lt;sandbox&gt; &amp; the approvals." in notes[1] and "<sandbox>" not in html
+    assert html.index("Slide 1 of 3") < html.index("Open warm") < html.index("Slide 2 of 3")
+    assert html.index("Slide 2 of 3") < html.index("Slide 3 of 3") < html.index("Mention the")
+    # the style block: 16:9 cards on the card surface, print one per landscape page, notes hidden when printed
+    style = html.split("<style>")[1].split("</style>")[0]
+    slide = style.split(".slide {")[1].split("}")[0]
+    assert "aspect-ratio: 16 / 9" in slide and "max-width: 960px" in slide and "margin: 24px auto" in slide
+    assert "padding: 48px" in slide and "overflow: hidden" in slide and "justify-content: center" in slide
+    assert "var(--surface-card)" in slide and "var(--radius-lg)" in slide
+    assert "break-after: page" in slide and "page-break-after: always" in slide
+    assert "@page { size: landscape; margin: 0; }" in style
+    printed = style.split("@media print {")[1]
+    assert ".notes { display: none; }" in printed and "height: 100vh" in printed and "background: white" in printed
+    assert "padding: 16px" in style.split("body {")[1].split("}")[0]
+    assert "max-width: 960px" in style.split(".notes {")[1].split("}")[0]
+
+
+def test_deck_slides_document_empty_state(jinja_env):
+    tpl = jinja_env.get_template("platform/deck_slides.html")
+    for slides in ([], None):
+        html = tpl.render(**_deck_ctx(slides=slides))
+        _standalone(html)
+        assert "No slides yet. Run the deck agent and use its draft." in html
+        assert html.count('<section class="slide') == 1 and "<aside" not in html and "Slide 1" not in html
+    # a slide with no bullets and no notes still renders its heading, with no empty list
+    html = tpl.render(**_deck_ctx(slides=[{"title": "Only a title", "bullets": [], "notes": ""}]))
+    assert '<h1 class="ss-display-lg">Only a title</h1>' in html and "<ul" not in html and "<aside" not in html
+    assert "No slides yet" not in html and "Slide 1 of 1" in html
+
+
+def test_preview_document_prints_the_sanitised_fragment_unescaped(jinja_env):
+    tpl = jinja_env.get_template("platform/preview.html")
+    html = tpl.render(request=_Req(PREVIEW_URL), title="Landing page", html=MOCKUP)
+    _standalone(html)
+    assert "<title>Landing page</title>" in html
+    wrap = html.split("<body")[1].split('<div class="preview">')[1]
+    assert MOCKUP in wrap  # printed as is, never escaped
+    assert "&lt;header" not in html and "&lt;h1" not in html and "No page yet" not in html
+    style = html.split("<style>")[1].split("</style>")[0]
+    assert "max-width: 1100px" in style.split(".preview {")[1].split("}")[0]
+    assert "padding: 16px" in style.split("body {")[1].split("}")[0]
+    # the title is text and escapes like any other
+    html = tpl.render(request=_Req(PREVIEW_URL), title="<b>x</b>", html=MOCKUP)
+    assert "<title>&lt;b&gt;x&lt;/b&gt;</title>" in html
+
+
+def test_preview_document_empty_state(jinja_env):
+    tpl = jinja_env.get_template("platform/preview.html")
+    for fragment in ("", None):
+        html = tpl.render(request=_Req(PREVIEW_URL), title="Landing page", html=fragment)
+        _standalone(html)
+        assert "No page yet. Run the page agent and use its draft." in html
+        assert '<div class="preview">' in html and "<header" not in html
+
+
+def test_module_page_kind_select_when_the_module_offers_kinds(jinja_env):
+    tpl = jinja_env.get_template("platform/module.html")
+    html = tpl.render(**_module_ctx("marketing", mod=_mod(label="Marketing"), kinds=KINDS))
+    form = html.split('action="/api/m/marketing/items"')[1].split("</form>")[0]
+    row = form.split('<button type="submit" class="ml-auto btn btn-primary btn-sm">Create</button>')[0].rsplit("<div", 1)[1]
+    select = row.split('<select name="kind" class="select select-sm" aria-label="Kind">')[1].split("</select>")[0]
+    assert '<option value="post" selected>Post</option>' in select and '<option value="deck">Deck</option>' in select
+    assert select.count("<option") == 2 and select.count(" selected") == 1
+    assert select.index(">Post<") < select.index(">Deck<")
+    assert 'type="checkbox" name="kind"' not in form and "Policy page" not in form
+    # knowledge keeps its policy checkbox and gets no select; a missing or empty list offers nothing
+    html = tpl.render(**_module_ctx())
+    assert '<select name="kind"' not in html and 'name="kind" value="policy"' in html
+    for ctx in (_module_ctx("marketing", mod=_mod(label="Marketing")),
+                _module_ctx("marketing", mod=_mod(label="Marketing"), kinds=[]),
+                _module_ctx("marketing", mod=_mod(label="Marketing"), kinds=None)):
+        html = tpl.render(**ctx)
+        assert 'name="kind"' not in html and 'aria-label="Kind"' not in html
+    html = tpl.render(**_module_ctx("website", mod=_mod(label="Website"), kinds=[("mockup", "Page mockup")]))
+    assert '<option value="mockup" selected>Page mockup</option>' in html
+
+
+def test_module_page_kind_chips(jinja_env):
+    items = [_item(id="po1", meta={"kind": "post"}), _item(id="dk1", meta={"kind": "deck"}),
+             _item(id="mk1", meta={"kind": "mockup"}), _item(id="it2"), _item(id="pl1", meta={"kind": "policy"})]
+    html = jinja_env.get_template("platform/module.html").render(
+        **_module_ctx("marketing", mod=_mod(label="Marketing"), items=items, kinds=KINDS))
+    for id_, kind in (("po1", "post"), ("dk1", "deck"), ("mk1", "mockup")):
+        row = html.split(f'href="/m/marketing/items/{id_}"')[1].split("</a>")[0]
+        assert f'<span class="chip">{kind}</span>' in row, kind
+        assert row.count('<span class="chip">') == 1
+    plain = html.split('href="/m/marketing/items/it2"')[1].split("</a>")[0]
+    for kind in ("post", "deck", "mockup"):
+        assert f'<span class="chip">{kind}</span>' not in plain
+    policy = html.split('href="/m/marketing/items/pl1"')[1].split("</a>")[0]
+    assert '<span class="chip">policy</span>' in policy and policy.count('<span class="chip">') == 1
+
+
+def _deck_item(id="dk1", kind="deck"):
+    return _item(id=id, title="Launch deck", body="Slide 1: Synaps Optic\n- Video for the people who make it", meta={"kind": kind})
+
+
+def _marketing_item_ctx(item, **over):
+    ctx = dict(module="marketing", mod=_mod(label="Marketing"), request=_Req(f"/m/marketing/items/{item['id']}"))
+    ctx.update(over)
+    return _item_ctx(item=item, **ctx)
+
+
+def _left_column(html):
+    return html.split("md:grid-cols")[1].split('<div class="grid gap-4 content-start">')[0]
+
+
+def _preview_card(html):
+    """The Preview card, first on the left, up to the heading of whatever card follows it."""
+    return html.split(PREVIEW_HEADING)[1].split('<div class="ss-body-strong">')[0]
+
+
+def test_item_page_preview_card_with_a_sandboxed_iframe(jinja_env):
+    tpl = jinja_env.get_template("platform/item.html")
+    html = tpl.render(**_marketing_item_ctx(_deck_item(), kind="deck", preview_url=PREVIEW_URL))
+    assert html.count(PREVIEW_HEADING) == 1
+    card = _preview_card(html)
+    iframe = card.split("<iframe")[1].split(">")[0]
+    # the sandbox attribute is bare: no allow-* token can leak in
+    assert iframe.startswith(" sandbox ") and "allow-" not in iframe and "allow=" not in iframe
+    assert ('<iframe sandbox src="/m/marketing/items/dk1/preview" title="Preview" loading="lazy" '
+            'class="w-full rounded-widget" style="height: 520px; border: 0; background: #fff"></iframe>') in card
+    assert ('<a href="/m/marketing/items/dk1/preview" target="_blank" rel="noopener" class="hover:underline">'
+            'Open in a new tab</a>') in card
+    assert "Nothing in the preview can run scripts." in card
+    assert "ss-meta" in card.split("Open in a new tab")[0].rsplit("<div", 1)[1]
+    # first on the left, above the edit form and the runs, which stay; so does the Status card
+    left = _left_column(html)
+    assert left.index(">Preview</div>") < left.index(">Edit</div>") < left.index("platform-runs")
+    assert "/items/dk1/edit" in html and ">Status<" in html
+    # the kind chip sits in the header chip row
+    header = html.split("</h1>")[1].split("md:grid-cols")[0]
+    assert '<span class="chip">deck</span>' in header
+    # a mockup on the website module
+    mock = _item(id="mk1", title="Landing page", meta={"kind": "mockup"})
+    html = tpl.render(**_item_ctx(item=mock, module="website", mod=_mod(label="Website"), kind="mockup",
+                                  preview_url="/m/website/items/mk1/preview"))
+    assert 'sandbox src="/m/website/items/mk1/preview"' in html and '<span class="chip">mockup</span>' in html
+    # above the Brief / Person cards when they are there
+    html = tpl.render(**_item_ctx(item=_item(meta={"kind": "brief"}), kind="brief", preview_url="/m/knowledge/items/it1/preview"))
+    left = _left_column(html)
+    assert left.index(">Preview</div>") < left.index(">Brief</div>")
+    assert "window.confirm" not in html and "hx-confirm" not in html
+
+
+def test_item_page_without_preview_url_has_no_preview_card(jinja_env):
+    tpl = jinja_env.get_template("platform/item.html")
+    for ctx in (_item_ctx(), _item_ctx(preview_url=None), _item_ctx(kind=None, preview_url=None),
+                _marketing_item_ctx(_deck_item("po1", "post"), kind="post", preview_url=None),
+                _product_item_ctx(_issue(), is_issue=True), _dev_item_ctx(_pr(7))):
+        html = tpl.render(**ctx)
+        assert PREVIEW_HEADING not in html and "<iframe" not in html and "sandbox" not in html
+        assert "Open in a new tab" not in html and "Nothing in the preview can run scripts." not in html
+    # the kind chip only for post, deck and mockup
+    html = tpl.render(**_marketing_item_ctx(_deck_item("po1", "post"), kind="post"))
+    assert '<span class="chip">post</span>' in html.split("</h1>")[1].split("md:grid-cols")[0]
+    for kind in (None, "policy", "brief", "person", "pr", "repo", "issue", "ledger_import"):
+        header = tpl.render(**_item_ctx(kind=kind)).split("</h1>")[1].split("md:grid-cols")[0]
+        assert f'<span class="chip">{kind}</span>' not in header
 
 
 # ---- base nav -------------------------------------------------------------------------------------------

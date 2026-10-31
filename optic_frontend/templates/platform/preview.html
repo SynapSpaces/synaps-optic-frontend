@@ -1,0 +1,26 @@
+{# A page mockup inside the design-system shell (backend platform_routes.py `platform_item_preview`, slice
+   03-01): a standalone document, not the app shell. Served under a CSP that allows no scripts and shown in
+   the item page's `<iframe sandbox>`; it carries no script and loads nothing but the design-system
+   stylesheet. Context: request, title (the item title), html (the mockup agent's fragment, already reduced
+   to static tags and attributes by platform_artifacts.sanitize_html, so it is printed unescaped; "" for
+   nothing). Shapes in docs/DESIGN.md section 8 ("Decks and mockups"). #}<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ title }}</title>
+    <link rel="stylesheet" href="/static/ds/synapspaces.css">
+    <style>
+        body { margin: 0; padding: 16px; background: var(--surface-page); color: var(--fg-1); }
+        .preview { max-width: 1100px; margin: 0 auto; overflow-wrap: anywhere; }
+        .preview img { max-width: 100%; height: auto; }
+        .preview table { max-width: 100%; display: block; overflow-x: auto; }
+        .preview .empty { color: var(--fg-2); text-align: center; padding: 48px 0; }
+    </style>
+</head>
+<body class="preview-page">
+<div class="preview">
+{% if html %}{{ html|safe }}{% else %}<p class="ss-body empty">No page yet. Run the page agent and use its draft.</p>{% endif %}
+</div>
+</body>
+</html>

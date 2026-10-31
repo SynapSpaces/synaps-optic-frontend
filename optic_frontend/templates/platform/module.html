@@ -11,7 +11,10 @@
    repository (meta.kind "repo", open_prs) carries "repo" and its open count; a Linear issue (meta.kind
    "issue", mirrored into product by the Linear lane, slice 02-03: state, assignee) carries a plain "issue"
    chip then ss-meta "<state>" and "<assignee>" when set; an item whose work has started
-   on a branch (meta.work, DEV-02) carries a plain "branch" chip. The header links the board
+   on a branch (meta.work, DEV-02) carries a plain "branch" chip. `kinds` ([(slug, label)] the module's
+   new-item form offers, slice 03-01: marketing post / deck, website mockup; missing or empty = no select)
+   adds a "Kind" select to the form row with the Create button, the first kind selected; an item whose
+   meta.kind is post, deck or mockup carries a plain chip naming it. The header links the board
    (platform/board.html) and each page. Shapes shared with item.html, board.html,
    ask.html and approvals.html are in docs/DESIGN.md section 8. #}
 {% block title %}{{ mod.label }} · Synaps Optic{% endblock %}
@@ -44,6 +47,11 @@
         <input type="checkbox" name="kind" value="policy"> Policy page (rules every agent reads first)
       </label>
       {% endif %}
+      {% if kinds %}
+      <select name="kind" class="select select-sm" aria-label="Kind">
+        {% for slug, label in kinds %}<option value="{{ slug }}"{% if loop.first %} selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+      {% endif %}
       <button type="submit" class="ml-auto btn btn-primary btn-sm">Create</button>
     </div>
   </form>
@@ -74,6 +82,7 @@
           {% if item.meta and item.meta.kind == 'policy' %}<span class="chip">policy</span>{% endif %}
           {% if item.meta and item.meta.kind == 'person' %}<span class="chip">person</span>{% endif %}
           {% if item.meta and item.meta.kind == 'ledger_import' %}<span class="chip">import</span>{% endif %}
+          {% if item.meta and item.meta.kind in ('post', 'deck', 'mockup') %}<span class="chip">{{ item.meta.kind }}</span>{% endif %}
           {% if item.meta and item.meta.kind == 'pr' %}
           <span class="chip">pr</span>
           {% set checks = checks_chip.get(item.meta.checks) %}

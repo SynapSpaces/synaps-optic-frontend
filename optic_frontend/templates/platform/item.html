@@ -36,7 +36,13 @@
    Linear is not connected; the configured team keys, possibly empty, on a manual editable item) offers a
    "Linear" card in the right column after Work: a form posting `team` to /linear (a select of the keys, or a
    text input when the list is empty) with "Create in Linear"; never for an issue or a read-only item. A due
-   date in the past on an item not yet approved or done shows as a `chip-err`. Approving, and replacing the
+   date in the past on an item not yet approved or done shows as a `chip-err`. Decks and mockups (slice
+   03-01): `kind` (item.meta.kind or None; missing = none) adds a plain chip when it is post, deck or mockup;
+   `preview_url` (None or missing = no preview; /m/<slug>/items/<id>/preview for a deck or a mockup, served
+   by the backend as a standalone document under a no-script CSP, platform/deck_slides.html or
+   platform/preview.html) adds a "Preview" card first on the left, above the Pull request / Brief / Person
+   cards: the document in an `<iframe sandbox>` with no allow-* token, an "Open in a new tab" link and the
+   note that nothing in the preview can run scripts. Approving, and replacing the
    checklist, confirm inline (base.html `.confirm`), never through window.confirm. #}
 {% block title %}{{ item.title }} · {{ mod.label }} · Synaps Optic{% endblock %}
 {% block content %}
@@ -80,6 +86,7 @@
       {% if is_pr %}<span class="chip">pr</span>{% endif %}
       {% if is_repo %}<span class="chip">repo</span>{% endif %}
       {% if is_issue %}<span class="chip">issue</span>{% endif %}
+      {% if kind in ('post', 'deck', 'mockup') %}<span class="chip">{{ kind }}</span>{% endif %}
       {% if work %}<span class="chip">branch</span>{% endif %}
       {% if item.due_at and today and item.due_at < today and item.status not in ('approved', 'done') %}
       <span class="chip chip-err">due {{ item.due_at }}</span>
@@ -92,6 +99,16 @@
 
   <div class="grid gap-4 md:grid-cols-[1fr_300px]">
     <div class="grid gap-4">
+      {% if preview_url %}
+      <div class="card p-4 grid gap-3">
+        <div class="ss-body-strong">Preview</div>
+        <iframe sandbox src="{{ preview_url }}" title="Preview" loading="lazy" class="w-full rounded-widget" style="height: 520px; border: 0; background: #fff"></iframe>
+        <div class="flex flex-wrap items-center gap-2 ss-meta">
+          <a href="{{ preview_url }}" target="_blank" rel="noopener" class="hover:underline">Open in a new tab</a>
+          <span>Nothing in the preview can run scripts.</span>
+        </div>
+      </div>
+      {% endif %}
       {% if is_pr %}
       <div class="card p-4 grid gap-3">
         <div class="ss-body-strong">Pull request</div>

@@ -1,0 +1,64 @@
+{# A deck as slides (backend platform_routes.py `platform_item_preview`, slice 03-01): a standalone document,
+   not the app shell. It is served under a CSP that allows no scripts and is shown in the item page's
+   `<iframe sandbox>`, so it carries no script and loads nothing but the design-system stylesheet.
+   Context: request, title (the item title), slides ([{title, bullets (list of str), notes (str)}] from
+   platform_artifacts.parse_slides). One `section.slide` per slide, a 16:9 card on the page background: the
+   slide number as ss-meta, the title (ss-display-lg on the first slide, ss-h2 on the others; the DS has no
+   ss-h1), the bullets as a list of ss-body items (the single point large on the title slide) and the notes
+   under the card in a muted aside labelled "Notes". Printing lands one slide per landscape page and hides the
+   notes. Shapes in docs/DESIGN.md section 8 ("Decks and mockups"). #}<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ title }}</title>
+    <link rel="stylesheet" href="/static/ds/synapspaces.css">
+    <style>
+        body { margin: 0; padding: 16px; background: var(--surface-page); color: var(--fg-1); }
+        .slide { aspect-ratio: 16 / 9; max-width: 960px; margin: 24px auto; padding: 48px; box-sizing: border-box;
+                 display: flex; flex-direction: column; justify-content: center; gap: 16px; overflow: hidden;
+                 background: var(--surface-card); border-radius: var(--radius-lg);
+                 break-after: page; page-break-after: always; }
+        .slide h1, .slide h2 { margin: 0; overflow-wrap: anywhere; }
+        .slide ul { margin: 0; padding-left: 1.25em; display: grid; gap: 8px; }
+        .slide li { overflow-wrap: anywhere; }
+        .slide .point { list-style: none; padding: 0; }
+        .slide .point li { font: var(--type-lead); letter-spacing: var(--ls-lead); color: var(--fg-2); }
+        .notes { max-width: 960px; margin: -8px auto 24px; padding: 0 48px; color: var(--fg-2); font: var(--type-body-sm); }
+        .notes .label { display: block; margin-bottom: 4px; }
+        .notes p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+        .empty { max-width: 960px; margin: 24px auto; padding: 48px; text-align: center; }
+        @page { size: landscape; margin: 0; }
+        @media print {
+            body { background: white; padding: 0; }
+            .notes { display: none; }
+            .slide { margin: 0; max-width: none; aspect-ratio: auto; height: 100vh; border-radius: 0; }
+        }
+    </style>
+</head>
+<body>
+{% if not slides %}
+<section class="slide empty">
+  <p class="ss-body">No slides yet. Run the deck agent and use its draft.</p>
+</section>
+{% endif %}
+{% for slide in (slides or []) %}
+<section class="slide" aria-label="Slide {{ loop.index }}">
+  <div class="ss-meta">Slide {{ loop.index }} of {{ slides|length }}</div>
+  {% if loop.first %}<h1 class="ss-display-lg">{{ slide.title }}</h1>{% else %}<h2 class="ss-h2">{{ slide.title }}</h2>{% endif %}
+  {% if slide.bullets %}
+  <ul{% if loop.first and slide.bullets|length == 1 %} class="point"{% endif %}>
+    {% for bullet in slide.bullets %}<li class="ss-body">{{ bullet }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</section>
+{% if slide.notes %}
+<aside class="notes">
+  <span class="ss-meta label">Notes</span>
+  <p>{{ slide.notes }}</p>
+</aside>
+{% endif %}
+{% endfor %}
+</body>
+</html>
