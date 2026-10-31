@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#ffffff">
+    <title>Offline - Synaps Optic</title>
+    <link rel="stylesheet" href="/static/ds/synapspaces.css">
+    <style>
+        body { min-height: 100vh; display: grid; place-items: center; margin: 0; padding: 24px; }
+        main { max-width: 28rem; text-align: center; }
+        svg { width: 56px; height: 56px; margin: 0 auto 16px; display: block; }
+        p { color: var(--text-secondary, #555); }
+        button { margin-top: 16px; }
+    </style>
+</head>
+<body class="app-bg text-fg-1">
+<main>
+    <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <circle cx="7" cy="7" r="3.2"/><circle cx="21" cy="7" r="3.2"/><circle cx="14" cy="21" r="3.2"/>
+        <path d="M9.6 9.2 12 18.2M18.4 9.2 16 18.2M10.2 7h7.6"/>
+    </svg>
+    <h1>You're offline</h1>
+    <p>Synaps Optic needs a connection to load projects, plans and agent runs. Nothing you submitted was lost: a form
+       that failed to send stays on its page until the network is back.</p>
+    <button class="btn btn-primary" onclick="location.reload()">Try again</button>
+</main>
+</body>
+</html>

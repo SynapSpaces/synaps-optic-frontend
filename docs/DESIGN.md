@@ -129,3 +129,7 @@ Each component's props are in its `.d.ts`; each `.prompt.md` has a usage example
 **Do:** flat tiles · hairline rules · large Medium headings over small gray copy · tints that match the product · one primary button per group.
 
 **Don't:** gradients · drop shadows on cards · borders around cards · coloured text · icons in circles · emoji · Title Case · stock photography · more than one ink panel per page.
+
+## 7. App shell (installable web app, 2026-10-30)
+
+The site installs to a phone's home screen as a standalone app: `static/app/manifest.webmanifest` (name Synaps Optic, short name Optic, standalone, start at /projects, icons 192/512 + maskable 512 rendered from the three-node mark, `apple-touch-icon.png` 180), the iOS home-screen metas and the manifest link in `base.html`, and a service worker at `static/app/sw.js` that the backend serves at `/sw.js` with `Service-Worker-Allowed: /`. The worker caches the design system and shell cache-first (versioned by its VERSION constant: bump it with any change to those files), serves pages and htmx partials network-first, shows `static/app/offline.html` on a failed navigation, and never touches non-GET requests, /api, /auth, /admin or the music library. Install: iPhone = Safari share sheet, Add to Home Screen; Android = Chrome's install prompt. Native wrappers (Capacitor) are the backend plan's MOB-02/03.
