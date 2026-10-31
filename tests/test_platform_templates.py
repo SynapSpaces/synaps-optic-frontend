@@ -4,28 +4,35 @@ platform/brief.html) and the partials (partials/platform_runs.html, partials/pla
 platform_routes.py relies on: the forms and their actions, the chips, the polling attributes, the inline
 confirms (approve, replace the checklist), the cited-sources list, the read-only shape of synced items, the
 brief read view, the rendered markdown page, the brief mentions, the board columns, the people rows, the
-ledger tables, the integrations page, the pull-request / repository cards, the Work card (start work on a
-branch) and posting a review run as a pull request comment.
+ledger tables, the integrations page (GitHub and Linear), the pull-request / repository / Linear issue cards,
+the Work card (start work on a branch), the Linear card (create an issue from an item) and posting a review
+run as a pull request comment.
 Rendered with minimal fake contexts through the same Jinja2 setup the backend uses (tests/conftest.py).
 
 Context keys the templates read:
     module page:   request, module, mod, items, status, needs, statuses, has_ask, pages (missing = none),
                    is_owner, modules_nav; each item: attention, latest_run, read_only, meta.kind, due_at
-                   (meta.kind pr: number, author, draft, checks; meta.kind repo: open_prs; meta.work = branch chip)
+                   (meta.kind pr: number, author, draft, checks; meta.kind repo: open_prs; meta.kind issue:
+                   state, assignee; meta.work = branch chip)
     item page:     request, module, mod, item (due_at, assignee_user_id, meta), runs, polling, latest, statuses,
                    next_status, attention, is_policy, is_person, checklist, members, owner_name, assignee_name,
                    today, read_only, agents, body_html (missing or "" = no Page card), work_repos (missing or
                    [] = no Start work form), work (None or item.meta.work: repo, branch, base, brief_path,
                    branch_url, compare_url, started_at), comment_agent (passed through to the runs partial),
-                   is_owner, modules_nav; item.meta.kind pr (repo, number, author, head, base, state, checks,
-                   draft) or repo (default_branch, open_prs, private) with item.external_url
+                   is_issue (missing = false: the "Linear issue" card and chip), linear_teams (missing or None =
+                   no "Create in Linear" form; a list of team keys, possibly empty, offers it on a manual
+                   editable item), is_owner, modules_nav; item.meta.kind pr (repo, number, author, head, base,
+                   state, checks, draft) or repo (default_branch, open_prs, private) or issue (identifier, team,
+                   state, state_type, assignee, priority, linear_error) with item.external_url
     board page:    request, module, mod, pages, columns ([{status, items}]; each item: attention, assignee_name,
                    owner_name, overdue, next_status, read_only, due_at, source), today, is_owner, modules_nav
     people page:   request, module, mod, pages, people (role, start_date, done, total), is_owner, modules_nav
     ledger page:   request, module, mod, pages, months, month, entries, categories, imports, modes, imported,
                    skipped, is_owner, modules_nav
     integrations:  request, module ("dev"), mod, pages, configured, github (None or {external_account, scopes,
-                   repos, updated_at, last_sync_at, last_error}), open_prs, poll_minutes, is_owner, modules_nav
+                   repos, updated_at, last_sync_at, last_error}), open_prs, linear (None or {external_account,
+                   scopes, teams, updated_at, last_sync_at, last_error}), issues, poll_minutes, is_owner,
+                   modules_nav
     runs partial:  module, item, runs, polling, read_only (missing = false), comment_agent (missing or None =
                    never offer to post; a done run of that agent with text offers "Post as a comment", and
                    run.output.comment_url / commented_by show it as posted)
@@ -1415,6 +1422,225 @@ def test_runs_partial_shows_a_posted_review(jinja_env):
     html = _render_pr_runs(jinja_env, [posted, _review(id="rv2")])
     assert "View on GitHub" in html and _confirm(html, "/api/m/dev/runs/rv2/comment") and not _confirm(html, COMMENT_URL)
     assert html.count('<details class="confirm">') == 1
+
+
+# ---- Linear: the integrations card, issues as items, create in Linear ------------------------------------
+
+LINEAR = {"external_account": "dev@synapspaces.com", "scopes": "", "teams": ["OPT", "ENG"],
+          "updated_at": "2026-10-31 11:00", "last_sync_at": "2026-10-31 11:30", "last_error": None}
+LINEAR_HEADING = '<div class="ss-body-strong">Linear</div>'
+LINEAR_CARD_HEADING = '<div class="ss-meta">Linear</div>'
+CREATE_URL = "/api/m/knowledge/items/it1/linear"
+
+
+def _linear_card(html):
+    return html.split(LINEAR_HEADING)[1].split('action="/api/m/dev/integrations/linear"')[0]
+
+
+def _linear_form(html):
+    return html.split('action="/api/m/dev/integrations/linear"')[1].split("</form>")[0]
+
+
+def test_integrations_page_linear_not_connected(jinja_env):
+    html = jinja_env.get_template("platform/integrations.html").render(**_integrations_ctx(linear=None, issues=0))
+    assert html.index(LINEAR_HEADING) > html.index('action="/api/m/dev/integrations/github"')
+    card = _linear_card(html)
+    assert '<span class="chip">Not connected</span>' in card and "connected as" not in card
+    assert "issues mirrored" not in card and "every team the key sees" not in card
+    assert "/linear/sync" not in html and "/linear/delete" not in html and "Forget the key?" not in html
+    open_tag = html.split('action="/api/m/dev/integrations/linear"')[0].rsplit("<form", 1)[1]
+    assert 'method="post"' in open_tag
+    assert 'autocomplete="off"' in html.split('action="/api/m/dev/integrations/linear"')[1].split(">")[0]
+    form = _linear_form(html)
+    assert ">Connect Linear<" in form and ">Personal API key<" in form and ">Teams<" in form
+    assert ('<input type="password" name="token" class="input" autocomplete="off" '
+            'placeholder="lin_api_… (a personal API key)" required>') in form
+    assert ('<input name="teams" class="input" autocomplete="off" '
+            'placeholder="OPT, ENG (empty = every team the key sees)" value="">') in form
+    assert '<button type="submit" class="ml-auto btn btn-primary btn-sm">Connect</button>' in form
+    assert ("Issues of these teams become Product items; edits and status moves on the site go back to Linear. "
+            "Nothing is deleted on either side.") in form
+    assert "Linear → Settings → Security &amp; access → Personal API keys" in form
+    assert "window.confirm" not in html and "hx-confirm" not in html
+    # the GitHub side is untouched
+    assert ">Connect GitHub<" in html and html.count('<span class="chip">Not connected</span>') == 2
+    # without the encryption key the button is disabled, like GitHub's
+    html = jinja_env.get_template("platform/integrations.html").render(**_integrations_ctx(configured=False))
+    assert '<button type="submit" class="ml-auto btn btn-primary btn-sm" disabled>Connect</button>' in _linear_form(html)
+
+
+def test_integrations_page_linear_connected(jinja_env):
+    html = jinja_env.get_template("platform/integrations.html").render(
+        **_integrations_ctx(github=GITHUB, open_prs=3, linear=LINEAR, issues=12))
+    card = _linear_card(html)
+    assert '<span class="chip chip-ok">connected as dev@synapspaces.com</span>' in card and "Not connected" not in card
+    assert '<span class="chip">OPT</span>' in card and '<span class="chip">ENG</span>' in card
+    assert card.index(">OPT<") < card.index(">ENG<") and "every team the key sees" not in card
+    assert '<div class="ss-meta">12 issues mirrored · polled every 10 min · last poll 2026-10-31 11:30</div>' in card
+    assert "status-err" not in card and "scopes" not in card
+    sync = card.split('action="/api/m/dev/integrations/linear/sync"')[1].split("</form>")[0]
+    assert 'method="post"' in card.split('action="/api/m/dev/integrations/linear/sync"')[0].rsplit("<form", 1)[1]
+    assert '<button type="submit" class="btn btn-secondary btn-sm">Sync now</button>' in sync
+    dis = _confirm(html, "/api/m/dev/integrations/linear/delete")
+    assert dis and "Forget the key? The items already mirrored stay but stop updating." in dis
+    assert ">Disconnect</button>" in dis and ">Cancel</button>" in dis
+    assert '<summary class="btn btn-ghost btn-sm" role="button">Disconnect</summary>' in card
+    assert html.count('<details class="confirm">') == 2 and "window.confirm" not in html
+    # the form updates: teams prefilled, the button reads Update, the key never echoed
+    form = _linear_form(html)
+    assert ">Update the connection<" in form and ">Connect Linear<" not in form
+    assert ('<input name="teams" class="input" autocomplete="off" '
+            'placeholder="OPT, ENG (empty = every team the key sees)" value="OPT, ENG">') in form
+    assert '<button type="submit" class="ml-auto btn btn-primary btn-sm">Update</button>' in form and ">Connect<" not in form
+    token = form.split('name="token"')[1].split(">")[0]
+    assert 'type="password"' in form.split('name="token"')[0].rsplit("<input", 1)[1] and "value=" not in token
+    # the GitHub card and form are untouched by the Linear state
+    assert '<span class="chip chip-ok">connected as wolfwdavid</span>' in _github_card(html)
+    assert "3 open pull requests" in _github_card(html) and "issues mirrored" not in _github_card(html)
+
+
+def test_integrations_page_linear_empty_teams_and_error(jinja_env):
+    linear = {**LINEAR, "teams": [], "last_sync_at": None, "last_error": "ValueError: Linear rejected the key"}
+    html = jinja_env.get_template("platform/integrations.html").render(**_integrations_ctx(linear=linear, issues=0))
+    card = _linear_card(html)
+    assert '<div class="ss-meta">every team the key sees</div>' in card
+    assert '<span class="chip">OPT</span>' not in card
+    assert '<div class="ss-meta">0 issues mirrored · polled every 10 min · last poll never</div>' in card
+    assert "ValueError: Linear rejected the key" in card
+    box = card.split("ValueError")[0].rsplit("<div", 1)[1]
+    assert "status-err" in box
+    assert "Sync now" in card and _confirm(html, "/api/m/dev/integrations/linear/delete")
+    form = _linear_form(html)
+    assert 'placeholder="OPT, ENG (empty = every team the key sees)" value="">' in form and ">Update</button>" in form
+
+
+def _issue(id="is1", **meta):
+    base_meta = {"kind": "issue", "identifier": "OPT-42", "team": "OPT", "linear_id": "uuid-42", "state": "In Progress",
+                 "state_type": "started", "assignee": "Dana", "priority": 2, "linear_updated_at": "2026-10-31T11:00:00Z"}
+    base_meta.update(meta)
+    return _item(id=id, title="OPT-42: Ship the Linear card", status="review", attention="", latest_run=None,
+                 source="linear", meta=base_meta, external_url="https://linear.app/synapspaces/issue/OPT-42")
+
+
+def _product_item_ctx(item, **over):
+    ctx = dict(module="product", mod=_mod(label="Product"), request=_Req(f"/m/product/items/{item['id']}"))
+    ctx.update(over)
+    return _item_ctx(item=item, **ctx)
+
+
+def _issue_card(html):
+    """The Linear issue card, first on the left, up to the edit form that follows it."""
+    return html.split('<div class="ss-body-strong">Linear issue</div>')[1].split('<div class="ss-body-strong">Edit</div>')[0]
+
+
+def test_item_page_linear_issue_card(jinja_env):
+    tpl = jinja_env.get_template("platform/item.html")
+    html = tpl.render(**_product_item_ctx(_issue(), is_issue=True))
+    header = html.split("</h1>")[1].split("md:grid-cols")[0]
+    assert '<span class="chip">issue</span>' in header
+    assert '<span class="chip">pr</span>' not in header and '<span class="chip">repo</span>' not in header
+    card = _issue_card(html)
+    assert ">Issue<" in card and ">OPT-42</span>" in card
+    assert ">Team<" in card and ">OPT</span>" in card
+    assert ">Assignee<" in card and ">Dana</span>" in card
+    assert '<span class="chip chip-warn">In Progress</span>' in card
+    assert '<span class="ss-meta">priority 2</span>' in card
+    assert ('<a href="https://linear.app/synapspaces/issue/OPT-42" target="_blank" rel="noopener" '
+            'class="ml-auto btn btn-secondary btn-sm">Open in Linear</a>') in card
+    assert "status-err" not in card and "Linear refused" not in html
+    # first on the left; the item stays editable: the edit form and the Status card are there, no synced note
+    assert html.index(">Linear issue</div>") < html.index("/items/is1/edit")
+    assert ">Status<" in html and "Synced from" not in html and ">Body</div>" not in html
+    assert ">Pull request</div>" not in html and ">Repository</div>" not in html
+    # never offers to create what already is an issue
+    assert LINEAR_CARD_HEADING not in html and "Create in Linear" not in html
+    assert "window.confirm" not in html and "hx-confirm" not in html
+    # completed and canceled read chip-ok; another type is plain; no assignee, team, priority or url
+    done = _issue("is2", state="Done", state_type="completed", assignee="", team="", priority=0)
+    del done["external_url"]
+    html = tpl.render(**_product_item_ctx(done, is_issue=True))
+    card = _issue_card(html)
+    assert '<span class="chip chip-ok">Done</span>' in card
+    assert ">Assignee<" not in card and ">Team<" not in card and "priority" not in card and "Open in Linear" not in html
+    html = tpl.render(**_product_item_ctx(_issue("is3", state="Canceled", state_type="canceled"), is_issue=True))
+    assert '<span class="chip chip-ok">Canceled</span>' in _issue_card(html)
+    html = tpl.render(**_product_item_ctx(_issue("is4", state="Backlog", state_type="backlog"), is_issue=True))
+    assert '<span class="chip ">Backlog</span>' in _issue_card(html)
+    # a refused change shows in a status-err box inside the card
+    html = tpl.render(**_product_item_ctx(_issue("is5", linear_error="Linear: state not found"), is_issue=True))
+    card = _issue_card(html)
+    assert "Linear refused the last change: Linear: state not found" in card
+    box = card.split("Linear refused")[0].rsplit("<div", 1)[1]
+    assert "status-err" in box
+    # without the flag an ordinary item has no issue card or chip
+    html = tpl.render(**_item_ctx())
+    assert ">Linear issue</div>" not in html and '<span class="chip">issue</span>' not in html
+
+
+def _create_card(html):
+    return _right_column(html).split(LINEAR_CARD_HEADING)[1].split('<div class="ss-meta">Agents</div>')[0]
+
+
+def test_item_page_create_in_linear_with_a_select(jinja_env):
+    html = jinja_env.get_template("platform/item.html").render(**_item_ctx(linear_teams=["OPT", "ENG"]))
+    right = _right_column(html)
+    assert right.count(LINEAR_CARD_HEADING) == 1
+    card = _create_card(html)
+    assert 'method="post"' in card.split(f'action="{CREATE_URL}"')[0].rsplit("<form", 1)[1]
+    form = card.split(f'action="{CREATE_URL}"')[1].split("</form>")[0]
+    select = form.split('<select name="team" class="select select-sm"')[1].split("</select>")[0]
+    assert '<option value="OPT">OPT</option>' in select and '<option value="ENG">ENG</option>' in select
+    assert select.index(">OPT<") < select.index(">ENG<") and select.count("<option") == 2
+    assert '<input name="team"' not in form
+    assert '<button type="submit" class="btn btn-secondary btn-sm">Create in Linear</button>' in form
+    assert "Makes a Linear issue from this item; it then mirrors both ways." in card
+    assert "hx-post" not in card and "window.confirm" not in html and "hx-confirm" not in html
+    # in the right column between Status and Agents, after the Work card when there is one
+    assert right.index(">Status<") < right.index(LINEAR_CARD_HEADING) < right.index(">Agents<")
+    html = jinja_env.get_template("platform/item.html").render(**_item_ctx(linear_teams=["OPT"], work_repos=WORK_REPOS, work=None))
+    right = _right_column(html)
+    assert right.index(">Status<") < right.index(WORK_HEADING) < right.index(LINEAR_CARD_HEADING) < right.index(">Agents<")
+    # the left column is unchanged
+    assert "/items/it1/edit" in html and 'id="platform-runs"' in html and ">Linear issue</div>" not in html
+
+
+def test_item_page_create_in_linear_with_a_text_input(jinja_env):
+    html = jinja_env.get_template("platform/item.html").render(**_item_ctx(linear_teams=[]))
+    card = _create_card(html)
+    form = card.split(f'action="{CREATE_URL}"')[1].split("</form>")[0]
+    assert '<input name="team" class="input input-sm" placeholder="Team key, like OPT" autocomplete="off" required>' in form
+    assert "<select" not in form and "<option" not in form
+    assert '<button type="submit" class="btn btn-secondary btn-sm">Create in Linear</button>' in form
+    assert "Makes a Linear issue from this item; it then mirrors both ways." in card
+
+
+def test_item_page_create_in_linear_absent_for_issues_read_only_and_without_linear(jinja_env):
+    tpl = jinja_env.get_template("platform/item.html")
+    for ctx in (_item_ctx(), _item_ctx(linear_teams=None),
+                _product_item_ctx(_issue(), is_issue=True, linear_teams=["OPT"]),
+                _item_ctx(item=_item(source="repo"), read_only=True, linear_teams=["OPT"]),
+                _dev_item_ctx(_pr(7), linear_teams=["OPT"])):
+        html = tpl.render(**ctx)
+        assert LINEAR_CARD_HEADING not in html and "Create in Linear" not in html and '/linear"' not in html
+        assert ">Agents<" in html
+
+
+def test_module_page_issue_chip(jinja_env):
+    items = [_issue(), _issue("is2", state="", assignee=""), _item(id="it2"), _pr(7)]
+    html = jinja_env.get_template("platform/module.html").render(
+        **_module_ctx("product", mod=_mod(label="Product"), items=items))
+    row = html.split('href="/m/product/items/is1"')[1].split("</a>")[0]
+    assert '<span class="chip">issue</span>' in row
+    assert '<span class="ss-meta">In Progress</span>' in row and '<span class="ss-meta">Dana</span>' in row
+    assert row.index(">issue<") < row.index(">In Progress<") < row.index(">Dana<")
+    assert '<span class="chip">pr</span>' not in row and "checks" not in row and " by " not in row
+    bare = html.split('href="/m/product/items/is2"')[1].split("</a>")[0]
+    assert '<span class="chip">issue</span>' in bare
+    assert '<span class="ss-meta">In Progress</span>' not in bare and '<span class="ss-meta">Dana</span>' not in bare
+    plain = html.split('href="/m/product/items/it2"')[1].split("</a>")[0]
+    assert '<span class="chip">issue</span>' not in plain
+    pr = html.split('href="/m/product/items/pr7"')[1].split("</a>")[0]
+    assert '<span class="chip">pr</span>' in pr and '<span class="chip">issue</span>' not in pr
 
 
 # ---- base nav -------------------------------------------------------------------------------------------

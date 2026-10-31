@@ -8,7 +8,9 @@
    (meta.kind "person") and a ledger import (meta.kind "ledger_import") carry a plain chip naming the kind; a
    pull request (meta.kind "pr", synced from GitHub by the dev lane: number, author, draft, checks "success" |
    "failure" | "pending" | "none") carries "pr", the checks chip, "draft pr" and ss-meta "#number by author"; a
-   repository (meta.kind "repo", open_prs) carries "repo" and its open count; an item whose work has started
+   repository (meta.kind "repo", open_prs) carries "repo" and its open count; a Linear issue (meta.kind
+   "issue", mirrored into product by the Linear lane, slice 02-03: state, assignee) carries a plain "issue"
+   chip then ss-meta "<state>" and "<assignee>" when set; an item whose work has started
    on a branch (meta.work, DEV-02) carries a plain "branch" chip. The header links the board
    (platform/board.html) and each page. Shapes shared with item.html, board.html,
    ask.html and approvals.html are in docs/DESIGN.md section 8. #}
@@ -82,6 +84,11 @@
           {% if item.meta and item.meta.kind == 'repo' %}
           <span class="chip">repo</span>
           {% if item.meta.open_prs is defined %}<span class="ss-meta">{{ item.meta.open_prs }} open</span>{% endif %}
+          {% endif %}
+          {% if item.meta and item.meta.kind == 'issue' %}
+          <span class="chip">issue</span>
+          {% if item.meta.state %}<span class="ss-meta">{{ item.meta.state }}</span>{% endif %}
+          {% if item.meta.assignee %}<span class="ss-meta">{{ item.meta.assignee }}</span>{% endif %}
           {% endif %}
           {% if item.meta and item.meta.work %}<span class="chip">branch</span>{% endif %}
           {% if item.read_only %}<span class="chip">{{ item.source }}</span>{% endif %}

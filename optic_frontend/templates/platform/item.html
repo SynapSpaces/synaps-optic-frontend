@@ -27,9 +27,17 @@
    `repo` to /start-work; once started, `work` (item.meta.work: repo, branch, base, brief_path, branch_url,
    compare_url, started_at) shows the branch link, the brief path and an "Open a pull request" link to
    compare_url instead, and the header gains a plain "branch" chip. The runs partial reads `comment_agent`
-   from this same context (posting a review as a pull request comment, DEV-03). A due date in the past on an
-   item not yet approved or done shows as a `chip-err`. Approving, and replacing the checklist, confirm inline
-   (base.html `.confirm`), never through window.confirm. #}
+   from this same context (posting a review as a pull request comment, DEV-03). Linear (slice 02-03):
+   `is_issue` (item.meta.kind == 'issue', a product item mirrored from Linear and editable here; missing =
+   false) carries a plain "issue" chip and a "Linear issue" card first on the left (identifier, team, assignee,
+   the state chip from meta.state / meta.state_type, "priority N" when set, an "Open in Linear" button to
+   `item.external_url` and, when meta.linear_error is set, the refusal in a status-err box); the edit form and
+   the Status card stay, since edits and status moves go back to Linear. `linear_teams` (None or missing when
+   Linear is not connected; the configured team keys, possibly empty, on a manual editable item) offers a
+   "Linear" card in the right column after Work: a form posting `team` to /linear (a select of the keys, or a
+   text input when the list is empty) with "Create in Linear"; never for an issue or a read-only item. A due
+   date in the past on an item not yet approved or done shows as a `chip-err`. Approving, and replacing the
+   checklist, confirm inline (base.html `.confirm`), never through window.confirm. #}
 {% block title %}{{ item.title }} · {{ mod.label }} · Synaps Optic{% endblock %}
 {% block content %}
 {% set tone = {'review': 'chip-warn', 'approved': 'chip-ok', 'done': 'chip-ok', 'failed': 'chip-err'} %}
@@ -40,6 +48,7 @@
 {% set is_repo = item.meta and item.meta.kind == 'repo' %}
 {% set checks_chip = {'success': ('chip-ok', 'checks pass'), 'failure': ('chip-err', 'checks fail'), 'pending': ('chip-warn', 'checks running')} %}
 {% set pr_state = {'open': 'chip-warn', 'merged': 'chip-ok'} %}
+{% set issue_state = {'completed': 'chip-ok', 'canceled': 'chip-ok', 'started': 'chip-warn'} %}
 
 {# A two-step status button: the summary is the button, opening it shows the question with Cancel / confirm.
    The form only posts from the confirm button, so a stray click never changes the status. #}
@@ -70,6 +79,7 @@
       {% if is_person %}<span class="chip">person</span>{% endif %}
       {% if is_pr %}<span class="chip">pr</span>{% endif %}
       {% if is_repo %}<span class="chip">repo</span>{% endif %}
+      {% if is_issue %}<span class="chip">issue</span>{% endif %}
       {% if work %}<span class="chip">branch</span>{% endif %}
       {% if item.due_at and today and item.due_at < today and item.status not in ('approved', 'done') %}
       <span class="chip chip-err">due {{ item.due_at }}</span>
@@ -109,6 +119,23 @@
           <span class="chip">{% if item.meta.private %}private{% else %}public{% endif %}</span>
           {% if item.external_url %}<a href="{{ item.external_url }}" target="_blank" rel="noopener" class="ml-auto btn btn-secondary btn-sm">Open on GitHub</a>{% endif %}
         </div>
+      </div>
+      {% elif is_issue %}
+      <div class="card p-4 grid gap-3">
+        <div class="ss-body-strong">Linear issue</div>
+        <div class="grid gap-1">
+          <div class="flex items-baseline gap-2"><span class="ss-meta w-16 shrink-0">Issue</span><span class="ss-body-sm min-w-0 break-words">{{ item.meta.identifier }}</span></div>
+          {% if item.meta.team %}<div class="flex items-baseline gap-2"><span class="ss-meta w-16 shrink-0">Team</span><span class="ss-body-sm min-w-0 break-words">{{ item.meta.team }}</span></div>{% endif %}
+          {% if item.meta.assignee %}<div class="flex items-baseline gap-2"><span class="ss-meta w-16 shrink-0">Assignee</span><span class="ss-body-sm min-w-0 break-words">{{ item.meta.assignee }}</span></div>{% endif %}
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          {% if item.meta.state %}<span class="chip {{ issue_state.get(item.meta.state_type, '') }}">{{ item.meta.state }}</span>{% endif %}
+          {% if item.meta.priority %}<span class="ss-meta">priority {{ item.meta.priority }}</span>{% endif %}
+          {% if item.external_url %}<a href="{{ item.external_url }}" target="_blank" rel="noopener" class="ml-auto btn btn-secondary btn-sm">Open in Linear</a>{% endif %}
+        </div>
+        {% if item.meta.linear_error %}
+        <div class="rounded-input status-err px-3 py-2 text-xs break-words">Linear refused the last change: {{ item.meta.linear_error }}</div>
+        {% endif %}
       </div>
       {% endif %}
       {% if read_only %}
@@ -263,6 +290,23 @@
         </form>
         <p class="ss-meta">Creates a branch and a brief file in the repo; nothing else changes.</p>
         {% endif %}
+      </div>
+      {% endif %}
+
+      {% if linear_teams is defined and linear_teams is not none and not is_issue and not read_only %}
+      <div class="card p-4 grid gap-3">
+        <div class="ss-meta">Linear</div>
+        <form method="post" action="/api/m/{{ module }}/items/{{ item.id }}/linear" class="grid gap-2">
+          {% if linear_teams %}
+          <select name="team" class="select select-sm" aria-label="Team">
+            {% for team in linear_teams %}<option value="{{ team }}">{{ team }}</option>{% endfor %}
+          </select>
+          {% else %}
+          <input name="team" class="input input-sm" placeholder="Team key, like OPT" autocomplete="off" required>
+          {% endif %}
+          <button type="submit" class="btn btn-secondary btn-sm">Create in Linear</button>
+        </form>
+        <p class="ss-meta">Makes a Linear issue from this item; it then mirrors both ways.</p>
       </div>
       {% endif %}
 
