@@ -16,13 +16,16 @@
    adds a "Kind" select to the form row with the Create button, the first kind selected; an item whose
    meta.kind is post, deck or mockup carries a plain chip naming it; a mockup that was published to a repo
    (meta.published, slice 03-02) carries a plain "published" chip and a deck whose PDF is rendered (meta.pdf
-   with status "done") a plain "pdf" chip. The header links the board
+   with status "done") a plain "pdf" chip. An item whose latest run was checked against the module's scorecard
+   (`latest_run.output.check.score`, slice 04-01) carries the score chip (7-10 chip-ok, 4-6 chip-warn, 0-3
+   chip-err; None nothing), the same rule as platform/runs.html. The header links the board
    (platform/board.html) and each page. Shapes shared with item.html, board.html,
    ask.html and approvals.html are in docs/DESIGN.md section 8. #}
 {% block title %}{{ mod.label }} · Synaps Optic{% endblock %}
 {% block content %}
 {% set tone = {'review': 'chip-warn', 'approved': 'chip-ok', 'done': 'chip-ok', 'failed': 'chip-err'} %}
 {% set checks_chip = {'success': ('chip-ok', 'checks pass'), 'failure': ('chip-err', 'checks fail'), 'pending': ('chip-warn', 'checks running')} %}
+{% macro score_chip(score) %}{% if score is not none %}<span class="chip {{ 'chip-ok' if score >= 7 else ('chip-warn' if score >= 4 else 'chip-err') }}">scored {{ score }}/10</span>{% endif %}{% endmacro %}
 <section class="grid gap-8">
   <div class="flex flex-wrap items-start gap-4">
     <div class="min-w-0 flex-1">
@@ -81,6 +84,8 @@
           <span class="chip {{ tone.get(item.status, '') }}">{{ item.status }}</span>
           {% if item.attention == 'needs_you' %}<span class="chip chip-warn">Needs you</span>
           {% elif item.attention == 'ai_done' %}<span class="chip chip-info">AI done</span>{% endif %}
+          {% set check = item.latest_run.output.check if item.latest_run is defined and item.latest_run and item.latest_run.output else none %}
+          {{ score_chip(check.score if check else none) }}
           {% if item.meta and item.meta.kind == 'policy' %}<span class="chip">policy</span>{% endif %}
           {% if item.meta and item.meta.kind == 'person' %}<span class="chip">person</span>{% endif %}
           {% if item.meta and item.meta.kind == 'ledger_import' %}<span class="chip">import</span>{% endif %}

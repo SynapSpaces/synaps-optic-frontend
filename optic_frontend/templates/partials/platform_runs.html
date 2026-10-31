@@ -6,8 +6,13 @@
    that agent with text offers "Post as a comment" inside the inline two-step (base.html `.confirm`, never
    window.confirm), a plain form posting to /runs/{id}/comment, in place of "Use this draft"; once posted
    (`run.output.comment_url`, `run.output.commented_by`) it shows "Posted as a comment" with a "View on GitHub"
-   link instead. Context: module, item, runs, polling, read_only, comment_agent. #}
+   link instead. A done run checked against the module's scorecard (`run.output.check`, AGT-05: score 0-10 or
+   None, criteria [{criterion, score}], text, scorecard_title) adds the score chip to its chip row (7-10
+   chip-ok, 4-6 chip-warn, 0-3 chip-err, None nothing; the same rule as platform/runs.html) and, after the
+   draft, a "Scorecard: <title>" details block with one "<criterion> <n>/10" line each and the checker's text.
+   Context: module, item, runs, polling, read_only, comment_agent. #}
 {% set run_tone = {'queued': 'chip-warn', 'running': 'chip-info', 'done': 'chip-ok', 'failed': 'chip-err'} %}
+{% macro score_chip(score) %}{% if score is not none %}<span class="chip {{ 'chip-ok' if score >= 7 else ('chip-warn' if score >= 4 else 'chip-err') }}">scored {{ score }}/10</span>{% endif %}{% endmacro %}
 <div id="platform-runs" class="card p-4 grid gap-3"
      {% if polling %}hx-get="/partials/m/{{ module }}/items/{{ item.id }}/runs" hx-trigger="every 3s" hx-swap="outerHTML"{% endif %}>
   <div class="flex items-center gap-2">
@@ -25,6 +30,8 @@
         {%- if run.status in ('queued', 'running') %}<span class="dot dot-info pulse-dot"></span>{% endif -%}
         {%- if run.status == 'queued' and run.position is not none %}queued, {{ run.position }} ahead{% else %}{{ run.status }}{% endif -%}
       </span>
+      {% set check = run.output.check if run.status == 'done' and run.output else none %}
+      {{ score_chip(check.score if check else none) }}
       {% if run.model %}<span class="ss-meta">{{ run.model }}</span>{% endif %}
       {% if run.tokens_in or run.tokens_out %}<span class="ss-numeral">{{ (run.tokens_in or 0) + (run.tokens_out or 0) }} tokens</span>{% endif %}
       {% if run.seconds is not none %}<span class="ss-numeral">{{ '%.1f'|format(run.seconds) }} s</span>{% endif %}
@@ -42,6 +49,17 @@
       <a href="/m/{{ s.module }}/items/{{ s.item_id }}" class="ss-body-sm hover:underline">[{{ s.n }}] {{ s.title }}</a>
       {% endfor %}
     </div>
+    {% endif %}
+    {% if check %}
+    <details class="grid gap-2" data-scorecard>
+      <summary class="ss-meta cursor-pointer">Scorecard: {{ check.scorecard_title }}</summary>
+      <div class="grid gap-1">
+        {% for c in check.criteria or [] %}
+        <div class="ss-body-sm">{{ c.criterion }} <span class="ss-numeral">{{ c.score }}/10</span></div>
+        {% endfor %}
+      </div>
+      {% if check.text %}<pre class="whitespace-pre-wrap rounded-widget bg-surface-field p-3 font-mono text-xs text-fg-2">{{ check.text }}</pre>{% endif %}
+    </details>
     {% endif %}
     {% if comment_agent and run.agent == comment_agent %}
     {% if run.output.comment_url %}

@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{# The run dashboard across every module (backend platform_routes.py, AGT-03): what the agents did over the
+   last `days`, how long it took and what it cost in tokens, then the newest runs with their scorecard scores
+   (AGT-05, platform_checker.py). Context: request, days (1 | 7 | 30 | 90), stats ([{module, module_label,
+   agent, label, runs, done, failed, seconds, tokens_in, tokens_out}], busiest first), by_user ([{requested_by,
+   name, runs, seconds, tokens}]; the scheduler counts as "scheduler"), runs (the latest 50 across modules:
+   {id, module, module_label, agent, label, status, item_id, item_title, seconds, tokens_in, tokens_out,
+   created_at, score (0-10 or None), name, error}), totals ({runs, done, failed, seconds, tokens} over the
+   range), is_owner, modules_nav. A run links to its item when it has one, else to its module. The score chip
+   rule (7-10 chip-ok, 4-6 chip-warn, 0-3 chip-err, None nothing) is shared with the runs partial, module,
+   board and approvals pages; shapes are in docs/DESIGN.md section 8. #}
+{% block title %}Runs · Synaps Optic{% endblock %}
+{% block content %}
+{% set run_tone = {'queued': 'chip-warn', 'running': 'chip-info', 'done': 'chip-ok', 'failed': 'chip-err'} %}
+{% macro score_chip(score) %}{% if score is not none %}<span class="chip {{ 'chip-ok' if score >= 7 else ('chip-warn' if score >= 4 else 'chip-err') }}">scored {{ score }}/10</span>{% endif %}{% endmacro %}
+<section class="grid gap-8">
+  <div class="min-w-0">
+    <div class="ss-meta">Platform · runs</div>
+    <h1 class="ss-h2">Agent runs</h1>
+    <p class="mt-2 ss-body">What the agents did, how long it took and what it cost in tokens. Scores come from the module's scorecard page.</p>
+  </div>
+
+  <div class="grid gap-4">
+    <div class="flex flex-wrap items-center gap-1">
+      <a href="/runs?days=1" class="nav-link {% if days == 1 %}active{% endif %}">Today</a>
+      <a href="/runs?days=7" class="nav-link {% if days == 7 %}active{% endif %}">7 days</a>
+      <a href="/runs?days=30" class="nav-link {% if days == 30 %}active{% endif %}">30 days</a>
+      <a href="/runs?days=90" class="nav-link {% if days == 90 %}active{% endif %}">90 days</a>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-4" data-totals>
+      <span class="ss-numeral">{{ totals.runs }} runs</span>
+      <span class="ss-numeral">{{ totals.done }} done</span>
+      <span class="ss-numeral">{{ totals.failed }} failed</span>
+      <span class="ss-numeral">{{ totals.seconds|round|int }} s</span>
+      <span class="ss-numeral">{{ totals.tokens }} tokens</span>
+    </div>
+  </div>
+
+  <div class="card p-4 grid gap-3">
+    <div class="ss-body-strong">By module and agent</div>
+    {% if not stats %}
+    <p class="ss-meta">No runs in this range.</p>
+    {% else %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="ss-meta text-left">
+            <th class="py-1 pr-3 font-normal">Module</th>
+            <th class="py-1 pr-3 font-normal">Agent</th>
+            <th class="py-1 pr-3 font-normal text-right">Runs</th>
+            <th class="py-1 pr-3 font-normal text-right">Done</th>
+            <th class="py-1 pr-3 font-normal text-right">Failed</th>
+            <th class="py-1 pr-3 font-normal text-right">Seconds</th>
+            <th class="py-1 font-normal text-right">Tokens</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in stats %}
+          <tr class="rule" data-agent="{{ s.module }}/{{ s.agent }}">
+            <td class="py-2 pr-3"><a href="/m/{{ s.module }}" class="hover:underline">{{ s.module_label }}</a></td>
+            <td class="py-2 pr-3 ss-body-strong">{{ s.label or s.agent }}</td>
+            <td class="py-2 pr-3 text-right ss-numeral">{{ s.runs }}</td>
+            <td class="py-2 pr-3 text-right ss-numeral">{{ s.done }}</td>
+            <td class="py-2 pr-3 text-right ss-numeral">{{ s.failed }}</td>
+            <td class="py-2 pr-3 text-right ss-numeral">{{ '%.1f'|format(s.seconds or 0) }}</td>
+            <td class="py-2 text-right ss-numeral">{{ (s.tokens_in or 0) + (s.tokens_out or 0) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="card p-4 grid gap-3">
+    <div class="ss-body-strong">By person</div>
+    {% if not by_user %}
+    <p class="ss-meta">No runs in this range.</p>
+    {% else %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="ss-meta text-left">
+            <th class="py-1 pr-3 font-normal">Person</th>
+            <th class="py-1 pr-3 font-normal text-right">Runs</th>
+            <th class="py-1 pr-3 font-normal text-right">Seconds</th>
+            <th class="py-1 font-normal text-right">Tokens</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in by_user %}
+          <tr class="rule" data-user="{{ u.requested_by }}">
+            <td class="py-2 pr-3 ss-body-strong">{{ u.name }}</td>
+            <td class="py-2 pr-3 text-right ss-numeral">{{ u.runs }}</td>
+            <td class="py-2 pr-3 text-right ss-numeral">{{ '%.1f'|format(u.seconds or 0) }}</td>
+            <td class="py-2 text-right ss-numeral">{{ u.tokens }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="grid gap-2">
+    <div class="ss-meta">Latest runs</div>
+    {% if not runs %}
+    <div class="card p-12 text-center">
+      <p class="ss-body">No runs yet.</p>
+    </div>
+    {% else %}
+    {% for run in runs %}
+    <a href="{% if run.item_id %}/m/{{ run.module }}/items/{{ run.item_id }}{% else %}/m/{{ run.module }}{% endif %}" class="card p-4 grid gap-2 transition hover:bg-gray-100" data-run="{{ run.id }}">
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="ss-meta">{{ run.module_label }}</span>
+        <span class="ss-body-strong">{{ run.label or run.agent }}</span>
+        {% if run.item_title %}<span class="ss-body-sm truncate">{{ run.item_title }}</span>{% endif %}
+        <span class="chip {{ run_tone.get(run.status, '') }}">
+          {%- if run.status in ('queued', 'running') %}<span class="dot dot-info pulse-dot"></span>{% endif -%}
+          {{ run.status -}}
+        </span>
+        {{ score_chip(run.score) }}
+      </div>
+      {% if run.status == 'failed' and run.error %}
+      <div class="rounded-input status-err px-3 py-2 text-xs">{{ run.error }}</div>
+      {% endif %}
+      <div class="ss-meta">{{ run.name }} · {{ '%.1f'|format(run.seconds or 0) }} s · {{ (run.tokens_in or 0) + (run.tokens_out or 0) }} tokens · {{ run.created_at }}</div>
+    </a>
+    {% endfor %}
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

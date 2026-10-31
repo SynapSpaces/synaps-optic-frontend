@@ -4,12 +4,15 @@
    modules_nav. `columns` = [{status, items}]; each item is the item dict (id, title, body, status, due_at or
    None, owner_user_id, assignee_user_id, meta, updated_at, source) plus attention ("needs_you" | "ai_done" | ""),
    assignee_name (or None), owner_name, overdue (past due and not approved/done), next_status (or None) and
-   read_only. A card moves to its next status with a plain form (back=board brings the member here again);
+   read_only; when the backend also hands a card `latest_run` with `output.check.score` (slice 04-01; not
+   today) the card carries the score chip (7-10 chip-ok, 4-6 chip-warn, 0-3 chip-err; None or missing
+   nothing), the same rule as platform/runs.html. A card moves to its next status with a plain form (back=board brings the member here again);
    approving is left to the item page and its inline confirm, so the board never approves anything. Shapes shared
    with module.html and item.html are in docs/DESIGN.md section 8. #}
 {% block title %}{{ mod.label }} board · Synaps Optic{% endblock %}
 {% block content %}
 {% set tone = {'review': 'chip-warn', 'approved': 'chip-ok', 'done': 'chip-ok', 'failed': 'chip-err'} %}
+{% macro score_chip(score) %}{% if score is not none %}<span class="chip {{ 'chip-ok' if score >= 7 else ('chip-warn' if score >= 4 else 'chip-err') }}">scored {{ score }}/10</span>{% endif %}{% endmacro %}
 <section class="grid gap-6">
   <div class="min-w-0 grid gap-2">
     <a href="/m/{{ module }}" class="ss-meta hover:underline">&lsaquo; {{ mod.label }}</a>
@@ -33,6 +36,8 @@
         <div class="flex flex-wrap items-center gap-2">
           {% if item.attention == 'needs_you' %}<span class="chip chip-warn">Needs you</span>
           {% elif item.attention == 'ai_done' %}<span class="chip chip-info">AI done</span>{% endif %}
+          {% set check = item.latest_run.output.check if item.latest_run is defined and item.latest_run and item.latest_run.output else none %}
+          {{ score_chip(check.score if check else none) }}
           {% if item.overdue %}<span class="chip chip-err">due {{ item.due_at }}</span>
           {% elif item.due_at %}<span class="ss-meta">due {{ item.due_at }}</span>{% endif %}
           {% if item.read_only %}<span class="chip">{{ item.source }}</span>{% endif %}

@@ -321,6 +321,7 @@
                 {% endfor %}
                 <li><a href="/approvals" class="nav-link {% if request.url.path.startswith('/approvals') %}active{% endif %}">Approvals</a></li>
                 <li><a href="/brief" class="nav-link {% if request.url.path.startswith('/brief') %}active{% endif %}">Brief</a></li>
+                <li><a href="/runs" class="nav-link {% if request.url.path.startswith('/runs') %}active{% endif %}">Runs</a></li>
                 <li><a href="/recast" class="nav-link {% if request.url.path.startswith('/recast') %}active{% endif %}">Recast</a></li>
                 {% if is_owner %}
                 <li><a href="/admin/invites" class="nav-link {% if request.url.path.startswith('/admin') %}active{% endif %}">Invites</a></li>

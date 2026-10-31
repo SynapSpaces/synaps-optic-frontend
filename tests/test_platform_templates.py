@@ -1,15 +1,18 @@
 """The platform module pages (platform/module.html, platform/item.html, platform/board.html,
 platform/people.html, platform/ledger.html, platform/integrations.html, platform/ask.html, platform/approvals.html,
-platform/brief.html), the standalone preview documents (platform/deck_slides.html, platform/preview.html) and the partials
-(partials/platform_runs.html, partials/platform_ask_runs.html) pin the contract the backend's
-platform_routes.py relies on: the forms and their actions, the chips, the polling attributes, the inline
-confirms (approve, replace the checklist), the cited-sources list, the read-only shape of synced items, the
-brief read view, the rendered markdown page, the brief mentions, the board columns, the people rows, the
-ledger tables, the integrations page (GitHub and Linear), the pull-request / repository / Linear issue cards,
-the Work card (start work on a branch), the Linear card (create an issue from an item), posting a review
-run as a pull request comment, the item kinds (the Kind select and the post / deck / mockup chips), the
-sandboxed Preview card with the deck-as-slides and page-mockup documents behind it, the Deck PDF card (render
-on the lane, poll, download) and the Publish card (a mockup to the workspace's repository) with their chips.
+platform/brief.html, platform/runs.html), the standalone preview documents (platform/deck_slides.html,
+platform/preview.html) and the partials (partials/platform_runs.html, partials/platform_ask_runs.html) pin the
+contract the backend's platform_routes.py relies on: the forms and their actions, the chips, the polling
+attributes, the inline confirms (approve, replace the checklist), the cited-sources list, the read-only shape
+of synced items, the brief read view, the rendered markdown page, the brief mentions, the board columns, the
+people rows, the ledger tables, the integrations page (GitHub and Linear), the pull-request / repository /
+Linear issue cards, the Work card (start work on a branch), the Linear card (create an issue from an item),
+posting a review run as a pull request comment, the item kinds (the Kind select and the post / deck / mockup
+chips), the sandboxed Preview card with the deck-as-slides and page-mockup documents behind it, the Deck PDF
+card (render on the lane, poll, download) and the Publish card (a mockup to the workspace's repository) with
+their chips, the runs dashboard (range pills, totals, the two tables, the latest runs) and the scorecard
+score chip (the same tone rule on the dashboard, in the runs partial, the module list, the board and the
+approvals page) with the runs partial's Scorecard details block.
 Rendered with minimal fake contexts through the same Jinja2 setup the backend uses (tests/conftest.py).
 
 Context keys the templates read:
@@ -18,7 +21,7 @@ Context keys the templates read:
                    is_owner, modules_nav; each item: attention, latest_run, read_only, meta.kind, due_at
                    (meta.kind pr: number, author, draft, checks; meta.kind repo: open_prs; meta.kind issue:
                    state, assignee; meta.work = branch chip; meta.pdf.status done = pdf chip;
-                   meta.published = published chip)
+                   meta.published = published chip; latest_run.output.check.score = the score chip)
     item page:     request, module, mod, item (due_at, assignee_user_id, meta), runs, polling, latest, statuses,
                    next_status, attention, is_policy, is_person, checklist, members, owner_name, assignee_name,
                    today, read_only, agents, body_html (missing or "" = no Page card), work_repos (missing or
@@ -36,7 +39,9 @@ Context keys the templates read:
                    state, checks, draft) or repo (default_branch, open_prs, private) or issue (identifier, team,
                    state, state_type, assignee, priority, linear_error) with item.external_url
     board page:    request, module, mod, pages, columns ([{status, items}]; each item: attention, assignee_name,
-                   owner_name, overdue, next_status, read_only, due_at, source), today, is_owner, modules_nav
+                   owner_name, overdue, next_status, read_only, due_at, source, and latest_run only when a
+                   later backend hands one: its output.check.score shows the score chip), today, is_owner,
+                   modules_nav
     people page:   request, module, mod, pages, people (role, start_date, done, total), is_owner, modules_nav
     ledger page:   request, module, mod, pages, months, month, entries, categories, imports, modes, imported,
                    skipped, is_owner, modules_nav
@@ -46,10 +51,17 @@ Context keys the templates read:
                    modules_nav
     runs partial:  module, item, runs, polling, read_only (missing = false), comment_agent (missing or None =
                    never offer to post; a done run of that agent with text offers "Post as a comment", and
-                   run.output.comment_url / commented_by show it as posted)
+                   run.output.comment_url / commented_by show it as posted); a done run's run.output.check
+                   (score, criteria, text, scorecard_title) = the score chip and the Scorecard details
     ask page:      request, module, mod, runs, polling, is_owner, modules_nav
     ask partial:   module, runs, polling
-    approvals:     request, items, show, is_owner, modules_nav
+    approvals:     request, items (each with latest_run; its output.check.score = the score chip), show,
+                   is_owner, modules_nav
+    runs page:     request, days (1 | 7 | 30 | 90), stats ([{module, module_label, agent, label, runs, done,
+                   failed, seconds, tokens_in, tokens_out}]), by_user ([{requested_by, name, runs, seconds,
+                   tokens}]), runs ([{id, module, module_label, agent, label, status, item_id, item_title,
+                   seconds, tokens_in, tokens_out, created_at, score, name, error}]), totals ({runs, done,
+                   failed, seconds, tokens}), is_owner, modules_nav
     brief page:    request, briefs, latest, polling, mentions (missing or [] = no "Mentioned" block;
                    each {module, module_label, id, title, why}), is_owner, modules_nav
     deck slides:   request, title, slides ([{title, bullets (list of str), notes (str)}]; [] = empty state)
@@ -2164,16 +2176,261 @@ def test_base_styles_the_rendered_markdown(jinja_env):
     assert "max-width: 100%" in style.split(".md img {")[1].split("}")[0]
 
 
-def test_nav_has_the_brief_link_after_approvals(jinja_env):
+def test_nav_has_the_brief_link_after_approvals_and_runs_after_brief(jinja_env):
     html = jinja_env.get_template("platform/brief.html").render(**_brief_ctx([]))
     assert '<a href="/brief" class="nav-link active">Brief</a>' in html
     assert '<a href="/approvals" class="nav-link ">Approvals</a>' in html
+    assert '<a href="/runs" class="nav-link ">Runs</a>' in html
     assert '<a href="/m/knowledge" class="nav-link ">Knowledge</a>' in html
-    assert html.index('href="/approvals"') < html.index('href="/brief"') < html.index('href="/recast"')
-    # module pages still render, with Brief present but idle and the module active
+    assert html.index('href="/approvals"') < html.index('href="/brief"') < html.index('href="/runs"') < html.index('href="/recast"')
+    # module pages still render, with Brief and Runs present but idle and the module active
     html = jinja_env.get_template("platform/module.html").render(**_module_ctx())
-    assert '<a href="/brief" class="nav-link ">Brief</a>' in html
+    assert '<a href="/brief" class="nav-link ">Brief</a>' in html and '<a href="/runs" class="nav-link ">Runs</a>' in html
     assert '<a href="/m/knowledge" class="nav-link active">Knowledge</a>' in html
     html = jinja_env.get_template("platform/approvals.html").render(
         request=_Req("/approvals"), items=[], show="needs_you", is_owner=True, modules_nav=MODULES_NAV)
     assert '<a href="/brief" class="nav-link ">Brief</a>' in html and '<a href="/approvals" class="nav-link active">Approvals</a>' in html
+    assert '<a href="/runs" class="nav-link ">Runs</a>' in html
+    # the runs page lights Runs alone
+    html = jinja_env.get_template("platform/runs.html").render(**_runs_ctx())
+    assert '<a href="/runs" class="nav-link active">Runs</a>' in html
+    assert '<a href="/brief" class="nav-link ">Brief</a>' in html and '<a href="/approvals" class="nav-link ">Approvals</a>' in html
+    assert '<a href="/m/knowledge" class="nav-link ">Knowledge</a>' in html
+
+
+# ---- runs dashboard (slice 04-01) ------------------------------------------------------------------------
+
+SCORE_CHIPS = {8: '<span class="chip chip-ok">scored 8/10</span>', 5: '<span class="chip chip-warn">scored 5/10</span>',
+               2: '<span class="chip chip-err">scored 2/10</span>'}
+
+CHECK = {"score": 8, "criteria": [{"criterion": "Clear", "score": 9}, {"criterion": "Short", "score": 7}],
+         "text": "Clear: 9/10. Reads well.\nShort: 7/10. Trim the intro.\nOverall: 8/10",
+         "scorecard_title": "Knowledge scorecard", "scorecard_updated_at": "2026-10-31 07:00",
+         "model": "gemma-4-e4b", "tokens_in": 300, "tokens_out": 80}
+
+
+def _stat(**over):
+    base = {"module": "knowledge", "module_label": "Knowledge", "agent": "writer", "label": "Draft with the writer",
+            "runs": 3, "done": 2, "failed": 1, "seconds": 12.34, "tokens_in": 100, "tokens_out": 250}
+    base.update(over)
+    return base
+
+
+def _dash_run(**over):
+    base = {"id": "r1", "module": "knowledge", "module_label": "Knowledge", "agent": "writer",
+            "label": "Draft with the writer", "status": "done", "item_id": "it1", "item_title": "Refund policy",
+            "seconds": 4.2, "tokens_in": 120, "tokens_out": 340, "created_at": "2026-10-31 09:00", "score": 8,
+            "name": "David", "error": None}
+    base.update(over)
+    return base
+
+
+def _runs_ctx(**over):
+    ctx = dict(request=_Req("/runs"), days=7, stats=[_stat()],
+               by_user=[{"requested_by": "u1", "name": "David", "runs": 3, "seconds": 12.3, "tokens": 350}],
+               runs=[_dash_run()], totals={"runs": 3, "done": 2, "failed": 1, "seconds": 12.3, "tokens": 350},
+               is_owner=True, modules_nav=MODULES_NAV)
+    ctx.update(over)
+    return ctx
+
+
+def test_runs_page_header_pills_and_totals(jinja_env):
+    html = jinja_env.get_template("platform/runs.html").render(**_runs_ctx())
+    assert "Platform · runs" in html and "Agent runs" in html
+    assert "What the agents did, how long it took and what it cost in tokens. Scores come from the module's scorecard page." in html
+    assert '<a href="/runs?days=1" class="nav-link ">Today</a>' in html
+    assert '<a href="/runs?days=7" class="nav-link active">7 days</a>' in html
+    assert '<a href="/runs?days=30" class="nav-link ">30 days</a>' in html
+    assert '<a href="/runs?days=90" class="nav-link ">90 days</a>' in html
+    totals = html.split("data-totals")[1].split("</div>")[0]
+    for figure in ("3 runs", "2 done", "1 failed", "12 s", "350 tokens"):
+        assert f'<span class="ss-numeral">{figure}</span>' in totals, figure
+    assert "window.confirm" not in html and "hx-" not in html.split("</nav>")[-1] and "<form" not in html.split("</nav>")[-1]
+
+
+@pytest.mark.parametrize("days,label", [(1, "Today"), (30, "30 days"), (90, "90 days")])
+def test_runs_page_marks_the_current_range(jinja_env, days, label):
+    html = jinja_env.get_template("platform/runs.html").render(**_runs_ctx(days=days))
+    assert f'<a href="/runs?days={days}" class="nav-link active">{label}</a>' in html
+    assert '<a href="/runs?days=7" class="nav-link ">7 days</a>' in html
+    assert html.count('class="nav-link active"') == 2  # the range pill and the Runs nav link
+
+
+def test_runs_page_tables_in_the_ledger_style(jinja_env):
+    html = jinja_env.get_template("platform/runs.html").render(**_runs_ctx(
+        stats=[_stat(), _stat(module="marketing", module_label="Marketing", agent="post", label="Post", runs=1, done=1,
+                             failed=0, seconds=0.5, tokens_in=10, tokens_out=20)],
+        by_user=[{"requested_by": "u1", "name": "David", "runs": 3, "seconds": 12.3, "tokens": 350},
+                 {"requested_by": "", "name": "scheduler", "runs": 1, "seconds": 0.5, "tokens": 30}]))
+    agents = html.split(">By module and agent<")[1].split("</table>")[0]
+    head = agents.split("</thead>")[0]
+    assert '<table class="w-full text-sm">' in agents and 'class="ss-meta text-left"' in head
+    assert [h for h in (">Module<", ">Agent<", ">Runs<", ">Done<", ">Failed<", ">Seconds<", ">Tokens<") if h in head] == \
+        [">Module<", ">Agent<", ">Runs<", ">Done<", ">Failed<", ">Seconds<", ">Tokens<"]
+    assert head.count("text-right") == 5  # the five number columns
+    assert html.index(">By module and agent<") < html.index('data-agent="knowledge/writer"') < html.index('data-agent="marketing/post"')
+    row = agents.split('data-agent="knowledge/writer"')[1].split("</tr>")[0]
+    assert '<a href="/m/knowledge" class="hover:underline">Knowledge</a>' in row and ">Draft with the writer</td>" in row
+    assert '<td class="py-2 pr-3 text-right ss-numeral">3</td>' in row
+    assert '<td class="py-2 pr-3 text-right ss-numeral">2</td>' in row
+    assert '<td class="py-2 pr-3 text-right ss-numeral">1</td>' in row
+    assert '<td class="py-2 pr-3 text-right ss-numeral">12.3</td>' in row  # one decimal
+    assert '<td class="py-2 text-right ss-numeral">350</td>' in row  # tokens in + out
+    row = agents.split('data-agent="marketing/post"')[1].split("</tr>")[0]
+    assert 'href="/m/marketing"' in row and ">Post</td>" in row and ">0.5</td>" in row and ">0</td>" in row and ">30</td>" in row
+    people = html.split(">By person<")[1].split("</table>")[0]
+    head = people.split("</thead>")[0]
+    assert ">Person<" in head and ">Runs<" in head and ">Seconds<" in head and ">Tokens<" in head and head.count("text-right") == 3
+    row = people.split('data-user="u1"')[1].split("</tr>")[0]
+    assert ">David</td>" in row and '<td class="py-2 pr-3 text-right ss-numeral">3</td>' in row
+    assert '<td class="py-2 pr-3 text-right ss-numeral">12.3</td>' in row and '<td class="py-2 text-right ss-numeral">350</td>' in row
+    row = people.split('data-user=""')[1].split("</tr>")[0]
+    assert ">scheduler</td>" in row and ">1</td>" in row and ">0.5</td>" in row and ">30</td>" in row
+    assert "No runs in this range." not in html
+
+
+def test_runs_page_latest_runs_link_the_item_or_the_module(jinja_env):
+    runs = [_dash_run(),
+            _dash_run(id="r2", module="marketing", module_label="Marketing", agent="post", label="Post", status="failed",
+                      item_id=None, item_title="", seconds=None, tokens_in=0, tokens_out=0, created_at="2026-10-31 08:00",
+                      score=None, name="scheduler", error="model timed out"),
+            _dash_run(id="r3", status="running", score=None, seconds=None, tokens_in=0, tokens_out=0),
+            _dash_run(id="r4", status="queued", score=None, seconds=None, tokens_in=0, tokens_out=0)]
+    html = jinja_env.get_template("platform/runs.html").render(**_runs_ctx(runs=runs))
+    latest = html.split(">Latest runs<")[1]
+    assert "No runs yet." not in latest
+    assert '<a href="/m/knowledge/items/it1" class="card p-4 grid gap-2 transition hover:bg-gray-100" data-run="r1">' in latest
+    first = latest.split('data-run="r1"')[1].split("</a>")[0]
+    assert '<span class="ss-meta">Knowledge</span>' in first and '<span class="ss-body-strong">Draft with the writer</span>' in first
+    assert "Refund policy" in first and '<span class="chip chip-ok">done</span>' in first
+    assert first.index("Knowledge") < first.index("Draft with the writer") < first.index("Refund policy") < first.index(">done<")
+    assert '<span class="chip chip-ok">scored 8/10</span>' in first and first.index(">done<") < first.index("scored 8/10")
+    assert '<div class="ss-meta">David · 4.2 s · 460 tokens · 2026-10-31 09:00</div>' in first
+    assert "status-err" not in first
+    # a run without an item links to its module; a failed run shows its error and no score
+    assert '<a href="/m/marketing" class="card p-4 grid gap-2 transition hover:bg-gray-100" data-run="r2">' in latest
+    second = latest.split('data-run="r2"')[1].split("</a>")[0]
+    assert '<span class="chip chip-err">failed</span>' in second and "model timed out" in second and "status-err" in second
+    assert "scored" not in second and "Refund policy" not in second
+    assert '<div class="ss-meta">scheduler · 0.0 s · 0 tokens · 2026-10-31 08:00</div>' in second
+    # queued and running carry the pulse in the partial's tones
+    third = latest.split('data-run="r3"')[1].split("</a>")[0]
+    assert '<span class="chip chip-info"><span class="dot dot-info pulse-dot"></span>running</span>' in third
+    fourth = latest.split('data-run="r4"')[1].split("</a>")[0]
+    assert '<span class="chip chip-warn"><span class="dot dot-info pulse-dot"></span>queued</span>' in fourth
+    assert [latest.index(f'data-run="r{n}"') for n in (1, 2, 3, 4)] == sorted(latest.index(f'data-run="r{n}"') for n in (1, 2, 3, 4))
+
+
+@pytest.mark.parametrize("score,chip", [
+    (10, '<span class="chip chip-ok">scored 10/10</span>'), (8, SCORE_CHIPS[8]), (7, '<span class="chip chip-ok">scored 7/10</span>'),
+    (6, '<span class="chip chip-warn">scored 6/10</span>'), (5, SCORE_CHIPS[5]), (4, '<span class="chip chip-warn">scored 4/10</span>'),
+    (3, '<span class="chip chip-err">scored 3/10</span>'), (2, SCORE_CHIPS[2]), (0, '<span class="chip chip-err">scored 0/10</span>'),
+])
+def test_runs_page_score_chip_tones(jinja_env, score, chip):
+    html = jinja_env.get_template("platform/runs.html").render(**_runs_ctx(runs=[_dash_run(score=score)]))
+    assert chip in html and html.count("scored ") == 1
+
+
+def test_runs_page_no_score_chip_without_a_score(jinja_env):
+    html = jinja_env.get_template("platform/runs.html").render(**_runs_ctx(runs=[_dash_run(score=None)]))
+    assert "scored" not in html and '<span class="chip chip-ok">done</span>' in html
+
+
+def test_runs_page_empty_states(jinja_env):
+    html = jinja_env.get_template("platform/runs.html").render(**_runs_ctx(
+        stats=[], by_user=[], runs=[], totals={"runs": 0, "done": 0, "failed": 0, "seconds": 0, "tokens": 0}))
+    assert html.count("No runs in this range.") == 2 and "No runs yet." in html
+    assert "<table" not in html and "data-run=" not in html and "scored" not in html
+    for figure in ("0 runs", "0 done", "0 failed", "0 s", "0 tokens"):
+        assert f'<span class="ss-numeral">{figure}</span>' in html, figure
+    assert ">By module and agent<" in html and ">By person<" in html and ">Latest runs<" in html
+    # a quiet range with earlier runs keeps the list
+    html = jinja_env.get_template("platform/runs.html").render(**_runs_ctx(
+        stats=[], by_user=[], totals={"runs": 0, "done": 0, "failed": 0, "seconds": 0, "tokens": 0}))
+    assert html.count("No runs in this range.") == 2 and "No runs yet." not in html and 'data-run="r1"' in html
+
+
+# ---- scorecard check in the runs partial and the score chip on the lists ----------------------------------
+
+@pytest.mark.parametrize("score,chip", [(8, SCORE_CHIPS[8]), (5, SCORE_CHIPS[5]), (2, SCORE_CHIPS[2])])
+def test_runs_partial_shows_the_scorecard_check_of_a_done_run(render_runs, score, chip):
+    done = _run("done", output={"text": "Refunds within 30 days.", "sources": SOURCES, "check": {**CHECK, "score": score}})
+    html = render_runs([done], False)
+    chips = html.split('<span class="ss-body-strong">Draft with the writer</span>')[1].split("</div>")[0]
+    assert chip in chips and chips.index(">done<") < chips.index("scored ") < chips.index("gemma-4-e4b")
+    assert html.count("scored ") == 1
+    assert html.count("<details") == 1 and 'data-scorecard' in html
+    details = html.split('<details class="grid gap-2" data-scorecard>')[1].split("</details>")[0]
+    assert '<summary class="ss-meta cursor-pointer">Scorecard: Knowledge scorecard</summary>' in details
+    assert 'Clear <span class="ss-numeral">9/10</span>' in details and 'Short <span class="ss-numeral">7/10</span>' in details
+    assert details.index("Clear") < details.index("Short") < details.index("<pre")
+    assert "Trim the intro." in details.split("<pre")[1] and 'class="whitespace-pre-wrap' in details
+    # after the draft and its sources, before the apply form; the draft keeps its own pre first
+    assert html.index("Refunds within 30 days.") < html.index("[2] Returns FAQ") < html.index("data-scorecard") < html.index("Use this draft")
+    assert html.index('<pre class="whitespace-pre-wrap') < html.index("data-scorecard")
+
+
+def test_runs_partial_scorecard_without_an_overall_score(render_runs):
+    """The checker falls back to None when no line parsed: the details stay, the chip goes."""
+    done = _run("done", output={"text": "A draft.", "check": {**CHECK, "score": None, "criteria": []}})
+    html = render_runs([done], False)
+    assert "scored" not in html and "Scorecard: Knowledge scorecard" in html and "Trim the intro." in html
+    assert html.count("ss-numeral\">") == 2  # tokens and seconds only: no criterion lines
+
+
+def test_runs_partial_without_a_check_has_no_scorecard(render_runs):
+    for output in ({"text": "Plain draft."}, {"text": "Plain draft.", "check": None}, {"text": "Plain draft.", "sources": SOURCES}, None):
+        html = render_runs([_run("done", output=output)], False)
+        assert "scored" not in html and "data-scorecard" not in html and "Scorecard:" not in html and "<details" not in html
+    # an unfinished or failed run never shows a check, even if one is attached
+    for status in ("queued", "running", "failed"):
+        html = render_runs([_run(status, error="x", output={"text": "t", "check": CHECK})], False)
+        assert "scored" not in html and "data-scorecard" not in html, status
+
+
+def test_approvals_rows_show_the_score_chip(jinja_env):
+    tpl = jinja_env.get_template("platform/approvals.html")
+    def row(id_, latest_run):
+        return {"id": id_, "module": "knowledge", "module_label": "Knowledge", "title": "Refund policy", "status": "review",
+                "attention": "needs_you", "latest_run": latest_run, "updated_at": "2026-10-31 09:00"}
+    items = [row("it1", {"status": "done", "agent": "writer", "output": {"text": "t", "check": {**CHECK, "score": 5}}}),
+             row("it2", {"status": "done", "agent": "writer", "output": {"text": "t"}}),
+             row("it3", {"status": "done", "agent": "writer", "output": {"text": "t", "check": {**CHECK, "score": None}}}),
+             row("it4", {"status": "done", "agent": "writer"}),
+             row("it5", None)]
+    html = tpl.render(request=_Req("/approvals"), items=items, show="all", is_owner=True, modules_nav=MODULES_NAV)
+    rows = {i: html.split(f'href="/m/knowledge/items/{i}"')[1].split("</a>")[0] for i in ("it1", "it2", "it3", "it4", "it5")}
+    assert SCORE_CHIPS[5] in rows["it1"] and html.count("scored ") == 1
+    assert rows["it1"].index("Needs you") < rows["it1"].index("scored 5/10") < rows["it1"].index("2026-10-31 09:00")
+    assert "writer · done" in rows["it1"]
+    for i in ("it2", "it3", "it4", "it5"):
+        assert "scored" not in rows[i], i
+
+
+def test_module_page_score_chip_from_the_latest_run(jinja_env):
+    items = [_item(latest_run={"status": "done", "agent": "writer", "output": {"text": "t", "check": {**CHECK, "score": 2}}}),
+             _item(id="it2", latest_run={"status": "done", "agent": "writer", "output": {"text": "t"}}),
+             _item(id="it3", latest_run={"status": "done", "agent": "writer", "output": {"text": "t", "check": {**CHECK, "score": None}}}),
+             _item(id="it4"), _item(id="it5", latest_run=None)]
+    html = jinja_env.get_template("platform/module.html").render(**_module_ctx(items=items))
+    rows = {i: html.split(f'href="/m/knowledge/items/{i}"')[1].split("</a>")[0] for i in ("it1", "it2", "it3", "it4", "it5")}
+    assert SCORE_CHIPS[2] in rows["it1"] and html.count("scored ") == 1
+    assert rows["it1"].index("Needs you") < rows["it1"].index("scored 2/10") < rows["it1"].index("Draft with the writer · done")
+    for i in ("it2", "it3", "it4", "it5"):
+        assert "scored" not in rows[i], i
+
+
+def test_board_card_score_chip_only_when_a_latest_run_is_handed_over(jinja_env):
+    tpl = jinja_env.get_template("platform/board.html")
+    cards = [_card("it1", "draft"),  # today's board context: no latest_run key at all
+             _card("it2", "draft", latest_run={"status": "done", "agent": "writer", "output": {"text": "t", "check": {**CHECK, "score": 8}}}),
+             _card("it3", "review", latest_run={"status": "done", "agent": "writer", "output": {"text": "t"}}),
+             _card("it4", "review", latest_run=None)]
+    html = tpl.render(**_board_ctx(cards))
+    draft, review = _column(html, "draft"), _column(html, "review")
+    card = draft.split('href="/m/knowledge/items/it2"')[1].split("</form>")[0]
+    assert SCORE_CHIPS[8] in card and html.count("scored ") == 1
+    assert "scored" not in draft.split('href="/m/knowledge/items/it1"')[1].split('href="/m/knowledge/items/it2"')[0]
+    assert "scored" not in review
+    # a card without the key still renders every other chip
+    assert "unassigned" in draft and "Nothing here." not in draft

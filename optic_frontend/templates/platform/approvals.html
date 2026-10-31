@@ -1,10 +1,13 @@
 {% extends "base.html" %}
 {# Everything across the modules that waits on a member (backend platform_routes.py).
    Context: request, items (id, module, module_label, title, status, attention, latest_run, updated_at),
-   show ("needs_you" | "ai_done" | "all"), is_owner, modules_nav. #}
+   show ("needs_you" | "ai_done" | "all"), is_owner, modules_nav. An item whose latest run was checked
+   against its module's scorecard (`latest_run.output.check.score`, slice 04-01) carries the score chip
+   (7-10 chip-ok, 4-6 chip-warn, 0-3 chip-err; None nothing), the same rule as platform/runs.html. #}
 {% block title %}Approvals · Synaps Optic{% endblock %}
 {% block content %}
 {% set tone = {'review': 'chip-warn', 'approved': 'chip-ok', 'done': 'chip-ok', 'failed': 'chip-err'} %}
+{% macro score_chip(score) %}{% if score is not none %}<span class="chip {{ 'chip-ok' if score >= 7 else ('chip-warn' if score >= 4 else 'chip-err') }}">scored {{ score }}/10</span>{% endif %}{% endmacro %}
 <section class="grid gap-6">
   <div class="min-w-0">
     <div class="ss-meta">Platform</div>
@@ -32,6 +35,8 @@
         <span class="chip {{ tone.get(item.status, '') }}">{{ item.status }}</span>
         {% if item.attention == 'needs_you' %}<span class="chip chip-warn">Needs you</span>
         {% elif item.attention == 'ai_done' %}<span class="chip chip-info">AI done</span>{% endif %}
+        {% set check = item.latest_run.output.check if item.latest_run and item.latest_run.output else none %}
+        {{ score_chip(check.score if check else none) }}
         <span class="ss-meta ml-auto">{{ item.updated_at }}</span>
       </div>
       {% if item.latest_run %}
