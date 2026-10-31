@@ -42,8 +42,21 @@
    by the backend as a standalone document under a no-script CSP, platform/deck_slides.html or
    platform/preview.html) adds a "Preview" card first on the left, above the Pull request / Brief / Person
    cards: the document in an `<iframe sandbox>` with no allow-* token, an "Open in a new tab" link and the
-   note that nothing in the preview can run scripts. Approving, and replacing the
-   checklist, confirm inline (base.html `.confirm`), never through window.confirm. #}
+   note that nothing in the preview can run scripts. Deck PDF and publishing (slice 03-02): `pdf` (None or
+   missing = no PDF yet; {status queued | running | done | failed, key, pages, bytes, error, queued_at,
+   finished_at}) fills a "Deck PDF" card (`id="deck-pdf"`) in the right column after Status on a deck that is
+   not read-only: the pulse chip while queued or running, during which the card re-fetches this page every
+   5 s and swaps itself (`hx-select="#deck-pdf"`); the slide count, size and time with a "Download PDF" link
+   to /pdf when done; the error in a status-err box when failed; and, except while queued or running, a
+   "Render PDF" form posting to /pdf ("Render again" once done). A done PDF adds a plain "pdf" chip to the
+   header. `published` (None or missing = never published; {repo, path, branch, url, pages_url, at, by}) and
+   `publish_repos` (None or missing when GitHub is not connected; the "owner/name" repositories otherwise)
+   fill a "Publish" card in the same place on a mockup that is not read-only: where it went and the "View
+   the file" / "Open the page" links when published, then the note to approve first, the note to connect
+   GitHub (also when the list is empty), or the "Publish" two-step (a select of the repositories,
+   published.repo preselected) posting `repo` to /publish. A published mockup adds a plain "published" chip
+   to the header. Approving, replacing the checklist and publishing confirm inline (base.html `.confirm`),
+   never through window.confirm. #}
 {% block title %}{{ item.title }} · {{ mod.label }} · Synaps Optic{% endblock %}
 {% block content %}
 {% set tone = {'review': 'chip-warn', 'approved': 'chip-ok', 'done': 'chip-ok', 'failed': 'chip-err'} %}
@@ -88,6 +101,8 @@
       {% if is_issue %}<span class="chip">issue</span>{% endif %}
       {% if kind in ('post', 'deck', 'mockup') %}<span class="chip">{{ kind }}</span>{% endif %}
       {% if work %}<span class="chip">branch</span>{% endif %}
+      {% if pdf and pdf.status == 'done' %}<span class="chip">pdf</span>{% endif %}
+      {% if published %}<span class="chip">published</span>{% endif %}
       {% if item.due_at and today and item.due_at < today and item.status not in ('approved', 'done') %}
       <span class="chip chip-err">due {{ item.due_at }}</span>
       {% elif item.due_at %}<span class="ss-meta">due {{ item.due_at }}</span>{% endif %}
@@ -285,6 +300,65 @@
           </select>
           <button type="submit" class="btn btn-ghost btn-sm">Set</button>
         </form>
+      </div>
+      {% endif %}
+
+      {% if kind == 'deck' and not read_only %}
+      {% set pdf_url = '/api/m/' ~ module ~ '/items/' ~ item.id ~ '/pdf' %}
+      {% set pdf_busy = pdf and pdf.status in ('queued', 'running') %}
+      {# While the lane renders, the card re-fetches this page every 5 s and swaps only itself. #}
+      <div id="deck-pdf" class="card p-4 grid gap-3"{% if pdf_busy %} hx-get="/m/{{ module }}/items/{{ item.id }}" hx-trigger="every 5s" hx-select="#deck-pdf" hx-swap="outerHTML"{% endif %}>
+        <div class="ss-meta">Deck PDF</div>
+        {% if not pdf %}
+        <p class="ss-body-sm">No PDF yet.</p>
+        {% elif pdf_busy %}
+        <div><span class="chip chip-info"><span class="dot dot-info pulse-dot"></span>{{ pdf.status }}</span></div>
+        {% elif pdf.status == 'done' %}
+        <div class="ss-meta break-words">{{ pdf.pages }} slides · {{ (pdf.bytes / 1024) | round | int }} KB · {{ pdf.finished_at }}</div>
+        <a href="/m/{{ module }}/items/{{ item.id }}/pdf" class="btn btn-secondary btn-sm">Download PDF</a>
+        {% elif pdf.status == 'failed' %}
+        <div class="rounded-input status-err px-3 py-2 text-xs break-words">{{ pdf.error or 'The render failed.' }}</div>
+        {% endif %}
+        {% if not pdf_busy %}
+        <form method="post" action="{{ pdf_url }}">
+          <button type="submit" class="btn btn-primary btn-sm">{% if pdf and pdf.status == 'done' %}Render again{% else %}Render PDF{% endif %}</button>
+        </form>
+        <p class="ss-meta">Rendered on the lane from the slides in the body; takes about ten seconds.</p>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      {% if kind == 'mockup' and not read_only %}
+      <div class="card p-4 grid gap-3">
+        <div class="ss-meta">Publish</div>
+        {% if published %}
+        <div class="ss-meta break-words">Published to {{ published.repo }} at {{ published.path }} ({{ published.at }})</div>
+        <a href="{{ published.url }}" target="_blank" rel="noopener" class="ss-body-sm break-words hover:underline">View the file</a>
+        {% if published.pages_url %}
+        <a href="{{ published.pages_url }}" target="_blank" rel="noopener" class="ss-body-sm break-words hover:underline">Open the page</a>
+        {% endif %}
+        {% endif %}
+        {% if item.status != 'approved' %}
+        <p class="ss-meta">Approve the mockup first; publishing is a person's call.</p>
+        {% elif not publish_repos %}
+        <p class="ss-meta">Connect GitHub on the Development module to publish.</p>
+        {% else %}
+        <div class="flex items-center justify-end">
+          <details class="confirm">
+            <summary class="btn btn-primary btn-sm" role="button">{% if published %}Publish again{% else %}Publish{% endif %}</summary>
+            <form method="post" action="/api/m/{{ module }}/items/{{ item.id }}/publish" class="confirm-box card-float">
+              <p class="ss-body-sm">Publish this page to the repository? It is written to the default branch under docs/pages, where GitHub Pages can serve it.</p>
+              <select name="repo" class="select select-sm" aria-label="Repository">
+                {% for repo in publish_repos %}<option value="{{ repo }}"{% if published and repo == published.repo %} selected{% endif %}>{{ repo }}</option>{% endfor %}
+              </select>
+              <div class="flex justify-end gap-2">
+                <button type="button" class="btn btn-ghost btn-sm" onclick="this.closest('details').removeAttribute('open')">Cancel</button>
+                <button type="submit" class="btn btn-primary btn-sm">Publish</button>
+              </div>
+            </form>
+          </details>
+        </div>
+        {% endif %}
       </div>
       {% endif %}
 

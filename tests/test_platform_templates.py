@@ -7,8 +7,9 @@ confirms (approve, replace the checklist), the cited-sources list, the read-only
 brief read view, the rendered markdown page, the brief mentions, the board columns, the people rows, the
 ledger tables, the integrations page (GitHub and Linear), the pull-request / repository / Linear issue cards,
 the Work card (start work on a branch), the Linear card (create an issue from an item), posting a review
-run as a pull request comment, the item kinds (the Kind select and the post / deck / mockup chips) and the
-sandboxed Preview card with the deck-as-slides and page-mockup documents behind it.
+run as a pull request comment, the item kinds (the Kind select and the post / deck / mockup chips), the
+sandboxed Preview card with the deck-as-slides and page-mockup documents behind it, the Deck PDF card (render
+on the lane, poll, download) and the Publish card (a mockup to the workspace's repository) with their chips.
 Rendered with minimal fake contexts through the same Jinja2 setup the backend uses (tests/conftest.py).
 
 Context keys the templates read:
@@ -16,7 +17,8 @@ Context keys the templates read:
                    kinds (missing or [] = no Kind select; [(slug, label)] offers one, the first selected),
                    is_owner, modules_nav; each item: attention, latest_run, read_only, meta.kind, due_at
                    (meta.kind pr: number, author, draft, checks; meta.kind repo: open_prs; meta.kind issue:
-                   state, assignee; meta.work = branch chip)
+                   state, assignee; meta.work = branch chip; meta.pdf.status done = pdf chip;
+                   meta.published = published chip)
     item page:     request, module, mod, item (due_at, assignee_user_id, meta), runs, polling, latest, statuses,
                    next_status, attention, is_policy, is_person, checklist, members, owner_name, assignee_name,
                    today, read_only, agents, body_html (missing or "" = no Page card), work_repos (missing or
@@ -26,7 +28,11 @@ Context keys the templates read:
                    no "Create in Linear" form; a list of team keys, possibly empty, offers it on a manual
                    editable item), kind (missing or None = no kind chip; post / deck / mockup show one),
                    preview_url (missing or None = no Preview card; a URL shows the sandboxed iframe card first
-                   on the left), is_owner, modules_nav; item.meta.kind pr (repo, number, author, head, base,
+                   on the left), pdf (missing or None = "No PDF yet."; {status queued | running | done |
+                   failed, key, pages, bytes, error, queued_at, finished_at} on a deck), published (missing or
+                   None = never; {repo, path, branch, url, pages_url, at, by} on a mockup), publish_repos
+                   (missing, None or [] = "Connect GitHub" note; ["owner/name"] offers the Publish confirm),
+                   is_owner, modules_nav; item.meta.kind pr (repo, number, author, head, base,
                    state, checks, draft) or repo (default_branch, open_prs, private) or issue (identifier, team,
                    state, state_type, assignee, priority, linear_error) with item.external_url
     board page:    request, module, mod, pages, columns ([{status, items}]; each item: attention, assignee_name,
@@ -1863,6 +1869,278 @@ def test_item_page_without_preview_url_has_no_preview_card(jinja_env):
     for kind in (None, "policy", "brief", "person", "pr", "repo", "issue", "ledger_import"):
         header = tpl.render(**_item_ctx(kind=kind)).split("</h1>")[1].split("md:grid-cols")[0]
         assert f'<span class="chip">{kind}</span>' not in header
+
+
+# ---- deck PDF and publishing a mockup (slice 03-02) -----------------------------------------------------
+
+PDF_DONE = {"status": "done", "key": "pdf/marketing/dk1.pdf", "pages": 3, "bytes": 48230, "error": None,
+            "queued_at": "2026-10-31 11:00", "finished_at": "2026-10-31 11:00:12"}
+PDF_FAILED = {"status": "failed", "key": None, "pages": None, "bytes": None, "error": "The lane is offline.",
+              "queued_at": "2026-10-31 11:00", "finished_at": "2026-10-31 11:00:03"}
+PDF_HEADING = '<div class="ss-meta">Deck PDF</div>'
+PDF_QUEUE_URL = "/api/m/marketing/items/dk1/pdf"
+PDF_FILE_URL = "/m/marketing/items/dk1/pdf"
+PDF_POLL = 'hx-get="/m/marketing/items/dk1" hx-trigger="every 5s" hx-select="#deck-pdf" hx-swap="outerHTML"'
+PDF_NOTE = "Rendered on the lane from the slides in the body; takes about ten seconds."
+PUBLISH_REPOS = ["wolfwdavid/synapspaces-site", "wolfwdavid/synaps-optic-frontend"]
+PUBLISHED = {"repo": "wolfwdavid/synaps-optic-frontend", "path": "docs/pages/landing-page.html", "branch": "main",
+             "url": "https://github.com/wolfwdavid/synaps-optic-frontend/blob/main/docs/pages/landing-page.html",
+             "pages_url": "https://wolfwdavid.github.io/synaps-optic-frontend/pages/landing-page.html",
+             "at": "2026-10-31 12:00", "by": "David"}
+PUBLISH_HEADING = '<div class="ss-meta">Publish</div>'
+PUBLISH_URL = "/api/m/website/items/mk1/publish"
+PUBLISH_QUESTION = ("Publish this page to the repository? It is written to the default branch under docs/pages, "
+                    "where GitHub Pages can serve it.")
+CANCEL_BUTTON = ('<button type="button" class="btn btn-ghost btn-sm" '
+                 'onclick="this.closest(\'details\').removeAttribute(\'open\')">Cancel</button>')
+
+
+def _pdf_card(html):
+    """The Deck PDF card: from its opening tag to the heading of the next right-column card."""
+    rest = html.split('<div id="deck-pdf"')[1]
+    return rest.split('<div class="ss-meta">', 2)[0] + rest.split('<div class="ss-meta">', 2)[1]
+
+
+def _pdf_card_tag(html):
+    return html.split('<div id="deck-pdf"')[1].split(">")[0]
+
+
+def _deck_ctx_for(pdf=None, **over):
+    return _marketing_item_ctx(_deck_item(), kind="deck", preview_url=PREVIEW_URL, pdf=pdf, **over)
+
+
+def _header(html):
+    return html.split("</h1>")[1].split("md:grid-cols")[0]
+
+
+def test_item_page_deck_pdf_card_without_a_pdf(jinja_env):
+    tpl = jinja_env.get_template("platform/item.html")
+    for ctx in (_deck_ctx_for(None), _marketing_item_ctx(_deck_item(), kind="deck", preview_url=PREVIEW_URL)):
+        html = tpl.render(**ctx)
+        assert html.count(PDF_HEADING) == 1 and html.count('id="deck-pdf"') == 1
+        card = _pdf_card(html)
+        assert '<p class="ss-body-sm">No PDF yet.</p>' in card
+        form = card.split(f'action="{PDF_QUEUE_URL}"')[1].split("</form>")[0]
+        assert 'method="post"' in card.split(f'action="{PDF_QUEUE_URL}"')[0].rsplit("<form", 1)[1]
+        assert '<button type="submit" class="btn btn-primary btn-sm">Render PDF</button>' in form
+        assert "Render again" not in card and PDF_NOTE in card
+        # nothing of the other states, and it never polls
+        assert "hx-get" not in _pdf_card_tag(html) and "pulse-dot" not in card
+        assert "Download PDF" not in card and "status-err" not in card and f'href="{PDF_FILE_URL}"' not in card
+        # in the right column after Status, before Work / Linear / Agents
+        right = _right_column(html)
+        assert right.index(">Status<") < right.index(PDF_HEADING) < right.index(">Agents<")
+        assert '<span class="chip">pdf</span>' not in _header(html)
+        assert "window.confirm" not in html and "hx-confirm" not in html
+    html = tpl.render(**_deck_ctx_for(None, work_repos=WORK_REPOS, work=None, linear_teams=["OPT"]))
+    right = _right_column(html)
+    assert right.index(">Status<") < right.index(PDF_HEADING) < right.index(WORK_HEADING) < right.index(">Linear<")
+
+
+@pytest.mark.parametrize("status", ["queued", "running"])
+def test_item_page_deck_pdf_card_polls_while_the_lane_renders(jinja_env, status):
+    pdf = {**PDF_DONE, "status": status, "pages": None, "bytes": None, "finished_at": None}
+    html = jinja_env.get_template("platform/item.html").render(**_deck_ctx_for(pdf))
+    tag = _pdf_card_tag(html)
+    assert PDF_POLL in tag and 'class="card p-4 grid gap-3"' in tag
+    card = _pdf_card(html)
+    assert f'<span class="chip chip-info"><span class="dot dot-info pulse-dot"></span>{status}</span>' in card
+    # no form, no note, no download while it works
+    assert "<form" not in card and PDF_QUEUE_URL not in card and PDF_NOTE not in card
+    assert "Render PDF" not in card and "Render again" not in card and "Download PDF" not in card
+    assert "No PDF yet." not in card and "status-err" not in card
+    assert '<span class="chip">pdf</span>' not in _header(html)
+    # only the card polls; the page section does not
+    assert html.count('hx-trigger="every 5s"') == 1
+
+
+def test_item_page_deck_pdf_card_done(jinja_env):
+    html = jinja_env.get_template("platform/item.html").render(**_deck_ctx_for(PDF_DONE))
+    card = _pdf_card(html)
+    assert "3 slides · 47 KB · 2026-10-31 11:00:12" in card
+    assert "ss-meta" in card.split("3 slides")[0].rsplit("<div", 1)[1]
+    assert f'<a href="{PDF_FILE_URL}" class="btn btn-secondary btn-sm">Download PDF</a>' in card
+    form = card.split(f'action="{PDF_QUEUE_URL}"')[1].split("</form>")[0]
+    assert '<button type="submit" class="btn btn-primary btn-sm">Render again</button>' in form
+    assert "Render PDF" not in card and PDF_NOTE in card
+    assert "hx-get" not in _pdf_card_tag(html) and "pulse-dot" not in card and "status-err" not in card
+    assert "No PDF yet." not in card
+    # the header gains the pdf chip, once
+    header = _header(html)
+    assert header.count('<span class="chip">pdf</span>') == 1 and '<span class="chip">deck</span>' in header
+
+
+def test_item_page_deck_pdf_card_failed(jinja_env):
+    html = jinja_env.get_template("platform/item.html").render(**_deck_ctx_for(PDF_FAILED))
+    card = _pdf_card(html)
+    box = card.split("status-err")[1].split("</div>")[0]
+    assert "The lane is offline." in box
+    form = card.split(f'action="{PDF_QUEUE_URL}"')[1].split("</form>")[0]
+    assert '<button type="submit" class="btn btn-primary btn-sm">Render PDF</button>' in form and PDF_NOTE in card
+    assert "Render again" not in card and "Download PDF" not in card and "pulse-dot" not in card
+    assert "hx-get" not in _pdf_card_tag(html) and "No PDF yet." not in card
+    assert '<span class="chip">pdf</span>' not in _header(html)
+    # the error is escaped
+    html = jinja_env.get_template("platform/item.html").render(**_deck_ctx_for({**PDF_FAILED, "error": "<b>boom</b>"}))
+    assert "&lt;b&gt;boom&lt;/b&gt;" in html and "<b>boom</b>" not in html
+
+
+def test_item_page_deck_pdf_card_absent_for_other_kinds_and_read_only(jinja_env):
+    tpl = jinja_env.get_template("platform/item.html")
+    mock = _item(id="mk1", title="Landing page", meta={"kind": "mockup"})
+    for ctx in (_item_ctx(), _item_ctx(pdf=None), _item_ctx(pdf=PDF_DONE),
+                _marketing_item_ctx(_deck_item("po1", "post"), kind="post", pdf=PDF_DONE),
+                _item_ctx(item=mock, module="website", mod=_mod(label="Website"), kind="mockup", pdf=PDF_DONE),
+                _marketing_item_ctx(_deck_item(), kind="deck", read_only=True, pdf=PDF_DONE),
+                _dev_item_ctx(_pr(7), pdf=PDF_DONE)):
+        html = tpl.render(**ctx)
+        assert PDF_HEADING not in html and 'id="deck-pdf"' not in html and "deck-pdf" not in html
+        assert "Render PDF" not in html and "Download PDF" not in html and "No PDF yet." not in html
+    # the pdf chip follows the pdf, not the card: a read-only deck with a done PDF still shows it
+    html = tpl.render(**_marketing_item_ctx(_deck_item(), kind="deck", read_only=True, pdf=PDF_DONE))
+    assert '<span class="chip">pdf</span>' in _header(html)
+    for pdf in (None, {**PDF_DONE, "status": "queued"}, PDF_FAILED):
+        assert '<span class="chip">pdf</span>' not in _header(tpl.render(**_deck_ctx_for(pdf)))
+
+
+def _mockup_ctx(status="approved", **over):
+    item = _item(id="mk1", title="Landing page", status=status, meta={"kind": "mockup"},
+                 attention=None if status == "approved" else "needs_you")
+    ctx = dict(module="website", mod=_mod(label="Website"), request=_Req("/m/website/items/mk1"), kind="mockup",
+               preview_url="/m/website/items/mk1/preview", next_status=None if status == "approved" else "approved")
+    ctx.update(over)
+    return _item_ctx(item=item, **ctx)
+
+
+def _publish_card(html):
+    return _right_column(html).split(PUBLISH_HEADING)[1].split('<div class="ss-meta">Agents</div>')[0]
+
+
+def test_item_page_publish_card_asks_for_approval_first(jinja_env):
+    tpl = jinja_env.get_template("platform/item.html")
+    for status in ("draft", "review", "done"):
+        html = tpl.render(**_mockup_ctx(status, publish_repos=PUBLISH_REPOS, published=None))
+        assert html.count(PUBLISH_HEADING) == 1
+        card = _publish_card(html)
+        assert "Approve the mockup first; publishing is a person's call." in card
+        assert "ss-meta" in card.split("Approve the mockup first")[0].rsplit("<", 1)[1]
+        assert "Connect GitHub" not in card and PUBLISH_URL not in card and '<details class="confirm">' not in card
+        assert "Published to" not in card and "View the file" not in card
+        right = _right_column(html)
+        assert right.index(">Status<") < right.index(PUBLISH_HEADING) < right.index(">Agents<")
+        assert '<span class="chip">published</span>' not in _header(html)
+    assert "window.confirm" not in html and "hx-confirm" not in html
+
+
+def test_item_page_publish_card_asks_to_connect_github(jinja_env):
+    tpl = jinja_env.get_template("platform/item.html")
+    for ctx in (_mockup_ctx(publish_repos=None, published=None), _mockup_ctx(published=None),
+                _mockup_ctx(publish_repos=[], published=None)):
+        html = tpl.render(**ctx)
+        card = _publish_card(html)
+        assert "Connect GitHub on the Development module to publish." in card
+        assert "Approve the mockup first" not in card and PUBLISH_URL not in card
+        assert '<details class="confirm">' not in card and 'name="repo"' not in card
+
+
+def test_item_page_publish_card_offers_the_confirm_with_a_select(jinja_env):
+    html = jinja_env.get_template("platform/item.html").render(**_mockup_ctx(publish_repos=PUBLISH_REPOS, published=None))
+    card = _publish_card(html)
+    assert "Approve the mockup first" not in card and "Connect GitHub" not in card
+    assert '<summary class="btn btn-primary btn-sm" role="button">Publish</summary>' in card
+    block = _confirm(html, PUBLISH_URL)
+    assert block is not None and PUBLISH_QUESTION in block
+    assert 'method="post"' in block.split(f'action="{PUBLISH_URL}"')[0].rsplit("<form", 1)[1]
+    form = block.split(f'action="{PUBLISH_URL}"')[1].split("</form>")[0]
+    select = form.split('<select name="repo" class="select select-sm" aria-label="Repository">')[1].split("</select>")[0]
+    assert '<option value="wolfwdavid/synapspaces-site">wolfwdavid/synapspaces-site</option>' in select
+    assert '<option value="wolfwdavid/synaps-optic-frontend">wolfwdavid/synaps-optic-frontend</option>' in select
+    assert select.count("<option") == 2 and " selected" not in select
+    # the select sits above the Cancel / Publish buttons, and only the confirm button submits
+    assert form.index("</select>") < form.index(">Cancel<") < form.index(">Publish</button>")
+    assert CANCEL_BUTTON in form
+    assert '<button type="submit" class="btn btn-primary btn-sm">Publish</button>' in form
+    assert form.count('type="submit"') == 1
+    assert "Publish again" not in card and "Published to" not in card and "View the file" not in card
+    assert '<span class="chip">published</span>' not in _header(html)
+    assert "window.confirm" not in html and "hx-confirm" not in html
+
+
+def test_item_page_publish_card_once_published(jinja_env):
+    tpl = jinja_env.get_template("platform/item.html")
+    html = tpl.render(**_mockup_ctx(publish_repos=PUBLISH_REPOS, published=PUBLISHED))
+    card = _publish_card(html)
+    assert "Published to wolfwdavid/synaps-optic-frontend at docs/pages/landing-page.html (2026-10-31 12:00)" in card
+    assert "ss-meta" in card.split("Published to")[0].rsplit("<div", 1)[1]
+    assert (f'<a href="{PUBLISHED["url"]}" target="_blank" rel="noopener" '
+            'class="ss-body-sm break-words hover:underline">View the file</a>') in card
+    assert (f'<a href="{PUBLISHED["pages_url"]}" target="_blank" rel="noopener" '
+            'class="ss-body-sm break-words hover:underline">Open the page</a>') in card
+    assert card.index("Published to") < card.index("View the file") < card.index("Open the page") < card.index("<details")
+    assert '<summary class="btn btn-primary btn-sm" role="button">Publish again</summary>' in card
+    block = _confirm(html, PUBLISH_URL)
+    assert block is not None and PUBLISH_QUESTION in block
+    select = block.split('<select name="repo"')[1].split("</select>")[0]
+    assert '<option value="wolfwdavid/synaps-optic-frontend" selected>wolfwdavid/synaps-optic-frontend</option>' in select
+    assert '<option value="wolfwdavid/synapspaces-site">wolfwdavid/synapspaces-site</option>' in select
+    assert select.count(" selected") == 1
+    assert '<button type="submit" class="btn btn-primary btn-sm">Publish</button>' in block
+    header = _header(html)
+    assert header.count('<span class="chip">published</span>') == 1 and '<span class="chip">mockup</span>' in header
+    # without a pages URL only the file link shows; a repo no longer offered preselects nothing
+    html = tpl.render(**_mockup_ctx(publish_repos=["wolfwdavid/synapspaces-site"], published={**PUBLISHED, "pages_url": None}))
+    card = _publish_card(html)
+    assert "View the file" in card and "Open the page" not in card
+    assert " selected" not in _confirm(html, PUBLISH_URL).split("<select")[1].split("</select>")[0]
+    # published but no longer approved, or GitHub gone: the links stay, the note follows them
+    html = tpl.render(**_mockup_ctx("draft", publish_repos=PUBLISH_REPOS, published=PUBLISHED))
+    card = _publish_card(html)
+    assert "View the file" in card and "Approve the mockup first" in card and "<details" not in card
+    assert '<span class="chip">published</span>' in _header(html)
+    html = tpl.render(**_mockup_ctx(publish_repos=None, published=PUBLISHED))
+    card = _publish_card(html)
+    assert "View the file" in card and "Connect GitHub" in card and "<details" not in card
+
+
+def test_item_page_publish_card_absent_for_other_kinds_and_read_only(jinja_env):
+    tpl = jinja_env.get_template("platform/item.html")
+    for ctx in (_item_ctx(), _item_ctx(publish_repos=PUBLISH_REPOS, published=None),
+                _item_ctx(item=_item(status="approved"), next_status=None, publish_repos=PUBLISH_REPOS),
+                _deck_ctx_for(PDF_DONE, publish_repos=PUBLISH_REPOS, published=None),
+                _marketing_item_ctx(_deck_item("po1", "post"), kind="post", publish_repos=PUBLISH_REPOS),
+                _mockup_ctx(publish_repos=PUBLISH_REPOS, published=PUBLISHED, read_only=True),
+                _dev_item_ctx(_pr(7), publish_repos=PUBLISH_REPOS)):
+        html = tpl.render(**ctx)
+        assert PUBLISH_HEADING not in html and PUBLISH_URL not in html and "/publish" not in html
+        assert "Approve the mockup first" not in html and "Connect GitHub on the Development module" not in html
+        assert "View the file" not in html and "Open the page" not in html and PUBLISH_QUESTION not in html
+    # the published chip follows `published`, not the card
+    html = tpl.render(**_mockup_ctx(publish_repos=PUBLISH_REPOS, published=PUBLISHED, read_only=True))
+    assert '<span class="chip">published</span>' in _header(html)
+    assert '<span class="chip">published</span>' not in _header(tpl.render(**_mockup_ctx(publish_repos=PUBLISH_REPOS, published=None)))
+
+
+def test_module_page_pdf_and_published_chips(jinja_env):
+    items = [_item(id="dk1", meta={"kind": "deck", "pdf": PDF_DONE}),
+             _item(id="dk2", meta={"kind": "deck", "pdf": {**PDF_DONE, "status": "running"}}),
+             _item(id="dk3", meta={"kind": "deck", "pdf": PDF_FAILED}),
+             _item(id="dk4", meta={"kind": "deck"}),
+             _item(id="mk1", meta={"kind": "mockup", "published": PUBLISHED}),
+             _item(id="mk2", meta={"kind": "mockup", "published": None}),
+             _item(id="mk3", meta={"kind": "mockup"}),
+             _item(id="it2")]
+    html = jinja_env.get_template("platform/module.html").render(
+        **_module_ctx("marketing", mod=_mod(label="Marketing"), items=items, kinds=KINDS))
+    rows = {id_: html.split(f'href="/m/marketing/items/{id_}"')[1].split("</a>")[0] for id_ in
+            ("dk1", "dk2", "dk3", "dk4", "mk1", "mk2", "mk3", "it2")}
+    assert '<span class="chip">pdf</span>' in rows["dk1"] and '<span class="chip">deck</span>' in rows["dk1"]
+    assert rows["dk1"].index(">deck<") < rows["dk1"].index(">pdf<") and rows["dk1"].count('<span class="chip">') == 2
+    for id_ in ("dk2", "dk3", "dk4", "mk1", "mk2", "mk3", "it2"):
+        assert '<span class="chip">pdf</span>' not in rows[id_], id_
+    assert '<span class="chip">published</span>' in rows["mk1"] and rows["mk1"].count('<span class="chip">') == 2
+    assert rows["mk1"].index(">mockup<") < rows["mk1"].index(">published<")
+    for id_ in ("dk1", "dk2", "dk3", "dk4", "mk2", "mk3", "it2"):
+        assert '<span class="chip">published</span>' not in rows[id_], id_
 
 
 # ---- base nav -------------------------------------------------------------------------------------------

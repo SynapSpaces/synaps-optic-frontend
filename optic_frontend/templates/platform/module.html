@@ -14,7 +14,9 @@
    on a branch (meta.work, DEV-02) carries a plain "branch" chip. `kinds` ([(slug, label)] the module's
    new-item form offers, slice 03-01: marketing post / deck, website mockup; missing or empty = no select)
    adds a "Kind" select to the form row with the Create button, the first kind selected; an item whose
-   meta.kind is post, deck or mockup carries a plain chip naming it. The header links the board
+   meta.kind is post, deck or mockup carries a plain chip naming it; a mockup that was published to a repo
+   (meta.published, slice 03-02) carries a plain "published" chip and a deck whose PDF is rendered (meta.pdf
+   with status "done") a plain "pdf" chip. The header links the board
    (platform/board.html) and each page. Shapes shared with item.html, board.html,
    ask.html and approvals.html are in docs/DESIGN.md section 8. #}
 {% block title %}{{ mod.label }} · Synaps Optic{% endblock %}
@@ -100,6 +102,8 @@
           {% if item.meta.assignee %}<span class="ss-meta">{{ item.meta.assignee }}</span>{% endif %}
           {% endif %}
           {% if item.meta and item.meta.work %}<span class="chip">branch</span>{% endif %}
+          {% if item.meta and item.meta.pdf and item.meta.pdf.status == 'done' %}<span class="chip">pdf</span>{% endif %}
+          {% if item.meta and item.meta.published %}<span class="chip">published</span>{% endif %}
           {% if item.read_only %}<span class="chip">{{ item.source }}</span>{% endif %}
           {% if item.due_at %}<span class="ss-meta">due {{ item.due_at }}</span>{% endif %}
           <span class="ss-meta ml-auto">{{ item.updated_at }}</span>
