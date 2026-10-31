@@ -267,6 +267,10 @@
         .confirm > summary { list-style: none; }
         .confirm > summary::-webkit-details-marker { display: none; }
         .confirm > summary:focus-visible { box-shadow: var(--shadow-focus); outline: 0; }
+        /* Any button-styled summary (gen_plan.html "Fix this line") drops the disclosure marker the same way. */
+        summary.btn { list-style: none; }
+        summary.btn::-webkit-details-marker { display: none; }
+        summary.btn:focus-visible { box-shadow: var(--shadow-focus); outline: 0; }
         .confirm-box { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; display: grid; gap: 10px;
                        min-width: 260px; max-width: 320px; padding: 14px; }
 

@@ -212,6 +212,42 @@ def test_done_shows_final_video_rerolls_and_final_button(render):
     assert "Render shots" not in html and "Approve plan" not in html
 
 
+def _fix_line(html, row_id):
+    """The "Fix this line" details block whose form posts to that row's /line route, or None."""
+    for block in html.split('<details class="fix-line"')[1:]:
+        block = block.split("</details>")[0]
+        if f'hx-post="/api/gen/shots/{row_id}/line"' in block:
+            return block
+    return None
+
+
+def test_done_offers_fix_this_line_on_narrated_shots(render):
+    """MKT-04: a finished video lets the owner re-voice one narration line; the form sits closed under the line."""
+    shots = [{"spec": s, "row": _row(s["id"], "done"), "keyframes": [], "clip": _clip(s["id"]), "clip_versions": []} for s in SHOT_SPECS]
+    html = render(_ctx("done", shots, can_reroll=True, can_final=True, render={"url": "/renders/r1.mp4", "version": 1, "duration_s": 12.0, "bytes": 0}))
+    # one form per narrated shot; the silent still (s02) gets none
+    assert html.count("/line") == 2 and _fix_line(html, "row-s02") is None and "/api/gen/shots/row-s02/line" not in html
+    for shot_id, text in (("row-s01", "The sky scatters blue light."), ("row-s03", "Shorter wavelengths scatter more.")):
+        block = _fix_line(html, shot_id)
+        assert block, shot_id
+        assert '<summary class="btn btn-ghost btn-sm" role="button">Fix this line</summary>' in block
+        assert f'hx-post="/api/gen/shots/{shot_id}/line" hx-target="#gen-plan" hx-swap="outerHTML"' in block
+        assert f'<textarea name="narration" rows="2" required maxlength="400" class="textarea text-sm">{text}</textarea>' in block
+        assert ">Re-voice this line</button>" in block
+        assert "Only this line is re-voiced, then the video is re-cut; the previous wording stays on the shot's note." in block
+    assert "<details class=\"fix-line\" open" not in html and '<details class="fix-line">' in html   # closed by default
+    assert "hx-confirm" not in html and "confirm(" not in html
+    # the existing done-stage actions stay
+    assert html.count("/reroll") == 3 and "Render final quality" in html
+
+
+@pytest.mark.parametrize("stage, can_reroll", [("rendering", True), ("assembling", True), ("keyframe_review", True), ("done", False)])
+def test_fix_this_line_only_on_a_finished_plan_with_reroll_rights(render, stage, can_reroll):
+    shots = [{"spec": s, "row": _row(s["id"], "done"), "keyframes": [], "clip": _clip(s["id"]), "clip_versions": []} for s in SHOT_SPECS]
+    html = render(_ctx(stage, shots, can_reroll=can_reroll, can_pick=True))
+    assert "/line" not in html and "Fix this line" not in html and 'name="narration"' not in html
+
+
 def test_plan_page_carries_the_lightbox_outside_the_polled_partial(jinja_env):
     """gen/plan.html owns the <dialog> and its script; #gen-plan is swapped every 3 s and must not contain them."""
     shots = [{"spec": SHOT_SPECS[0], "row": _row("s01", "needs_review"), "keyframes": _keyframes("s01"),
@@ -236,7 +272,7 @@ def test_rows_may_be_missing(render):
     for stage in ("plan_review", "keyframe_review", "rendering", "done"):
         shots = [{"spec": s, "row": None, "keyframes": [], "clip": None, "clip_versions": []} for s in SHOT_SPECS]
         html = render(_ctx(stage, shots, can_pick=True, can_reroll=True))
-        assert "s01" in html and "/reroll" not in html and "/pick" not in html
+        assert "s01" in html and "/reroll" not in html and "/pick" not in html and "/line" not in html
 
 
 class _Req:

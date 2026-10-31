@@ -148,7 +148,24 @@
             {% endif %}
           </div>
 
-          {% if s.narration %}<p class="ss-body-sm">{{ s.narration }}</p>{% else %}<p class="ss-meta">silent</p>{% endif %}
+          {% if s.narration %}
+          <p class="ss-body-sm">{{ s.narration }}</p>
+          {% if row and stage == 'done' and can_reroll %}
+          {# Fix one narration line of a finished video (MKT-04): the backend re-voices this shot only, re-cuts the
+             video and keeps the previous wording on the shot's note ("Was: …"). Closed by default so a page full
+             of shots stays tidy; the form swaps the plan partial like every other action here. #}
+          <details class="fix-line">
+            <summary class="btn btn-ghost btn-sm" role="button">Fix this line</summary>
+            <form hx-post="/api/gen/shots/{{ row.id }}/line" hx-target="#gen-plan" hx-swap="outerHTML" class="grid gap-2 mt-2">
+              <textarea name="narration" rows="2" required maxlength="400" class="textarea text-sm">{{ s.narration }}</textarea>
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <p class="ss-meta">Only this line is re-voiced, then the video is re-cut; the previous wording stays on the shot's note.</p>
+                <button type="submit" class="btn btn-primary btn-sm">Re-voice this line</button>
+              </div>
+            </form>
+          </details>
+          {% endif %}
+          {% else %}<p class="ss-meta">silent</p>{% endif %}
           {% if s.kind == 'animation' %}
           <div class="ss-meta">template <span class="ss-numeral">{{ s.animation.template }}</span> · {{ s.animation.params|tojson }}</div>
           {% elif s.kind == 'ai_video' %}

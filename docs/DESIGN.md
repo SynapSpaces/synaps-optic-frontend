@@ -189,3 +189,9 @@ Chips on these pages are the app status pills from `base.html`, never coloured t
 | A/B | plain `chip` "A/B" · on the card `chip-warn` "open · closes <time>" / `chip-ok` "winner A|B" | a marketing item with an A/B test, open or decided (`meta.ab`), in the module list and the item header; the card's state chip says whether it still runs or who won |
 | lane | `chip-ok` "<lane> online" · `chip-warn` "<lane> busy · <kind>" (pulse) · `chip-err` "<lane> stale" · plain `chip` "<lane> unknown" | a worker lane's heartbeat on the runs dashboard (agent, mac, gpu), the Studio GPU pill's tones |
 | scored n/10 | `chip-ok` (7-10) · `chip-warn` (4-6) · `chip-err` (0-3) · nothing for None | a run's score against its module's scorecard (`output.check.score`): on the runs dashboard, in the runs partial and, from the item's latest run, in the module list, on the board and on the approvals page |
+
+---
+
+## 9. Generated-video plan page (`/gen/plans/<id>`, `partials/gen_plan.html`)
+
+- **Fix this line** (backend slice 04-04, MKT-04): on a finished plan (`stage` done, `can_reroll`) each narrated shot carries, under its narration, a closed `<details>` whose `btn btn-ghost btn-sm` summary reads "Fix this line" and opens a form (`hx-post` to `/api/gen/shots/<row id>/line`, swapping `#gen-plan` like the re-roll confirm) with the narration prefilled in a `textarea` `narration` (2 rows, required, 400 characters at most), a primary "Re-voice this line" and the `ss-meta` note "Only this line is re-voiced, then the video is re-cut; the previous wording stays on the shot's note."; silent shots, unfinished plans and plans without re-roll rights get nothing, and the backend answers with the plan partial at the voicing stage.
