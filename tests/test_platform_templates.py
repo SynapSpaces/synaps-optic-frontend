@@ -12,8 +12,10 @@ chips), the sandboxed Preview card with the deck-as-slides and page-mockup docum
 card (render on the lane, poll, download) and the Publish card (a mockup to the workspace's repository) with
 their chips, the runs dashboard (range pills, totals, the two tables, the latest runs) and the scorecard
 score chip (the same tone rule on the dashboard, in the runs partial, the module list, the board and the
-approvals page) with the runs partial's Scorecard details block, and the inbox (the signal form and the
-filed runs linking the items the triage agent created).
+approvals page) with the runs partial's Scorecard details block, the inbox (the signal form and the
+filed runs linking the items the triage agent created), the lane chips on the runs page (the worker
+heartbeats in the GPU pill's style), the ledger's "Earned by content" table (money in per content item,
+linking the items) and the A/B test card (open a test from two variants, record the winner, reopen).
 Rendered with minimal fake contexts through the same Jinja2 setup the backend uses (tests/conftest.py).
 
 Context keys the templates read:
@@ -22,7 +24,8 @@ Context keys the templates read:
                    is_owner, modules_nav; each item: attention, latest_run, read_only, meta.kind, due_at
                    (meta.kind pr: number, author, draft, checks; meta.kind repo: open_prs; meta.kind issue:
                    state, assignee; meta.work = branch chip; meta.pdf.status done = pdf chip;
-                   meta.published = published chip; latest_run.output.check.score = the score chip)
+                   meta.published = published chip; meta.ab = A/B chip; latest_run.output.check.score = the
+                   score chip)
     item page:     request, module, mod, item (due_at, assignee_user_id, meta), runs, polling, latest, statuses,
                    next_status, attention, is_policy, is_person, checklist, members, owner_name, assignee_name,
                    today, read_only, agents, body_html (missing or "" = no Page card), work_repos (missing or
@@ -36,7 +39,11 @@ Context keys the templates read:
                    failed, key, pages, bytes, error, queued_at, finished_at} on a deck), published (missing or
                    None = never; {repo, path, branch, url, pages_url, at, by} on a mockup), publish_repos
                    (missing, None or [] = "Connect GitHub" note; ["owner/name"] offers the Publish confirm),
-                   is_owner, modules_nav; item.meta.kind pr (repo, number, author, head, base,
+                   ab (missing or None = no test; {a, b, run_id, opened_at, closes_at, winner (None | "a" | "b"),
+                   opened_by, decided_at, decided_by, note} = the A/B test card and the "A/B" header chip),
+                   ab_ready (missing = false; true = a finished variants run exists and no test is open: the
+                   "Open a 48-hour test" / "Open a new test" form), is_owner, modules_nav; item.meta.kind pr
+                   (repo, number, author, head, base,
                    state, checks, draft) or repo (default_branch, open_prs, private) or issue (identifier, team,
                    state, state_type, assignee, priority, linear_error) with item.external_url
     board page:    request, module, mod, pages, columns ([{status, items}]; each item: attention, assignee_name,
@@ -45,7 +52,8 @@ Context keys the templates read:
                    modules_nav
     people page:   request, module, mod, pages, people (role, start_date, done, total), is_owner, modules_nav
     ledger page:   request, module, mod, pages, months, month, entries, categories, imports, modes, imported,
-                   skipped, is_owner, modules_nav
+                   skipped, earned (missing or [] = no table; [{item_id, module, title, in, count}] = the
+                   "Earned by content in <month>" table when a month is set), is_owner, modules_nav
     integrations:  request, module ("dev"), mod, pages, configured, github (None or {external_account, scopes,
                    repos, updated_at, last_sync_at, last_error}), open_prs, linear (None or {external_account,
                    scopes, teams, updated_at, last_sync_at, last_error}), issues, poll_minutes, is_owner,
@@ -62,7 +70,9 @@ Context keys the templates read:
                    failed, seconds, tokens_in, tokens_out}]), by_user ([{requested_by, name, runs, seconds,
                    tokens}]), runs ([{id, module, module_label, agent, label, status, item_id, item_title,
                    seconds, tokens_in, tokens_out, created_at, score, name, error}]), totals ({runs, done,
-                   failed, seconds, tokens}), is_owner, modules_nav
+                   failed, seconds, tokens}), lanes (missing or [] = no chip row; [{lane, label, state alive |
+                   busy | stale | unknown, busy, last_beat, worker_id}] = one lane chip each), is_owner,
+                   modules_nav
     brief page:    request, briefs, latest, polling, mentions (missing or [] = no "Mentioned" block;
                    each {module, module_label, id, title, why}), is_owner, modules_nav
     inbox page:    request, runs, polling, is_owner, modules_nav
@@ -1077,7 +1087,7 @@ def test_ledger_page_import_form_and_empty_state(jinja_env):
     form = html.split('action="/api/m/accounting/ledger/import"')[1].split("</form>")[0]
     assert 'method="post"' in html.split('action="/api/m/accounting/ledger/import"')[0].rsplit("<form", 1)[1]
     assert 'enctype="multipart/form-data"' in html.split('action="/api/m/accounting/ledger/import"')[1].split(">")[0]
-    assert '<textarea name="text" rows="6" placeholder="date, description, amount, category — or paste any export with a header row"' in form
+    assert '<textarea name="text" rows="6" placeholder="date, description, amount, category, content — or paste any export with a header row"' in form
     assert '<input type="file" name="file" accept=".csv,text/csv,text/plain"' in form
     assert '<input type="radio" name="mode" value="statement" checked> A statement: negative amounts are money out' in form
     assert '<input type="radio" name="mode" value="out"> All expenses (money out)' in form
@@ -2557,3 +2567,270 @@ def test_board_card_score_chip_only_when_a_latest_run_is_handed_over(jinja_env):
     assert "scored" not in review
     # a card without the key still renders every other chip
     assert "unassigned" in draft and "Nothing here." not in draft
+
+
+# ---- lane chips on the runs page (slice 04-03) ------------------------------------------------------------
+
+def _lane(lane="agent", label="Agent lane", state="alive", busy="", last_beat="2026-10-31T09:00:00+00:00",
+          worker_id="agent-laptop"):
+    return {"lane": lane, "label": label, "state": state, "busy": busy, "last_beat": last_beat, "worker_id": worker_id}
+
+
+LANES = [_lane(), _lane("mac", "Mac lane", "busy", busy="deck pdf", worker_id="mac-mbp"),
+         _lane("gpu", "GPU lane", "stale", last_beat="2026-10-31T08:00:00+00:00", worker_id="gpu-kaggle")]
+
+
+def _lane_row(html):
+    return html.split("data-lanes")[1].split("</div>")[0]
+
+
+def _lane_chip(html, lane):
+    """One lane chip: from its opening tag to its closing span (the dot span closes first)."""
+    row = _lane_row(html)
+    at = row.index(f'data-lane="{lane}"')
+    start = row.rfind("<span", 0, at)
+    end = row.index("</span>", row.index("</span>", at) + 1) + len("</span>")
+    return row[start:end]
+
+
+def test_runs_page_lane_chips_for_each_state(jinja_env):
+    html = jinja_env.get_template("platform/runs.html").render(**_runs_ctx(
+        lanes=LANES + [_lane("agent2", "Spare lane", "unknown", last_beat=None, worker_id=None)]))
+    row = _lane_row(html)
+    assert row.count('class="chip') == 4
+    assert [row.index(f'data-lane="{k}"') for k in ("agent", "mac", "gpu", "agent2")] == \
+        sorted(row.index(f'data-lane="{k}"') for k in ("agent", "mac", "gpu", "agent2"))
+    alive = _lane_chip(html, "agent")
+    assert alive.startswith('<span class="chip chip-ok" data-lane="agent" title="agent-laptop · last beat 2026-10-31T09:00:00+00:00">')
+    assert alive.endswith("</span>") and alive.count("<span") == 2
+    assert '<span class="dot dot-ok"></span>' in alive and "Agent lane online" in alive
+    busy = _lane_chip(html, "mac")
+    assert ' class="chip chip-warn" data-lane="mac" title="mac-mbp · last beat 2026-10-31T09:00:00+00:00">' in busy
+    assert '<span class="dot dot-warn pulse-dot"></span>' in busy and "Mac lane busy · deck pdf" in busy
+    stale = _lane_chip(html, "gpu")
+    assert ' class="chip chip-err" data-lane="gpu" title="gpu-kaggle · last beat 2026-10-31T08:00:00+00:00">' in stale
+    assert '<span class="dot dot-err"></span>' in stale and "GPU lane stale" in stale and "pulse-dot" not in stale
+    unknown = _lane_chip(html, "agent2")
+    assert ' class="chip " data-lane="agent2">' in unknown and "title=" not in unknown
+    assert '<span class="dot "></span>' in unknown and "Spare lane unknown" in unknown
+    for word in ("online", "busy", "stale", "unknown"):
+        assert row.count(f" {word}") == 1, word
+    # the row sits under the blurb, before the range pills
+    assert html.index("Scores come from the module's scorecard page.") < html.index("data-lanes") < html.index('href="/runs?days=1"')
+    assert "window.confirm" not in html and "<form" not in html.split("</nav>")[-1]
+
+
+def test_runs_page_lane_chip_title_with_only_a_worker_or_only_a_beat(jinja_env):
+    tpl = jinja_env.get_template("platform/runs.html")
+    html = tpl.render(**_runs_ctx(lanes=[_lane(last_beat=None)]))
+    assert ' title="agent-laptop">' in _lane_chip(html, "agent")
+    html = tpl.render(**_runs_ctx(lanes=[_lane(worker_id=None)]))
+    assert ' title="last beat 2026-10-31T09:00:00+00:00">' in _lane_chip(html, "agent")
+    assert " · " not in _lane_chip(html, "agent").split(">")[0]
+
+
+def test_runs_page_without_lanes_has_no_chip_row(jinja_env):
+    tpl = jinja_env.get_template("platform/runs.html")
+    for ctx in (_runs_ctx(), _runs_ctx(lanes=[]), _runs_ctx(lanes=None)):
+        html = tpl.render(**ctx)
+        assert "data-lanes" not in html and "data-lane=" not in html
+        for word in ("online", "stale", "unknown", "busy ·"):
+            assert word not in html.split("</nav>")[-1], word
+        assert "Agent runs" in html and 'data-run="r1"' in html
+
+
+# ---- earned by content on the ledger (slice 04-03, OPS-05) ------------------------------------------------
+
+EARNED = [{"item_id": "po1", "module": "marketing", "title": "Launch post", "in": "900.00", "count": 2},
+          {"item_id": "dk1", "module": "marketing", "title": "Launch deck", "in": "300.00", "count": 1}]
+EARNED_HEADING = "Earned by content in 2026-10"
+
+
+def test_ledger_page_earned_by_content_table(jinja_env):
+    html = jinja_env.get_template("platform/ledger.html").render(**_ledger_ctx(earned=EARNED))
+    assert html.count(EARNED_HEADING) == 1
+    table = _table(html, EARNED_HEADING)
+    head = table.split("</thead>")[0]
+    assert ">Content<" in head and ">In<" in head and ">Entries<" in head and head.count("text-right") == 2
+    assert '<table class="w-full text-sm">' in table
+    row = table.split('data-earned="po1"')[1].split("</tr>")[0]
+    assert '<a href="/m/marketing/items/po1" class="ss-body-strong hover:underline">Launch post</a>' in row
+    assert '<td class="py-2 pr-3 text-right ss-numeral">900.00</td>' in row
+    assert '<td class="py-2 text-right ss-numeral">2</td>' in row
+    row = table.split('data-earned="dk1"')[1].split("</tr>")[0]
+    assert 'href="/m/marketing/items/dk1"' in row and ">Launch deck</a>" in row and ">300.00</td>" in row and ">1</td>" in row
+    assert table.index('data-earned="po1"') < table.index('data-earned="dk1"')
+    # between the categories and the entries of the month
+    assert html.index("Categories in 2026-10") < html.index(EARNED_HEADING) < html.index("Entries in 2026-10")
+    # the other tables are untouched
+    assert "sales" in _table(html, "Categories in 2026-10") and 'data-entry="e1"' in _table(html, "Entries in 2026-10")
+
+
+def test_ledger_page_without_earned_rows_has_no_table(jinja_env):
+    tpl = jinja_env.get_template("platform/ledger.html")
+    for ctx in (_ledger_ctx(), _ledger_ctx(earned=[]), _ledger_ctx(earned=None),
+                _ledger_ctx(month="", earned=EARNED), _ledger_ctx(months=[], month="", entries=[], categories=[], earned=EARNED)):
+        html = tpl.render(**ctx)
+        assert "Earned by content" not in html and "data-earned=" not in html and "Launch post" not in html
+    # a month with no entries and no earnings keeps only the two empty lines
+    html = tpl.render(**_ledger_ctx(month="2026-09", entries=[], categories=[], earned=[]))
+    assert "Earned by content" not in html and html.count("No entries in this month.") == 2
+
+
+def test_ledger_page_import_form_names_the_content_column(jinja_env):
+    html = jinja_env.get_template("platform/ledger.html").render(**_ledger_ctx())
+    form = html.split('action="/api/m/accounting/ledger/import"')[1].split("</form>")[0]
+    assert 'placeholder="date, description, amount, category, content — or paste any export with a header row"' in form
+    assert "<p class=\"ss-meta\">A content column naming an item's title links the money to what earned it.</p>" in form
+    assert form.index('name="mode" value="in"') < form.index("A content column") < form.index(">Import</button>")
+
+
+# ---- A/B tests on the item page (slice 04-03, MKT-05) -----------------------------------------------------
+
+AB_OPEN = {"a": "Headline A\nShorter, warmer.", "b": "Headline B", "run_id": "run9", "opened_at": "2026-10-31 12:00",
+           "closes_at": "2026-11-02 12:00", "winner": None, "opened_by": "David"}
+AB_DECIDED = {**AB_OPEN, "winner": "b", "decided_at": "2026-11-01 15:00", "decided_by": "David", "note": "B read cleaner."}
+AB_HEADING = '<div class="ss-meta">A/B test</div>'
+AB_URL = "/api/m/marketing/items/po1/ab"
+AB_CHIP = '<span class="chip">A/B</span>'
+
+
+def _post_ctx(**over):
+    return _marketing_item_ctx(_deck_item("po1", "post"), kind="post", **over)
+
+
+def _ab_card(html):
+    """The A/B test card: from its id to the next right-column card."""
+    return html.split('id="ab-test"')[1].split('<div class="card', 1)[0]
+
+
+def _variant(card, key):
+    return card.split(f'data-variant="{key}"')[1].split('data-variant=')[0].split("<form")[0]
+
+
+def _plain_form(html, url):
+    """The plain form posting to exactly `url` (not to a longer path), or None."""
+    for block in html.split("<form ")[1:]:
+        tag = block.split(">", 1)[0]
+        if f'action="{url}"' in tag:
+            assert 'method="post"' in tag
+            return block.split("</form>")[0]
+    return None
+
+
+def test_item_page_ab_card_ready_offers_to_open_a_test(jinja_env):
+    html = jinja_env.get_template("platform/item.html").render(**_post_ctx(ab=None, ab_ready=True))
+    assert html.count(AB_HEADING) == 1
+    card = _ab_card(html)
+    assert '<p class="ss-body-sm">Two variants are ready.</p>' in card
+    form = _plain_form(card, AB_URL)
+    assert form is not None and '<button type="submit" class="btn btn-primary btn-sm">Open a 48-hour test</button>' in form
+    assert form.count("<input") == 0
+    assert 'name="winner"' not in card and 'name="note"' not in card and f"{AB_URL}/winner" not in card
+    assert "data-variant=" not in card and "open · closes" not in card and "Record the winner" not in card
+    assert AB_CHIP not in _header(html)
+    right = _right_column(html)
+    assert right.index(">Status<") < right.index(AB_HEADING) < right.index(">Agents<")
+    assert "window.confirm" not in html and "hx-confirm" not in html
+
+
+def test_item_page_ab_card_sits_after_publish_and_before_work(jinja_env):
+    html = jinja_env.get_template("platform/item.html").render(
+        **_mockup_ctx(publish_repos=PUBLISH_REPOS, published=None, ab=None, ab_ready=True, work_repos=WORK_REPOS, work=None))
+    right = _right_column(html)
+    assert right.index(">Status<") < right.index(PUBLISH_HEADING) < right.index(AB_HEADING) < right.index(WORK_HEADING) < right.index(">Agents<")
+    assert _plain_form(right, "/api/m/website/items/mk1/ab") is not None
+
+
+def test_item_page_ab_card_open_shows_both_variants_and_the_winner_form(jinja_env):
+    tpl = jinja_env.get_template("platform/item.html")
+    for ab_ready in (False, True):
+        html = tpl.render(**_post_ctx(ab=AB_OPEN, ab_ready=ab_ready))
+        assert html.count(AB_HEADING) == 1
+        card = _ab_card(html)
+        assert '<span class="chip chip-warn">open · closes 2026-11-02 12:00</span>' in card
+        a, b = _variant(card, "a"), _variant(card, "b")
+        assert '<div class="ss-meta">A</div>' in a
+        assert '<div class="ss-body-sm whitespace-pre-wrap break-words">Headline A\nShorter, warmer.</div>' in a
+        assert '<div class="ss-meta">B</div>' in b
+        assert '<div class="ss-body-sm whitespace-pre-wrap break-words">Headline B</div>' in b
+        assert card.index('data-variant="a"') < card.index('data-variant="b"') < card.index("<form")
+        assert "· winner" not in card and "ss-body-strong" not in card
+        form = _plain_form(card, f"{AB_URL}/winner")
+        assert form is not None
+        assert '<input type="radio" name="winner" value="a" required> A wins' in form
+        assert '<input type="radio" name="winner" value="b"> B wins' in form
+        assert '<input name="note" class="input input-sm" placeholder="Why (optional)"' in form
+        assert '<button type="submit" class="btn btn-primary btn-sm">Record the winner</button>' in form
+        assert form.index("A wins") < form.index("B wins") < form.index('name="note"') < form.index("Record the winner")
+        assert form.count('type="submit"') == 1
+        # no second test while one is open, whatever the backend says about readiness
+        assert _plain_form(card, AB_URL) is None and "Open a new test" not in card and "Open a 48-hour test" not in card
+        assert "Two variants are ready." not in card and "decided by" not in card
+        assert _header(html).count(AB_CHIP) == 1
+    assert "window.confirm" not in html and "hx-confirm" not in html
+
+
+def test_item_page_ab_card_decided_marks_the_winner_and_offers_a_new_test(jinja_env):
+    html = jinja_env.get_template("platform/item.html").render(**_post_ctx(ab=AB_DECIDED, ab_ready=True))
+    card = _ab_card(html)
+    assert '<span class="chip chip-ok">winner B</span>' in card and "open · closes" not in card
+    a, b = _variant(card, "a"), _variant(card, "b")
+    assert '<div class="ss-meta">A</div>' in a and "winner" not in a and "Headline A" in a
+    assert '<div class="ss-body-strong">B · winner</div>' in b and '<div class="ss-meta">B</div>' not in b and "Headline B" in b
+    assert '<div class="ss-meta break-words">decided by David at 2026-11-01 15:00</div>' in card
+    assert '<div class="ss-body-sm whitespace-pre-wrap break-words">B read cleaner.</div>' in card
+    assert card.index('data-variant="b"') < card.index("decided by") < card.index("B read cleaner.") < card.index("<form")
+    form = _plain_form(card, AB_URL)
+    assert form is not None and '<button type="submit" class="btn btn-secondary btn-sm">Open a new test</button>' in form
+    assert 'name="winner"' not in card and 'name="note"' not in card and f"{AB_URL}/winner" not in card
+    assert "Record the winner" not in card and "Two variants are ready." not in card and "Open a 48-hour test" not in card
+    assert _header(html).count(AB_CHIP) == 1
+    # A as the winner marks the other block
+    html = jinja_env.get_template("platform/item.html").render(**_post_ctx(ab={**AB_DECIDED, "winner": "a"}, ab_ready=True))
+    card = _ab_card(html)
+    assert '<span class="chip chip-ok">winner A</span>' in card
+    assert '<div class="ss-body-strong">A · winner</div>' in _variant(card, "a") and '<div class="ss-meta">B</div>' in _variant(card, "b")
+
+
+def test_item_page_ab_card_decided_without_a_ready_run_has_no_reopen_form(jinja_env):
+    html = jinja_env.get_template("platform/item.html").render(**_post_ctx(ab={**AB_DECIDED, "note": ""}, ab_ready=False))
+    card = _ab_card(html)
+    assert '<span class="chip chip-ok">winner B</span>' in card and "decided by David at 2026-11-01 15:00" in card
+    assert "<form" not in card and "Open a new test" not in card and AB_URL not in card
+    assert "B read cleaner." not in card and 'break-words"></div>' not in card
+    assert _header(html).count(AB_CHIP) == 1
+    html = jinja_env.get_template("platform/item.html").render(**_post_ctx(ab=AB_DECIDED))  # ab_ready missing
+    assert "<form" not in _ab_card(html)
+
+
+def test_item_page_ab_card_absent_without_a_test_or_on_a_read_only_item(jinja_env):
+    tpl = jinja_env.get_template("platform/item.html")
+    for ctx in (_item_ctx(), _item_ctx(ab=None, ab_ready=False), _post_ctx(), _post_ctx(ab=None, ab_ready=False),
+                _post_ctx(ab=None, ab_ready=True, read_only=True), _post_ctx(ab=AB_OPEN, ab_ready=False, read_only=True),
+                _post_ctx(ab=AB_DECIDED, ab_ready=True, read_only=True)):
+        html = tpl.render(**ctx)
+        assert AB_HEADING not in html and 'id="ab-test"' not in html and "/ab" not in html.split("</nav>")[-1]
+        assert "Two variants are ready." not in html and "Record the winner" not in html and "data-variant=" not in html
+    # the chip follows `ab`, not the card
+    assert AB_CHIP in _header(tpl.render(**_post_ctx(ab=AB_OPEN, ab_ready=False, read_only=True)))
+    assert AB_CHIP in _header(tpl.render(**_post_ctx(ab=AB_DECIDED, ab_ready=False, read_only=True)))
+    assert AB_CHIP not in _header(tpl.render(**_post_ctx(ab=None, ab_ready=True)))
+    assert AB_CHIP not in _header(tpl.render(**_post_ctx()))
+
+
+def test_module_page_ab_chip(jinja_env):
+    items = [_item(id="po1", meta={"kind": "post", "ab": AB_OPEN}),
+             _item(id="po2", meta={"kind": "post", "ab": AB_DECIDED}),
+             _item(id="po3", meta={"kind": "post", "ab": None}),
+             _item(id="po4", meta={"kind": "post"}),
+             _item(id="it2")]
+    html = jinja_env.get_template("platform/module.html").render(
+        **_module_ctx("marketing", mod=_mod(label="Marketing"), items=items, kinds=KINDS))
+    rows = {id_: html.split(f'href="/m/marketing/items/{id_}"')[1].split("</a>")[0] for id_ in ("po1", "po2", "po3", "po4", "it2")}
+    for id_ in ("po1", "po2"):
+        assert rows[id_].count(AB_CHIP) == 1 and rows[id_].index(">post<") < rows[id_].index(">A/B<"), id_
+        assert rows[id_].count('<span class="chip">') == 2, id_
+    for id_ in ("po3", "po4", "it2"):
+        assert AB_CHIP not in rows[id_], id_
+    assert html.count(AB_CHIP) == 2

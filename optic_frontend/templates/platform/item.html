@@ -55,8 +55,17 @@
    the file" / "Open the page" links when published, then the note to approve first, the note to connect
    GitHub (also when the list is empty), or the "Publish" two-step (a select of the repositories,
    published.repo preselected) posting `repo` to /publish. A published mockup adds a plain "published" chip
-   to the header. Approving, replacing the checklist and publishing confirm inline (base.html `.confirm`),
-   never through window.confirm. #}
+   to the header. A/B tests (slice 04-03, MKT-05): `ab` (None or missing = no test yet; item.meta.ab: {a, b,
+   run_id, opened_at, closes_at, winner (None while open, else "a" | "b"), opened_by, decided_at, decided_by,
+   note}) and `ab_ready` (a finished "variants" run exists and no test is open; missing = false) fill an
+   "A/B test" card in the right column after Publish, before Work, on an item that is not read-only, when
+   either is set: open, a `chip-warn` "open · closes <closes_at>", the two variants as blocks "A" and "B"
+   and the winner form posting `winner` (radios a | b) and `note` to /ab/winner with "Record the winner";
+   decided, a `chip-ok` "winner A|B", the winning block labelled "A · winner" in ss-body-strong, ss-meta
+   "decided by <who> at <when>", the note when set and, when `ab_ready`, a secondary "Open a new test" form
+   posting to /ab; ready without a test, "Two variants are ready." and the primary "Open a 48-hour test"
+   form. Any `ab` (open or decided) adds a plain "A/B" chip to the header. Approving, replacing the
+   checklist and publishing confirm inline (base.html `.confirm`), never through window.confirm. #}
 {% block title %}{{ item.title }} · {{ mod.label }} · Synaps Optic{% endblock %}
 {% block content %}
 {% set tone = {'review': 'chip-warn', 'approved': 'chip-ok', 'done': 'chip-ok', 'failed': 'chip-err'} %}
@@ -103,6 +112,7 @@
       {% if work %}<span class="chip">branch</span>{% endif %}
       {% if pdf and pdf.status == 'done' %}<span class="chip">pdf</span>{% endif %}
       {% if published %}<span class="chip">published</span>{% endif %}
+      {% if ab %}<span class="chip">A/B</span>{% endif %}
       {% if item.due_at and today and item.due_at < today and item.status not in ('approved', 'done') %}
       <span class="chip chip-err">due {{ item.due_at }}</span>
       {% elif item.due_at %}<span class="ss-meta">due {{ item.due_at }}</span>{% endif %}
@@ -358,6 +368,55 @@
             </form>
           </details>
         </div>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      {% if (ab or ab_ready) and not read_only %}
+      {% set ab_url = '/api/m/' ~ module ~ '/items/' ~ item.id ~ '/ab' %}
+      <div class="card p-4 grid gap-3" id="ab-test">
+        <div class="ss-meta">A/B test</div>
+        {% if ab %}
+        {% if ab.winner is none %}
+        <div><span class="chip chip-warn">open · closes {{ ab.closes_at }}</span></div>
+        {% else %}
+        <div><span class="chip chip-ok">winner {{ ab.winner|upper }}</span></div>
+        {% endif %}
+        {% for key in ('a', 'b') %}
+        <div class="grid gap-1" data-variant="{{ key }}">
+          {% if ab.winner == key %}
+          <div class="ss-body-strong">{{ key|upper }} · winner</div>
+          {% else %}
+          <div class="ss-meta">{{ key|upper }}</div>
+          {% endif %}
+          <div class="ss-body-sm whitespace-pre-wrap break-words">{{ ab[key] }}</div>
+        </div>
+        {% endfor %}
+        {% if ab.winner is none %}
+        <form method="post" action="{{ ab_url }}/winner" class="grid gap-2">
+          <div class="flex flex-wrap items-center gap-3">
+            <label class="flex items-center gap-2 ss-body-sm"><input type="radio" name="winner" value="a" required> A wins</label>
+            <label class="flex items-center gap-2 ss-body-sm"><input type="radio" name="winner" value="b"> B wins</label>
+          </div>
+          <input name="note" class="input input-sm" placeholder="Why (optional)" autocomplete="off">
+          <button type="submit" class="btn btn-primary btn-sm">Record the winner</button>
+        </form>
+        <p class="ss-meta">A person picks the winner; the test closes itself at the hour above.</p>
+        {% else %}
+        <div class="ss-meta break-words">decided by {{ ab.decided_by }} at {{ ab.decided_at }}</div>
+        {% if ab.note %}<div class="ss-body-sm whitespace-pre-wrap break-words">{{ ab.note }}</div>{% endif %}
+        {% if ab_ready %}
+        <form method="post" action="{{ ab_url }}">
+          <button type="submit" class="btn btn-secondary btn-sm">Open a new test</button>
+        </form>
+        {% endif %}
+        {% endif %}
+        {% else %}
+        <p class="ss-body-sm">Two variants are ready.</p>
+        <form method="post" action="{{ ab_url }}">
+          <button type="submit" class="btn btn-primary btn-sm">Open a 48-hour test</button>
+        </form>
+        <p class="ss-meta">Takes A and B from the latest variants run; a person records the winner.</p>
         {% endif %}
       </div>
       {% endif %}

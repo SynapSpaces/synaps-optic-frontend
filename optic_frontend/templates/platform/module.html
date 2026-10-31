@@ -18,7 +18,8 @@
    (meta.published, slice 03-02) carries a plain "published" chip and a deck whose PDF is rendered (meta.pdf
    with status "done") a plain "pdf" chip. An item whose latest run was checked against the module's scorecard
    (`latest_run.output.check.score`, slice 04-01) carries the score chip (7-10 chip-ok, 4-6 chip-warn, 0-3
-   chip-err; None nothing), the same rule as platform/runs.html. The header links the board
+   chip-err; None nothing), the same rule as platform/runs.html. An item with an A/B test, open or decided
+   (meta.ab, slice 04-03), carries a plain "A/B" chip. The header links the board
    (platform/board.html) and each page. Shapes shared with item.html, board.html,
    ask.html and approvals.html are in docs/DESIGN.md section 8. #}
 {% block title %}{{ mod.label }} · Synaps Optic{% endblock %}
@@ -109,6 +110,7 @@
           {% if item.meta and item.meta.work %}<span class="chip">branch</span>{% endif %}
           {% if item.meta and item.meta.pdf and item.meta.pdf.status == 'done' %}<span class="chip">pdf</span>{% endif %}
           {% if item.meta and item.meta.published %}<span class="chip">published</span>{% endif %}
+          {% if item.meta and item.meta.ab %}<span class="chip">A/B</span>{% endif %}
           {% if item.read_only %}<span class="chip">{{ item.source }}</span>{% endif %}
           {% if item.due_at %}<span class="ss-meta">due {{ item.due_at }}</span>{% endif %}
           <span class="ss-meta ml-auto">{{ item.updated_at }}</span>

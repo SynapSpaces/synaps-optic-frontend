@@ -7,9 +7,12 @@
    currency}] of that month; `categories` = [{category, direction, total, count}]; `imports` = accounting items
    with meta.kind "ledger_import" (id, title, created_at, meta {rows, inserted, skipped, problems: [str],
    months}); `modes` = ["statement", "out", "in"] (the amount sign rule); `imported` / `skipped` echo the last
-   import's counts (ints) or are None. The import form is a plain multipart post; the backend answers with this
-   page on the newest month imported. Records only, never advice. Shapes shared with module.html are in
-   docs/DESIGN.md section 8. #}
+   import's counts (ints) or are None; `earned` (slice 04-03, OPS-05: [{item_id, module, title, in, count}]
+   of the selected month, the content items the entries name in their content column, largest first; missing
+   or empty = no table) fills the "Earned by content in <month>" table between the categories and the
+   entries. The import form is a plain multipart post; the backend answers with this page on the newest
+   month imported. Records only, never advice. Shapes shared with module.html are in docs/DESIGN.md
+   section 8. #}
 {% block title %}Ledger · Synaps Optic{% endblock %}
 {% block content %}
 {% set mode_labels = {'statement': 'A statement: negative amounts are money out', 'out': 'All expenses (money out)', 'in': 'All income (money in)'} %}
@@ -27,7 +30,7 @@
 
   <form method="post" action="/api/m/accounting/ledger/import" enctype="multipart/form-data" class="card p-4 grid gap-3">
     <div class="ss-body-strong">Import a CSV</div>
-    <textarea name="text" rows="6" placeholder="date, description, amount, category — or paste any export with a header row" class="textarea font-mono text-xs" spellcheck="false"></textarea>
+    <textarea name="text" rows="6" placeholder="date, description, amount, category, content — or paste any export with a header row" class="textarea font-mono text-xs" spellcheck="false"></textarea>
     <label class="grid gap-1 ss-body-sm">
       <span class="ss-meta">Or upload a file</span>
       <input type="file" name="file" accept=".csv,text/csv,text/plain" class="ss-body-sm">
@@ -39,6 +42,7 @@
       </label>
       {% endfor %}
     </div>
+    <p class="ss-meta">A content column naming an item's title links the money to what earned it.</p>
     <div class="flex items-center justify-end">
       <button type="submit" class="btn btn-primary btn-sm">Import</button>
     </div>
@@ -107,6 +111,32 @@
     </div>
     {% endif %}
   </div>
+
+  {% if earned %}
+  <div class="card p-4 grid gap-3">
+    <div class="ss-body-strong">Earned by content in {{ month }}</div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="ss-meta text-left">
+            <th class="py-1 pr-3 font-normal">Content</th>
+            <th class="py-1 pr-3 font-normal text-right">In</th>
+            <th class="py-1 font-normal text-right">Entries</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for e in earned %}
+          <tr class="rule" data-earned="{{ e.item_id }}">
+            <td class="py-2 pr-3"><a href="/m/{{ e.module }}/items/{{ e.item_id }}" class="ss-body-strong hover:underline">{{ e.title }}</a></td>
+            <td class="py-2 pr-3 text-right ss-numeral">{{ e['in'] }}</td>
+            <td class="py-2 text-right ss-numeral">{{ e['count'] }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
 
   <div class="card p-4 grid gap-3">
     <div class="ss-body-strong">Entries in {{ month }}</div>

@@ -6,9 +6,14 @@
    name, runs, seconds, tokens}]; the scheduler counts as "scheduler"), runs (the latest 50 across modules:
    {id, module, module_label, agent, label, status, item_id, item_title, seconds, tokens_in, tokens_out,
    created_at, score (0-10 or None), name, error}), totals ({runs, done, failed, seconds, tokens} over the
-   range), is_owner, modules_nav. A run links to its item when it has one, else to its module. The score chip
-   rule (7-10 chip-ok, 4-6 chip-warn, 0-3 chip-err, None nothing) is shared with the runs partial, module,
-   board and approvals pages; shapes are in docs/DESIGN.md section 8. #}
+   range), lanes (slice 04-03, the worker heartbeats: [{lane agent | mac | gpu, label, state alive | busy |
+   stale | unknown, busy (the kind while busy, else ""), last_beat, worker_id}]; missing on older contexts =
+   no chip row), is_owner, modules_nav. A run links to its item when it has one, else to its module. The
+   lane chips under the blurb follow partials/recast_gpu_pill.html: chip-ok "<label> online", chip-warn
+   "<label> busy · <kind>" with the pulse, chip-err "<label> stale", a plain chip "<label> unknown"; the
+   title names the worker and its last beat when known. The score chip rule (7-10 chip-ok, 4-6 chip-warn,
+   0-3 chip-err, None nothing) is shared with the runs partial, module, board and approvals pages; shapes
+   are in docs/DESIGN.md section 8. #}
 {% block title %}Runs · Synaps Optic{% endblock %}
 {% block content %}
 {% set run_tone = {'queued': 'chip-warn', 'running': 'chip-info', 'done': 'chip-ok', 'failed': 'chip-err'} %}
@@ -18,6 +23,16 @@
     <div class="ss-meta">Platform · runs</div>
     <h1 class="ss-h2">Agent runs</h1>
     <p class="mt-2 ss-body">What the agents did, how long it took and what it cost in tokens. Scores come from the module's scorecard page.</p>
+    {% if lanes %}
+    <div class="mt-3 flex flex-wrap items-center gap-2" data-lanes>
+      {% for lane in lanes %}
+      <span class="chip {% if lane.state == 'alive' %}chip-ok{% elif lane.state == 'busy' %}chip-warn{% elif lane.state == 'stale' %}chip-err{% endif %}" data-lane="{{ lane.lane }}"{% if lane.worker_id or lane.last_beat %} title="{% if lane.worker_id %}{{ lane.worker_id }}{% endif %}{% if lane.worker_id and lane.last_beat %} · {% endif %}{% if lane.last_beat %}last beat {{ lane.last_beat }}{% endif %}"{% endif %}>
+        <span class="dot {% if lane.state == 'alive' %}dot-ok{% elif lane.state == 'busy' %}dot-warn pulse-dot{% elif lane.state == 'stale' %}dot-err{% endif %}"></span>
+        {% if lane.state == 'alive' %}{{ lane.label }} online{% elif lane.state == 'busy' %}{{ lane.label }} busy · {{ lane.busy }}{% elif lane.state == 'stale' %}{{ lane.label }} stale{% else %}{{ lane.label }} unknown{% endif %}
+      </span>
+      {% endfor %}
+    </div>
+    {% endif %}
   </div>
 
   <div class="grid gap-4">
