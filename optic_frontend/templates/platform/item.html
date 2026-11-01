@@ -55,7 +55,18 @@
    the file" / "Open the page" links when published, then the note to approve first, the note to connect
    GitHub (also when the list is empty), or the "Publish" two-step (a select of the repositories,
    published.repo preselected) posting `repo` to /publish. A published mockup adds a plain "published" chip
-   to the header. A/B tests (slice 04-03, MKT-05): `ab` (None or missing = no test yet; item.meta.ab: {a, b,
+   to the header. Tracker (slice 05-01): `priority` (urgent | high | normal |
+   low) shows as a chip unless normal (urgent chip-err, high chip-warn, low plain); `labels` ([str]) are chips
+   linking to the board filtered by that label; both are set in the edit form (a select and a comma-separated
+   input; the form sends tracking=1 so an emptied labels box clears them). `parent` ({id, title, status} or None) adds a "Sub-item of" link under the title. `children`
+   ([items]), `children_done` and `can_add_children` fill a "Sub-items" card (`id="subitems"`) under the edit
+   form: each child with its status chip, the n/m count, and an add form posting `title` to /subitems.
+   `comments` ([{id, body, author_name, created_at, can_delete}]) and `comment_max` fill a "Discussion" card
+   (`id="discussion"`) shown on every item, read-only ones included: the thread oldest first, a delete form for
+   the author's own comments posting to /api/m/<module>/comments/<id>/delete, and a textarea posting `body` to
+   /comments. On a started item, `work.pr` ({number, url, state}) adds "PR #n" with its state chip to the Work
+   card. On a pull request, `linked_items` ([{id, module, title, status}]) lists the work items it came from in
+   the Pull request card. A/B tests (slice 04-03, MKT-05): `ab` (None or missing = no test yet; item.meta.ab: {a, b,
    run_id, opened_at, closes_at, winner (None while open, else "a" | "b"), opened_by, decided_at, decided_by,
    note}) and `ab_ready` (a finished "variants" run exists and no test is open; missing = false) fill an
    "A/B test" card in the right column after Publish, before Work, on an item that is not read-only, when
@@ -77,6 +88,7 @@
 {% set checks_chip = {'success': ('chip-ok', 'checks pass'), 'failure': ('chip-err', 'checks fail'), 'pending': ('chip-warn', 'checks running')} %}
 {% set pr_state = {'open': 'chip-warn', 'merged': 'chip-ok'} %}
 {% set issue_state = {'completed': 'chip-ok', 'canceled': 'chip-ok', 'started': 'chip-warn'} %}
+{% set priority_tone = {'urgent': 'chip-err', 'high': 'chip-warn'} %}
 
 {# A two-step status button: the summary is the button, opening it shows the question with Cancel / confirm.
    The form only posts from the confirm button, so a stray click never changes the status. #}
@@ -98,6 +110,7 @@
   <div class="min-w-0 grid gap-2">
     <a href="/m/{{ module }}" class="ss-meta hover:underline">&lsaquo; {{ mod.label }}</a>
     <h1 class="ss-h2 truncate">{{ item.title }}</h1>
+    {% if parent %}<a href="/m/{{ module }}/items/{{ parent.id }}" class="ss-meta hover:underline">Sub-item of {{ parent.title }}</a>{% endif %}
     <div class="flex flex-wrap items-center gap-2">
       <span class="chip {{ tone.get(item.status, '') }}">{{ item.status }}</span>
       {% if attention == 'needs_you' %}<span class="chip chip-warn">Needs you</span>
@@ -109,6 +122,8 @@
       {% if is_repo %}<span class="chip">repo</span>{% endif %}
       {% if is_issue %}<span class="chip">issue</span>{% endif %}
       {% if kind in ('post', 'deck', 'mockup') %}<span class="chip">{{ kind }}</span>{% endif %}
+      {% if priority and priority != 'normal' %}<span class="chip {{ priority_tone.get(priority, '') }}">{{ priority }}</span>{% endif %}
+      {% for label in labels or [] %}<a href="/m/{{ module }}/board?label={{ label }}" class="chip hover:underline">{{ label }}</a>{% endfor %}
       {% if work %}<span class="chip">branch</span>{% endif %}
       {% if pdf and pdf.status == 'done' %}<span class="chip">pdf</span>{% endif %}
       {% if published %}<span class="chip">published</span>{% endif %}
@@ -149,6 +164,11 @@
           {% if item.meta.draft %}<span class="chip">draft</span>{% endif %}
           {% if item.external_url %}<a href="{{ item.external_url }}" target="_blank" rel="noopener" class="ml-auto btn btn-secondary btn-sm">Open on GitHub</a>{% endif %}
         </div>
+        {% for w in linked_items or [] %}
+        <div class="flex items-baseline gap-2"><span class="ss-meta w-16 shrink-0">Work</span>
+          <a href="/m/{{ w.module }}/items/{{ w.id }}" class="ss-body-sm min-w-0 break-words hover:underline">{{ w.title }}</a>
+          <span class="chip {{ tone.get(w.status, '') }}">{{ w.status }}</span></div>
+        {% endfor %}
       </div>
       {% elif is_repo %}
       <div class="card p-4 grid gap-3">
@@ -262,6 +282,7 @@
       {% endif %}
       <form method="post" action="/api/m/{{ module }}/items/{{ item.id }}/edit" class="card p-4 grid gap-3">
         <div class="ss-body-strong">Edit</div>
+        <input type="hidden" name="tracking" value="1">
         <input name="title" required value="{{ item.title }}" class="input" autocomplete="off">
         <textarea name="body" rows="16" class="textarea font-mono text-xs" spellcheck="false">{{ item.body or '' }}</textarea>
         <div class="grid gap-3 sm:grid-cols-2">
@@ -278,11 +299,72 @@
               {% endfor %}
             </select>
           </label>
+          <label class="grid gap-1">
+            <span class="ss-meta">Priority</span>
+            <select name="priority" class="select select-sm">
+              {% for p in priorities or ['urgent', 'high', 'normal', 'low'] %}
+              <option value="{{ p }}"{% if p == (priority or 'normal') %} selected{% endif %}>{{ p }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label class="grid gap-1">
+            <span class="ss-meta">Labels</span>
+            <input name="labels" value="{{ (labels or [])|join(', ') }}" placeholder="bug, video" class="input input-sm" autocomplete="off">
+          </label>
         </div>
         <div class="flex items-center justify-end">
           <button type="submit" class="btn btn-secondary btn-sm">Save</button>
         </div>
       </form>
+      {% endif %}
+
+      {% if children or can_add_children %}
+      <div id="subitems" class="card p-4 grid gap-3">
+        <div class="flex items-center gap-2">
+          <div class="ss-body-strong">Sub-items</div>
+          {% if children %}<span class="ss-meta ml-auto">{{ children_done }}/{{ children|length }} done</span>{% endif %}
+        </div>
+        {% if not children %}<p class="ss-meta">None yet.</p>{% endif %}
+        {% for c in children %}
+        <div class="flex items-center gap-2">
+          <span class="chip {{ tone.get(c.status, '') }}">{{ c.status }}</span>
+          <a href="/m/{{ module }}/items/{{ c.id }}" class="ss-body-sm min-w-0 truncate hover:underline">{{ c.title }}</a>
+        </div>
+        {% endfor %}
+        {% if can_add_children %}
+        <form method="post" action="/api/m/{{ module }}/items/{{ item.id }}/subitems" class="flex items-center gap-2">
+          <input name="title" required placeholder="Add a sub-item" class="input input-sm" autocomplete="off">
+          <button type="submit" class="btn btn-secondary btn-sm">Add</button>
+        </form>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      {% if comments is defined %}
+      <div id="discussion" class="card p-4 grid gap-3">
+        <div class="flex items-center gap-2">
+          <div class="ss-body-strong">Discussion</div>
+          <span class="ss-meta ml-auto">{{ comments|length }} comment{% if comments|length != 1 %}s{% endif %}</span>
+        </div>
+        {% for c in comments %}
+        <div class="grid gap-1 rounded-widget bg-surface-field p-3">
+          <div class="flex items-center gap-2">
+            <span class="ss-body-sm font-medium">{{ c.author_name }}</span>
+            <span class="ss-meta">{{ c.created_at[:16]|replace('T', ' ') }}</span>
+            {% if c.can_delete or is_owner %}
+            <form method="post" action="/api/m/{{ module }}/comments/{{ c.id }}/delete" class="ml-auto">
+              <button type="submit" class="btn btn-ghost btn-sm" aria-label="Delete comment">×</button>
+            </form>
+            {% endif %}
+          </div>
+          <p class="ss-body-sm whitespace-pre-wrap break-words">{{ c.body }}</p>
+        </div>
+        {% endfor %}
+        <form method="post" action="/api/m/{{ module }}/items/{{ item.id }}/comments" class="grid gap-2">
+          <textarea name="body" rows="3" required maxlength="{{ comment_max or 4000 }}" placeholder="Write a comment" class="textarea text-sm"></textarea>
+          <div class="flex justify-end"><button type="submit" class="btn btn-secondary btn-sm">Comment</button></div>
+        </form>
+      </div>
       {% endif %}
 
       {% include "partials/platform_runs.html" %}
@@ -430,7 +512,14 @@
           <a href="{{ work.branch_url }}" target="_blank" rel="noopener" class="ss-body-sm break-words hover:underline">{{ work.branch }}</a>
           <div class="ss-meta break-words">{{ work.brief_path }} in {{ work.repo }}, from {{ work.base }}</div>
         </div>
+        {% if work.pr %}
+        <div class="flex flex-wrap items-center gap-2">
+          <a href="{{ work.pr.url }}" target="_blank" rel="noopener" class="ss-body-sm hover:underline">PR #{{ work.pr.number }}</a>
+          <span class="chip {{ pr_state.get(work.pr.state, '') }}">{{ work.pr.state }}</span>
+        </div>
+        {% else %}
         <a href="{{ work.compare_url }}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">Open a pull request</a>
+        {% endif %}
         {% else %}
         <form method="post" action="/api/m/{{ module }}/items/{{ item.id }}/start-work" class="grid gap-2">
           <select name="repo" class="select select-sm" aria-label="Repository">

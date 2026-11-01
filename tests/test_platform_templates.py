@@ -2834,3 +2834,92 @@ def test_module_page_ab_chip(jinja_env):
     for id_ in ("po3", "po4", "it2"):
         assert AB_CHIP not in rows[id_], id_
     assert html.count(AB_CHIP) == 2
+
+
+# ---- the in-house tracker (backend slice 05-01) --------------------------------------------------------------
+
+def _tracked(**over):
+    ctx = dict(priority="urgent", priorities=["urgent", "high", "normal", "low"], labels=["bug", "video"],
+               comments=[{"id": "c1", "body": "Ship it Friday?", "author_name": "ana@example.com",
+                          "created_at": "2026-11-01T18:30:00+00:00", "can_delete": True},
+                         {"id": "c2", "body": "Fine by me.", "author_name": "bo@example.com",
+                          "created_at": "2026-11-01T18:40:00+00:00", "can_delete": False}],
+               comment_max=4000, children=[_item(id="k1", title="Timeline", status="done"),
+                                           _item(id="k2", title="Export", status="draft")],
+               children_done=1, can_add_children=True, parent=None, linked_items=[], is_owner=False)
+    ctx.update(over)
+    return _item_ctx(**ctx)
+
+
+def test_item_page_tracker_chips_edit_fields_subitems_and_discussion(jinja_env):
+    html = jinja_env.get_template("platform/item.html").render(**_tracked())
+    head = html.split("<h1")[1].split('class="grid gap-4 md:grid-cols')[0]
+    assert '<span class="chip chip-err">urgent</span>' in head
+    assert 'href="/m/knowledge/board?label=bug"' in head and 'href="/m/knowledge/board?label=video"' in head
+    form = html.split('action="/api/m/knowledge/items/it1/edit"')[1].split("</form>")[0]
+    assert '<input type="hidden" name="tracking" value="1">' in form
+    assert '<option value="urgent" selected>urgent</option>' in form
+    assert 'name="labels" value="bug, video"' in form
+    subs = html.split('id="subitems"')[1].split('id="discussion"')[0]
+    assert "1/2 done" in subs and 'href="/m/knowledge/items/k1"' in subs and "Export" in subs
+    assert 'action="/api/m/knowledge/items/it1/subitems"' in subs
+    talk = html.split('id="discussion"')[1].split('id="platform-runs"')[0]
+    assert "2 comments" in talk and "Ship it Friday?" in talk and "2026-11-01 18:30" in talk
+    assert talk.count('/api/m/knowledge/comments/') == 1 and "/comments/c1/delete" in talk   # only the author's own
+    assert 'action="/api/m/knowledge/items/it1/comments"' in talk and 'maxlength="4000"' in talk
+
+
+def test_item_page_tracker_defaults_parent_link_and_owner_deletes(jinja_env):
+    html = jinja_env.get_template("platform/item.html").render(**_tracked(
+        priority="normal", labels=[], children=[], children_done=0, can_add_children=False, is_owner=True,
+        parent={"id": "p1", "title": "Editor", "status": "idea"}))
+    head = html.split("<h1")[1].split('class="grid gap-4 md:grid-cols')[0]
+    assert "normal" not in head and "board?label=" not in head
+    assert 'href="/m/knowledge/items/p1"' in head and "Sub-item of Editor" in head
+    assert 'id="subitems"' not in html                                             # a sub-item has no sub-items
+    talk = html.split('id="discussion"')[1]
+    assert "/comments/c1/delete" in talk and "/comments/c2/delete" in talk         # the owner may remove any
+
+
+def test_item_page_without_tracker_keys_renders_as_before(jinja_env):
+    html = jinja_env.get_template("platform/item.html").render(**_item_ctx())
+    assert 'id="discussion"' not in html and 'id="subitems"' not in html
+    assert '<option value="normal" selected>normal</option>' in html
+
+
+def test_work_card_shows_the_pr_and_a_pr_lists_its_work_item(jinja_env):
+    work = {"repo": "o/r", "branch": "work/x-1", "base": "main", "brief_path": "briefs/x-1.md",
+            "branch_url": "https://github.com/o/r/tree/work/x-1", "compare_url": "https://github.com/o/r/compare/main...work/x-1",
+            "pr": {"number": 4, "url": "https://github.com/o/r/pull/4", "state": "merged"}}
+    html = jinja_env.get_template("platform/item.html").render(**_item_ctx(work=work))
+    assert 'href="https://github.com/o/r/pull/4"' in html and "PR #4" in html and '<span class="chip chip-ok">merged</span>' in html
+    assert "Open a pull request" not in html
+    pr = _item(meta={"kind": "pr", "repo": "o/r", "number": 4, "author": "wolf", "head": "work/x-1", "base": "main",
+                     "state": "open", "checks": "none"}, source="github")
+    html = jinja_env.get_template("platform/item.html").render(**_item_ctx(
+        item=pr, is_pr=True, read_only=True, linked_items=[{"id": "w1", "module": "product", "title": "Board", "status": "done"}]))
+    card = html.split("Pull request</div>")[1].split('<div class="card')[0]
+    assert 'href="/m/product/items/w1"' in card and "Board" in card
+
+
+def test_board_tracker_filter_bar_chips_counts_and_parent(jinja_env):
+    cards = [_card("it1", "draft", priority="high", labels=["bug"], comment_count=2, children_progress=(1, 3)),
+             _card("it2", "draft", priority="normal", labels=[], comment_count=0, children_progress=None,
+                   parent_title="Editor")]
+    html = jinja_env.get_template("platform/board.html").render(**_board_ctx(
+        cards, filters={"label": "bug"}, all_labels=["bug", "ops"], priorities=["urgent", "high", "normal", "low"],
+        members=[("u1", "ana@example.com")]))
+    bar = html.split('action="/m/knowledge/board"')[1].split("</form>")[0]
+    assert 'method="get"' in html and '<option value="bug" selected>bug</option>' in bar
+    assert '<option value="none">Unassigned</option>' in bar and '<option value="u1">ana@example.com</option>' in bar
+    assert 'href="/m/knowledge/board" class="btn btn-ghost btn-sm">Clear</a>' in bar
+    first = html.split('href="/m/knowledge/items/it1"')[1].split('href="/m/knowledge/items/it2"')[0]
+    assert '<span class="chip chip-warn">high</span>' in first and 'href="/m/knowledge/board?label=bug"' in first
+    assert "1/3 sub-items" in first and "2 comments" in first
+    second = html.split('href="/m/knowledge/items/it2"')[0].rsplit('<div class="card', 1)[1]
+    assert "↳ Editor" in second
+
+
+def test_board_without_tracker_keys_has_no_filter_bar(jinja_env):
+    html = jinja_env.get_template("platform/board.html").render(**_board_ctx([_card("it1", "draft")]))
+    assert 'action="/m/knowledge/board"' not in html and "sub-items" not in html and "comment" not in html
