@@ -50,6 +50,7 @@
       {% if polling %}<span class="dot dot-info pulse-dot"></span>{% endif %}stage · {{ stage }}</span>
     <span class="chip">status · {{ plan.status }}</span>
     <span class="chip">{{ plan.quality }}</span>
+    {% if request_params.auto %}<span class="chip" title="No review: approves and renders itself">auto</span>{% endif %}
     {% if render %}<span class="chip chip-ok">final v{{ render.version }}</span>{% endif %}
     {% if plan.model %}<span class="ss-meta">model {{ plan.model }}</span>{% endif %}
     {% if request_params.mode %}<span class="ss-meta">{{ request_params.mode }} · {{ request_params.aspect }} · {{ request_params.target_duration_s|int }} s</span>{% endif %}
@@ -86,6 +87,7 @@
           <div class="ss-body-strong">Final cut</div>
           <span class="chip chip-ok">final v{{ render.version }}</span>
           <span class="chip">{{ plan.quality }}</span>
+    {% if request_params.auto %}<span class="chip" title="No review: approves and renders itself">auto</span>{% endif %}
           <span class="ss-numeral ml-auto">{% if render.duration_s %}{{ '%.1f'|format(render.duration_s) }} s{% endif %}{% if render.bytes %} · {{ (render.bytes / 1048576)|round(1) }} MB{% endif %}</span>
         </div>
         <video controls preload="metadata" src="{{ render.url }}" class="tone-light w-full max-h-[420px] rounded-widget bg-ink"></video>

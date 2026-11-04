@@ -110,10 +110,14 @@
         <input type="checkbox" name="captions" value="on" checked>
         Captions
       </label>
+      <label class="flex items-center gap-1.5" title="No review: the plan approves itself and renders as soon as the judge has picked a still for every shot">
+        <input type="checkbox" name="auto" value="on">
+        Auto
+      </label>
       <input type="hidden" name="quality" value="draft">
       <button type="submit" class="ml-auto btn btn-primary btn-sm">Plan the video</button>
     </div>
-    <p class="ss-caption text-fg-3">Writes a shot list with the studio model; you review it before anything renders.</p>
+    <p class="ss-caption text-fg-3">Writes a shot list with the studio model; you review it before anything renders, unless Auto is on.</p>
   </form>
 
   <!-- Action tiles -->
